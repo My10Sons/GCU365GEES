@@ -334,3 +334,18 @@ Requirements have been registered below.
 | REQ-DI-1916 | Reliability Testing | Draft | DI-0020 | Test retries, failures, and recovery |
 | REQ-DI-1917 | Data Integrity Testing | Draft | DI-0020 | Test identifiers, references, states, and evidence |
 | REQ-DI-1918 | Regression Testing | Draft | DI-0020 | Maintain regression tests for critical paths |
+| REQ-DI-2000 | Implementation Readiness Checklist | Draft | DI-0021 | Readiness checklist across Damage Intelligence |
+| REQ-DI-2001 | Product Readiness | Draft | DI-0021 | Product requirements reviewed before implementation |
+| REQ-DI-2002 | Workflow Readiness | Draft | DI-0021 | Workflows reviewed before implementation |
+| REQ-DI-2003 | AI Readiness | Draft | DI-0021 | AI behavior and advisory boundaries reviewed |
+| REQ-DI-2004 | API and Domain Readiness | Draft | DI-0021 | API scope and domain model reviewed |
+| REQ-DI-2005 | Security and Privacy Readiness | Draft | DI-0021 | Security/privacy requirements reviewed |
+| REQ-DI-2006 | Audit and Traceability Readiness | Draft | DI-0021 | Audit and traceability reviewed |
+| REQ-DI-2007 | Integration Readiness | Draft | DI-0021 | CROMS and Maintenance integration readiness |
+| REQ-DI-2008 | Testing Readiness | Draft | DI-0021 | Acceptance criteria and test strategy reviewed |
+| REQ-DI-2009 | Data Readiness | Draft | DI-0021 | Test data and production data restrictions identified |
+| REQ-DI-2010 | DevOps Readiness | Draft | DI-0021 | Environment, CI/CD, monitoring, and infrastructure readiness |
+| REQ-DI-2011 | Dependency Readiness | Draft | DI-0021 | External dependencies identified |
+| REQ-DI-2012 | Risk Readiness | Draft | DI-0021 | Implementation risks reviewed |
+| REQ-DI-2013 | Approval Readiness | Draft | DI-0021 | Required readiness approvals |
+| REQ-DI-2014 | Minimum Readiness Gate | Draft | DI-0021 | Minimum gate before implementation |
