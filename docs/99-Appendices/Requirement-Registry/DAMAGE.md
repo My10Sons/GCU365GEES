@@ -528,3 +528,19 @@ DI-0030
 | REQ-DI-3204 | Post-MVP Backlog | Draft | DI-0033 | Post-MVP backlog for comparison, cases, Maintenance, configuration, monitoring, and localization |
 | REQ-DI-3205 | Integration Ownership Stories | Draft | DI-0033 | Integration stories preserve CROMS and Maintenance ownership |
 | REQ-DI-3206 | QA Traceability Backlog | Draft | DI-0033 | Backlog supports QA traceability |
+| REQ-DI-3400 | QA Test Case Pack | Draft | DI-0035 | QA test case pack for Damage Intelligence |
+| REQ-DI-3401 | Inspection Test Coverage | Draft | DI-0035 | Test inspection sessions, status, submission, and invalid transitions |
+| REQ-DI-3402 | Evidence Test Coverage | Draft | DI-0035 | Test image upload, registration, storage, and access |
+| REQ-DI-3403 | Image Quality Test Coverage | Draft | DI-0035 | Test quality validation and recapture behavior |
+| REQ-DI-3404 | AI Test Coverage | Draft | DI-0035 | Test AI analysis, findings, confidence, advisory behavior, and failure handling |
+| REQ-DI-3405 | Comparison Test Coverage | Draft | DI-0035 | Test baseline, comparison outcomes, missing baseline, and NotComparable |
+| REQ-DI-3406 | Review and Case Test Coverage | Draft | DI-0035 | Test review decisions and damage case lifecycle |
+| REQ-DI-3407 | CROMS Integration Test Coverage | Draft | DI-0035 | Test CROMS check-out, check-in, summary, and idempotency |
+| REQ-DI-3408 | Maintenance Integration Test Coverage | Draft | DI-0035 | Test Maintenance handoff, work order reference, repair status, and idempotency |
+| REQ-DI-3409 | Security Test Coverage | Draft | DI-0035 | Test authentication, authorization, tenant isolation, evidence security, and safe errors |
+| REQ-DI-3410 | Audit Test Coverage | Draft | DI-0035 | Test audit records for critical actions |
+| REQ-DI-3411 | Reporting Test Coverage | Draft | DI-0035 | Test report generation, access, privacy, expiration, and audit |
+| REQ-DI-3412 | Configuration Test Coverage | Draft | DI-0035 | Test configuration permissions, audit, approval, and secret masking |
+| REQ-DI-3413 | Monitoring Test Coverage | Draft | DI-0035 | Test health endpoints, dependency health, failure visibility, and alert privacy |
+| REQ-DI-3414 | Localization Test Coverage | Draft | DI-0035 | Test Arabic, RTL, fallback, and export readability |
+| REQ-DI-3415 | Release Smoke Tests | Draft | DI-0035 | Smoke tests for production release readiness |
