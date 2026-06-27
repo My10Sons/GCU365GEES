@@ -455,3 +455,20 @@ Requirements have been registered below.
 | REQ-DI-2615 | Deployment Incident Handling | Draft | DI-0027 | Handling deployment, rollback, and hotfix incidents |
 | REQ-DI-2616 | Incident Communication | Draft | DI-0027 | Secure and privacy-safe incident communication |
 | REQ-DI-2617 | Post-Incident Review | Draft | DI-0027 | Post-incident review for Critical and High incidents |
+| REQ-DI-2700 | Disaster Recovery and Business Continuity | Draft | DI-0028 | DR and business continuity across Damage Intelligence |
+| REQ-DI-2701 | Recovery Objectives | Draft | DI-0028 | RTO and RPO for critical capabilities |
+| REQ-DI-2702 | Backup Coverage | Draft | DI-0028 | Backup critical records and references |
+| REQ-DI-2703 | Evidence Storage Protection | Draft | DI-0028 | Protect and recover inspection evidence storage |
+| REQ-DI-2704 | Database Recovery | Draft | DI-0028 | Restore database while preserving integrity |
+| REQ-DI-2705 | Configuration Recovery | Draft | DI-0028 | Restore tenant and workflow configuration |
+| REQ-DI-2706 | Audit Continuity | Draft | DI-0028 | Preserve auditability during outage and recovery |
+| REQ-DI-2707 | AI Degraded Mode | Draft | DI-0028 | Continue safely when AI is unavailable |
+| REQ-DI-2708 | CROMS Continuity | Draft | DI-0028 | Continuity for CROMS outage and replay |
+| REQ-DI-2709 | Maintenance Continuity | Draft | DI-0028 | Continuity for Maintenance outage and replay |
+| REQ-DI-2710 | Manual Continuity | Draft | DI-0028 | Approved manual fallback procedures |
+| REQ-DI-2711 | Retention and Hold Continuity | Draft | DI-0028 | Preserve retention, legal hold, and dispute hold |
+| REQ-DI-2712 | Security Continuity | Draft | DI-0028 | Preserve security controls during recovery |
+| REQ-DI-2713 | Privacy Continuity | Draft | DI-0028 | Preserve privacy controls during recovery |
+| REQ-DI-2714 | Recovery Validation | Draft | DI-0028 | Validate integrity before reopening operations |
+| REQ-DI-2715 | DR Testing | Draft | DI-0028 | Test disaster recovery procedures |
+| REQ-DI-2716 | Post-Recovery Review | Draft | DI-0028 | Review critical recovery events |
