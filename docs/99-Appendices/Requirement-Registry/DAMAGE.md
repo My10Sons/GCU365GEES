@@ -64,3 +64,15 @@ Requirements have been registered below.
 | REQ-DI-0205 | Management Reporting Personas | Draft | DI-0003 | Reports and dashboards for managers |
 | REQ-DI-0206 | AI Quality Review Persona | Draft | DI-0003 | Monitor AI output quality and human override patterns |
 | REQ-DI-0207 | Persona-Based Permission Design | Draft | DI-0003 | Permissions based on responsibility and least privilege |
+| REQ-DI-0300 | Inspection Workflow Support | Draft | DI-0004 | Check-out and check-in inspection workflows |
+| REQ-DI-0301 | Inspection Session Lifecycle | Draft | DI-0004 | Defined inspection session states |
+| REQ-DI-0302 | Required Capture Positions | Draft | DI-0004 | Configurable capture positions |
+| REQ-DI-0303 | Image Quality Recapture | Draft | DI-0004 | Recapture failed-quality images |
+| REQ-DI-0304 | AI Analysis Workflow | Draft | DI-0004 | AI analysis after inspection submission |
+| REQ-DI-0305 | Historical Comparison Workflow | Draft | DI-0004 | Compare return evidence against prior evidence |
+| REQ-DI-0306 | Human Review Workflow | Draft | DI-0004 | Review AI findings and comparison results |
+| REQ-DI-0307 | CROMS Workflow Integration | Draft | DI-0004 | Sync inspection status/results with CROMS |
+| REQ-DI-0308 | Maintenance Workflow Integration | Draft | DI-0004 | Route confirmed repair-required damage |
+| REQ-DI-0309 | Offline Capture Workflow | Draft | DI-0004 | Offline capture and sync where required |
+| REQ-DI-0310 | Inspection Audit Trail | Draft | DI-0004 | Audit significant workflow actions |
+| REQ-DI-0311 | Workflow Exception Handling | Draft | DI-0004 | Defined exception paths |
