@@ -360,6 +360,8 @@ Before considering this folder complete, confirm:
 ---
 | DI-0031 | [DI-0031-Existing-System-Integration-Scope.md](DI-0031-Existing-System-Integration-Scope.md) | Clarifies that Damage Intelligence is an image analysis and damage detection module for existing GCU365 CROMS and GCU365Maintenance systems |
 ---
+| DI-0001 to DI-0031 | Drafted |
+---
 # Revision History
 
 | Version | Date | Description |
