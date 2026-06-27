@@ -301,3 +301,17 @@ Requirements have been registered below.
 | REQ-DI-1713 | Maintenance Failure Handling | Draft | DI-0018 | Retry, visible status, audit, and recovery |
 | REQ-DI-1714 | Additional Evidence Request | Draft | DI-0018 | Maintenance can request more evidence |
 | REQ-DI-1715 | Maintenance Rejection Handling | Draft | DI-0018 | Record rejection and route for review |
+| REQ-DI-1800 | Acceptance Criteria Specification | Draft | DI-0019 | Acceptance criteria across Damage Intelligence |
+| REQ-DI-1801 | Workflow Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for workflows |
+| REQ-DI-1802 | Security Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for security controls |
+| REQ-DI-1803 | Privacy Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for privacy controls |
+| REQ-DI-1804 | AI Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for AI behavior |
+| REQ-DI-1805 | Comparison Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for damage comparison |
+| REQ-DI-1806 | Damage Case Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for damage cases |
+| REQ-DI-1807 | Integration Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for CROMS and Maintenance |
+| REQ-DI-1808 | Audit and Traceability Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for audit and traceability |
+| REQ-DI-1809 | Reporting Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for reporting |
+| REQ-DI-1810 | Reliability Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for failure handling |
+| REQ-DI-1811 | Performance Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for performance |
+| REQ-DI-1812 | Data Integrity Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for data integrity |
+| REQ-DI-1813 | Release Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for release readiness |
