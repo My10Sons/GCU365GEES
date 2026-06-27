@@ -521,3 +521,10 @@ DI-0030
 | REQ-DI-3108 | Audit Implementation | Draft | DI-0032 | Audit critical actions across Damage Intelligence |
 | REQ-DI-3109 | Operational Monitoring Implementation | Draft | DI-0032 | Health checks, metrics, logs, traces, dashboards, and alerts |
 | REQ-DI-3110 | QA Traceability Implementation | Draft | DI-0032 | QA tests trace to requirements and acceptance criteria |
+| REQ-DI-3200 | User Stories and Backlog | Draft | DI-0033 | User stories and backlog for Damage Intelligence |
+| REQ-DI-3201 | Scope-Aligned Backlog | Draft | DI-0033 | Backlog aligned to image analysis and damage detection scope |
+| REQ-DI-3202 | Testable User Stories | Draft | DI-0033 | User stories include acceptance criteria |
+| REQ-DI-3203 | MVP Backlog | Draft | DI-0033 | MVP backlog for inspection, evidence, AI, review, integration, tenant isolation, audit, and reporting |
+| REQ-DI-3204 | Post-MVP Backlog | Draft | DI-0033 | Post-MVP backlog for comparison, cases, Maintenance, configuration, monitoring, and localization |
+| REQ-DI-3205 | Integration Ownership Stories | Draft | DI-0033 | Integration stories preserve CROMS and Maintenance ownership |
+| REQ-DI-3206 | QA Traceability Backlog | Draft | DI-0033 | Backlog supports QA traceability |
