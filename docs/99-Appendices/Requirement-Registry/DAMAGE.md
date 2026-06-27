@@ -108,3 +108,19 @@ Requirements have been registered below.
 | REQ-DI-0516 | Comparison Feedback Loop | Draft | DI-0006 | Capture feedback to improve quality |
 | REQ-DI-0517 | Tenant Isolation | Draft | DI-0006 | Enforce tenant isolation for history retrieval |
 | REQ-DI-0518 | Secure Evidence Access | Draft | DI-0006 | Access evidence only through authorized mechanisms |
+| REQ-DI-0600 | Standard Vehicle Capture | Draft | DI-0007 | Standardized vehicle capture positions |
+| REQ-DI-0601 | Required Capture Checklist | Draft | DI-0007 | Required image checklist by template |
+| REQ-DI-0602 | Exterior Capture Positions | Draft | DI-0007 | Front, rear, side, and corner views |
+| REQ-DI-0603 | Instrument Capture | Draft | DI-0007 | Odometer and fuel/battery evidence |
+| REQ-DI-0604 | Close-Up Damage Capture | Draft | DI-0007 | Close-up images for visible damage |
+| REQ-DI-0605 | Image Quality Validation | Draft | DI-0007 | Validate captured image quality |
+| REQ-DI-0606 | Image Metadata | Draft | DI-0007 | Required metadata for inspection images |
+| REQ-DI-0607 | Evidence Integrity | Draft | DI-0007 | Protect evidence from unauthorized alteration |
+| REQ-DI-0608 | Offline Capture | Draft | DI-0007 | Secure offline capture and sync |
+| REQ-DI-0609 | Capture Template Configuration | Draft | DI-0007 | Configurable inspection templates |
+| REQ-DI-0610 | Guided Capture Experience | Draft | DI-0007 | Guided capture instructions |
+| REQ-DI-0611 | Recapture Request | Draft | DI-0007 | Request recapture for failed quality checks |
+| REQ-DI-0612 | Capture Override Audit | Draft | DI-0007 | Audit override of capture requirements |
+| REQ-DI-0613 | Secure Image Upload | Draft | DI-0007 | Secure upload and controlled storage |
+| REQ-DI-0614 | Capture Audit Trail | Draft | DI-0007 | Audit significant capture actions |
+| REQ-DI-0615 | Capture Compliance Metrics | Draft | DI-0007 | Track capture compliance metrics |
