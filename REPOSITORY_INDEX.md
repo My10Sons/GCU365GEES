@@ -30,6 +30,7 @@ It identifies where authoritative information is located and the recommended rea
 ```text
 Repository Root
 │
+├── Damage Intelligence
 ├── Onboarding
 ├── Governance
 ├── Enterprise Architecture
@@ -44,7 +45,12 @@ Repository Root
 ```
 
 ---
+## Damage Intelligence
 
+- Folder: [docs/07-Damage-Intelligence/](docs/07-Damage-Intelligence/)
+- Index: [docs/07-Damage-Intelligence/README.md](docs/07-Damage-Intelligence/README.md)
+- Scope: Vehicle inspection evidence, AI-assisted damage detection, damage comparison, damage cases, CROMS integration, Maintenance integration, reporting, audit, retention, monitoring, localization, deployment, operations, disaster recovery, roadmap, and glossary.
+---
 # Root-Level Documents
 
 ## START_HERE.md
