@@ -403,3 +403,20 @@ Requirements have been registered below.
 | REQ-DI-2317 | High-Risk Configuration Approval | Draft | DI-0024 | Approval for high-risk configuration |
 | REQ-DI-2318 | Configuration Secrets Protection | Draft | DI-0024 | No secrets in config UI/API/export/log/audit |
 | REQ-DI-2319 | Configuration Rollback | Draft | DI-0024 | Rollback configuration where practical |
+| REQ-DI-2400 | Localization and Arabic Support | Draft | DI-0025 | Localization and Arabic support across Damage Intelligence |
+| REQ-DI-2401 | Arabic Language Support | Draft | DI-0025 | Arabic display for supported screens and reports |
+| REQ-DI-2402 | Right-to-Left Layout | Draft | DI-0025 | RTL layout for Arabic UI and reports |
+| REQ-DI-2403 | Stable Code Preservation | Draft | DI-0025 | Stable codes remain language-neutral |
+| REQ-DI-2404 | Localized Taxonomy Labels | Draft | DI-0025 | Localized damage, area, severity, and outcome labels |
+| REQ-DI-2405 | Localized Capture Instructions | Draft | DI-0025 | Arabic and English capture instructions |
+| REQ-DI-2406 | Localized Validation Messages | Draft | DI-0025 | Localized validation and error messages |
+| REQ-DI-2407 | Localized Reports | Draft | DI-0025 | Arabic and English report output |
+| REQ-DI-2408 | Localized Dashboards | Draft | DI-0025 | Localized dashboard labels and KPIs |
+| REQ-DI-2409 | Localized Notifications | Draft | DI-0025 | Localized notification templates |
+| REQ-DI-2410 | API Localization Support | Draft | DI-0025 | APIs support localized display labels |
+| REQ-DI-2411 | Localization Fallback | Draft | DI-0025 | Safe fallback for missing translations |
+| REQ-DI-2412 | Arabic Text Storage | Draft | DI-0025 | Unicode Arabic storage and retrieval |
+| REQ-DI-2413 | Localized Export Encoding | Draft | DI-0025 | Arabic export readability and encoding |
+| REQ-DI-2414 | Localization Security | Draft | DI-0025 | Secure rendering of localized content |
+| REQ-DI-2415 | Localization Privacy | Draft | DI-0025 | Privacy controls for localized outputs |
+| REQ-DI-2416 | Translation Governance | Draft | DI-0025 | Governance for translations and terminology |
