@@ -383,3 +383,23 @@ Requirements have been registered below.
 | REQ-DI-2215 | Alert Routing | Draft | DI-0023 | Route alerts to responsible owners |
 | REQ-DI-2216 | Monitoring Privacy Protection | Draft | DI-0023 | Prevent sensitive data leakage in monitoring |
 | REQ-DI-2217 | Correlation ID in Monitoring | Draft | DI-0023 | Correlation IDs across monitoring signals |
+| REQ-DI-2300 | Configuration and Administration | Draft | DI-0024 | Configuration and administration across Damage Intelligence |
+| REQ-DI-2301 | Tenant-Isolated Configuration | Draft | DI-0024 | Tenant-specific configuration is isolated |
+| REQ-DI-2302 | Role-Based Administration | Draft | DI-0024 | Administration enforces RBAC and object access |
+| REQ-DI-2303 | Configuration Auditability | Draft | DI-0024 | Audit configuration lifecycle actions |
+| REQ-DI-2304 | Configuration Validation | Draft | DI-0024 | Validate configuration before activation |
+| REQ-DI-2305 | Configuration Versioning | Draft | DI-0024 | Version workflow-impacting configuration |
+| REQ-DI-2306 | Capture Template Administration | Draft | DI-0024 | Manage capture templates and positions |
+| REQ-DI-2307 | Taxonomy Administration | Draft | DI-0024 | Manage taxonomy, severity, and labels |
+| REQ-DI-2308 | AI Configuration | Draft | DI-0024 | Configure AI thresholds, providers, and review routing |
+| REQ-DI-2309 | Comparison Configuration | Draft | DI-0024 | Configure baseline and comparison behavior |
+| REQ-DI-2310 | Review Workflow Configuration | Draft | DI-0024 | Configure review queues and escalation |
+| REQ-DI-2311 | Repair Estimate Configuration | Draft | DI-0024 | Configure advisory estimate behavior |
+| REQ-DI-2312 | Integration Configuration | Draft | DI-0024 | Configure CROMS and Maintenance integrations securely |
+| REQ-DI-2313 | Report Configuration | Draft | DI-0024 | Configure reports, exports, redaction, and localization |
+| REQ-DI-2314 | Retention Configuration | Draft | DI-0024 | Configure retention, archive, deletion, and holds |
+| REQ-DI-2315 | Monitoring Configuration | Draft | DI-0024 | Configure alert thresholds and routing |
+| REQ-DI-2316 | Feature Flag Administration | Draft | DI-0024 | Controlled rollout with feature flags |
+| REQ-DI-2317 | High-Risk Configuration Approval | Draft | DI-0024 | Approval for high-risk configuration |
+| REQ-DI-2318 | Configuration Secrets Protection | Draft | DI-0024 | No secrets in config UI/API/export/log/audit |
+| REQ-DI-2319 | Configuration Rollback | Draft | DI-0024 | Rollback configuration where practical |
