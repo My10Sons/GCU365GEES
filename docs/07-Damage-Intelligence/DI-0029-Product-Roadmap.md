@@ -13,7 +13,7 @@ created: "2026-06-27"
 updated: "2026-06-27"
 authoritative: true
 ai_consumable: true
-related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008, DI-0009, DI-0010, DI-0011, DI-0012, DI-0013, DI-0014, DI-0015, DI-0016, DI-0017, DI-0018, DI-0019, DI-0020, DI-0021, DI-0022, DI-0023, DI-0024, DI-0025, DI-0026, DI-0027, DI-0028, GEES-0007, GEES-0009, PLATFORM-0005"
+related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008, DI-0009, DI-0010, DI-0011, DI-0012, DI-0013, DI-0014, DI-0015, DI-0016, DI-0017, DI-0018, DI-0019, DI-0020, DI-002[...]
 ---
 
 # Damage Intelligence Product Roadmap
@@ -22,7 +22,7 @@ related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008
 
 This document defines the product roadmap for Damage Intelligence.
 
-The roadmap organizes Damage Intelligence implementation into controlled phases that move from foundation, core inspection, AI-assisted detection, comparison, case management, integrations, reporting, operational readiness, and advanced intelligence.
+The roadmap organizes Damage Intelligence implementation into controlled phases that move from foundation, core inspection, AI-assisted detection, comparison, case management, integrations, report[...]
 
 The roadmap SHALL guide product planning, delivery sequencing, engineering prioritization, release planning, QA planning, integration planning, and stakeholder alignment.
 
@@ -49,7 +49,7 @@ This specification SHALL guide:
 
 - Product delivery planning.
 - Release sequencing.
-- MVP definition.
+- Production definition.
 - Phase planning.
 - Dependency planning.
 - Integration planning.
@@ -67,7 +67,7 @@ This specification SHALL guide:
 This roadmap covers:
 
 - Product phases.
-- MVP scope.
+- Production scope.
 - Foundation capabilities.
 - Inspection capabilities.
 - Evidence capabilities.
@@ -109,7 +109,7 @@ Damage Intelligence roadmap planning SHALL follow these principles:
 3. Release AI as Advisory First
 4. Validate Integrations Before Scale
 5. Prioritize Customer-Impacting Workflows
-6. Preserve Auditability from MVP
+6. Preserve Auditability from Production
 7. Use Configuration for Controlled Rollout
 8. Release Incrementally
 9. Measure Operational Performance
@@ -122,9 +122,9 @@ Damage Intelligence roadmap planning SHALL follow these principles:
 The Damage Intelligence roadmap SHOULD be organized into the following phases.
 
 | Phase | Name | Primary Goal |
-|------|------|--------------|
+|------|------|---------------|
 | Phase 0 | Readiness and Architecture | Confirm requirements, architecture, security, and implementation readiness |
-| Phase 1 | MVP Inspection and Evidence | Enable inspection sessions, image capture, secure evidence, and basic reports |
+| Phase 1 | Production Inspection and Evidence | Enable inspection sessions, image capture, secure evidence, and basic reports |
 | Phase 2 | AI-Assisted Detection | Add AI damage detection, quality checks, and human review |
 | Phase 3 | Damage Comparison and Cases | Add baseline comparison, new damage identification, and damage case workflow |
 | Phase 4 | CROMS and Maintenance Integration | Integrate with rental and repair workflows |
@@ -171,7 +171,7 @@ Phase 0 is complete when:
 
 ---
 
-# Phase 1 — MVP Inspection and Evidence
+# Phase 1 — Production Inspection and Evidence
 
 ## Objective
 
@@ -198,9 +198,9 @@ Phase 1 SHOULD include:
 - Role-based access.
 - Basic admin configuration.
 
-## MVP Acceptance
+## Production Acceptance
 
-The MVP SHALL be accepted only when:
+The Production SHALL be accepted only when:
 
 - Authorized users can create and complete inspections.
 - Required images can be captured and stored securely.
@@ -417,11 +417,11 @@ Advanced intelligence capabilities SHALL require:
 
 ---
 
-# MVP Scope
+# Production Scope
 
-The MVP SHOULD include the minimum capabilities required to support controlled inspection and evidence workflows.
+The Production SHOULD include the minimum capabilities required to support controlled inspection and evidence workflows.
 
-MVP capabilities SHOULD include:
+Production capabilities SHOULD include:
 
 - Inspection creation.
 - Check-out and check-in inspection types.
@@ -438,13 +438,13 @@ MVP capabilities SHOULD include:
 - Role-based access.
 - Basic admin settings.
 
-MVP SHOULD NOT include fully automated customer liability decisions.
+Production SHOULD NOT include fully automated customer liability decisions.
 
 ---
 
-# Non-MVP Deferred Capabilities
+# Non-Production Deferred Capabilities
 
-The following capabilities MAY be deferred beyond MVP:
+The following capabilities MAY be deferred beyond Production:
 
 - Full AI damage detection.
 - Advanced AI comparison.
@@ -468,7 +468,7 @@ Deferred capabilities SHALL be recorded and tracked.
 Damage Intelligence roadmap depends on:
 
 | Dependency | Required For |
-|-----------|--------------|
+|-----------|---------------|
 | Identity and Access Control | All protected workflows |
 | Secure Object Storage | Evidence capture and reports |
 | Database | Domain records and lifecycle |
@@ -490,7 +490,7 @@ Recommended release sequence:
 ```text
 Foundation and Security
   ↓
-Inspection and Evidence MVP
+Inspection and Evidence Production
   ↓
 Basic Reporting
   ↓
@@ -559,7 +559,7 @@ Roadmap tracking SHOULD include:
 Roadmap items SHOULD use the following status values.
 
 | Status | Meaning |
-|--------|---------|
+|--------|----------|
 | Proposed | Candidate capability |
 | Approved | Approved for planning |
 | Planned | Scheduled for delivery |
@@ -615,9 +615,9 @@ High-risk capabilities include:
 
 Given the Damage Intelligence roadmap is reviewed, then capabilities SHALL be grouped into controlled phases.
 
-## AC-DI-2901 — MVP Definition
+## AC-DI-2901 — Production Definition
 
-Given MVP scope is reviewed, then MVP SHALL define minimum inspection, evidence, security, audit, and reporting capabilities.
+Given Production scope is reviewed, then Production SHALL define minimum inspection, evidence, security, audit, and reporting capabilities.
 
 ## AC-DI-2902 — Dependency Identification
 
@@ -665,7 +665,7 @@ Title:
 Roadmap Phasing
 
 Statement:
-Damage Intelligence roadmap SHALL define phased delivery from readiness and MVP through integrations, operations, localization, and advanced intelligence.
+Damage Intelligence roadmap SHALL define phased delivery from readiness and Production through integrations, operations, localization, and advanced intelligence.
 
 Priority:
 High
@@ -680,10 +680,10 @@ Roadmap Review
 ID: REQ-DI-2802
 
 Title:
-MVP Scope
+Production Scope
 
 Statement:
-Damage Intelligence roadmap SHALL define MVP scope for inspection, evidence capture, secure storage, audit, tenant isolation, and basic reporting.
+Damage Intelligence roadmap SHALL define Production scope for inspection, evidence capture, secure storage, audit, tenant isolation, and basic reporting.
 
 Priority:
 Critical
@@ -821,9 +821,9 @@ Release Readiness Review
 
 # Business Rules
 
-## BR-DI-2400 — MVP Must Protect Evidence
+## BR-DI-2400 — Production Must Protect Evidence
 
-The MVP SHALL include secure evidence handling, tenant isolation, and audit logging.
+The Production SHALL include secure evidence handling, tenant isolation, and audit logging.
 
 ---
 
@@ -864,7 +864,7 @@ AI development agents SHALL:
 - Treat this document as the authoritative product roadmap for Damage Intelligence.
 - Preserve all requirement IDs, acceptance criterion IDs, and business rule IDs.
 - Generate future implementation plans, sprint breakdowns, release plans, backlog epics, milestone plans, and dependency trackers consistent with this roadmap.
-- Preserve roadmap sequencing, MVP boundaries, AI advisory rules, CROMS ownership boundaries, Maintenance ownership boundaries, security, privacy, evidence integrity, and auditability requirements.
+- Preserve roadmap sequencing, Production boundaries, AI advisory rules, CROMS ownership boundaries, Maintenance ownership boundaries, security, privacy, evidence integrity, and auditability requirement[...]
 - Never treat AI capabilities as final authority for customer liability, billing, or actual repair cost.
 - Raise ambiguity where roadmap phase, dependency, owner, release priority, or acceptance criteria are unclear.
 

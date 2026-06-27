@@ -16,7 +16,7 @@ It is **not** intended to be:
 * A code template
 * A software framework
 * A runnable product
-* An MVP
+* A Production
 
 The absence of application code is **intentional**.
 
