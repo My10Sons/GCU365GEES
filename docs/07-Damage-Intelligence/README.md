@@ -380,6 +380,12 @@ The following implementation execution plans convert the Damage Intelligence doc
 | SPRINT-04 | [implementation/SPRINT-04-Production-CROMS-and-Maintenance-Integration.md](implementation/SPRINT-04-Production-CROMS-and-Maintenance-Integration.md) | Implements production-ready integration with existing GCU365 CROMS and GCU365Maintenance while preserving ownership boundaries |
 | SPRINT-05 | [implementation/SPRINT-05-Production-Reports-Monitoring-Security-and-Release.md](implementation/SPRINT-05-Production-Reports-Monitoring-Security-and-Release.md) | Implements production-ready reports, evidence packages, monitoring, alerts, security validation, operational readiness, and release gates |
 ---
+| Emergent AI Start Here | [implementation/EMERGENT-AI-START-HERE.md](implementation/EMERGENT-AI-START-HERE.md) | First file Emergent AI must read before implementation begins |
+| Emergent AI Execution Prompt | [implementation/EMERGENT-AI-EXECUTION-PROMPT.md](implementation/EMERGENT-AI-EXECUTION-PROMPT.md) | Master execution prompt requiring Emergent AI to use the repository as the source of truth for every line of code |
+| Emergent AI Task Sequence | [implementation/EMERGENT-AI-TASK-SEQUENCE.md](implementation/EMERGENT-AI-TASK-SEQUENCE.md) | Ordered task sequence from repository scope lock through final handover |
+| Emergent AI Blockers and Decisions | [implementation/EMERGENT-AI-BLOCKERS-AND-DECISIONS.md](implementation/EMERGENT-AI-BLOCKERS-AND-DECISIONS.md) | Governance log for blockers, assumptions, human decisions, and rejected scope expansions |
+| Final Handover Report Template | [implementation/FINAL-HANDOVER-REPORT-TEMPLATE.md](implementation/FINAL-HANDOVER-REPORT-TEMPLATE.md) | Template Emergent AI must use to produce the final production delivery handover report |
+---
 # Revision History
 
 | Version | Date | Description |
