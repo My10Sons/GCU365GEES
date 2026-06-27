@@ -510,3 +510,14 @@ DI-0030
 | REQ-DI-3008 | Integration Reference Model | Draft | DI-0031 | Integration through references, evidence packages, reports, callbacks, and APIs |
 | REQ-DI-3009 | Scope Drift Control | Draft | DI-0031 | Prevent drift into CROMS, Maintenance, Fleet, Finance, or asset ownership |
 | REQ-DI-3010 | Existing System Preservation | Draft | DI-0031 | Preserve existing CROMS and Maintenance workflows |
+| REQ-DI-3100 | Implementation Plan | Draft | DI-0032 | Implementation plan for Damage Intelligence |
+| REQ-DI-3101 | Scope-Controlled Implementation | Draft | DI-0032 | Implementation limited to Damage Intelligence scope |
+| REQ-DI-3102 | Phase-Based Implementation | Draft | DI-0032 | Controlled phased implementation |
+| REQ-DI-3103 | Inspection and Evidence MVP Implementation | Draft | DI-0032 | MVP foundation for inspection, evidence, tenant isolation, and audit |
+| REQ-DI-3104 | AI Detection Implementation | Draft | DI-0032 | Image quality, AI detection, confidence, uncertainty, and failure handling |
+| REQ-DI-3105 | Comparison and Review Implementation | Draft | DI-0032 | Damage comparison, human review, and case context |
+| REQ-DI-3106 | Existing System Integration Implementation | Draft | DI-0032 | Integration with existing CROMS and Maintenance systems |
+| REQ-DI-3107 | Security Implementation | Draft | DI-0032 | Authentication, authorization, tenant isolation, secure evidence, and integration security |
+| REQ-DI-3108 | Audit Implementation | Draft | DI-0032 | Audit critical actions across Damage Intelligence |
+| REQ-DI-3109 | Operational Monitoring Implementation | Draft | DI-0032 | Health checks, metrics, logs, traces, dashboards, and alerts |
+| REQ-DI-3110 | QA Traceability Implementation | Draft | DI-0032 | QA tests trace to requirements and acceptance criteria |
