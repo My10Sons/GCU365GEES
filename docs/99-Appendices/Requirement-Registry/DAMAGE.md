@@ -135,3 +135,15 @@ Requirements have been registered below.
 | REQ-DI-0708 | Historical Taxonomy Preservation | Draft | DI-0008 | Preserve historical taxonomy values |
 | REQ-DI-0709 | Review Outcome Taxonomy | Draft | DI-0008 | Standard human review outcomes |
 | REQ-DI-0710 | Repair Relevance Taxonomy | Draft | DI-0008 | Standard repair relevance values |
+| REQ-DI-0800 | Standard Severity Levels | Draft | DI-0009 | Standardized severity labels |
+| REQ-DI-0801 | Severity Assessment | Draft | DI-0009 | Assess severity for damage findings |
+| REQ-DI-0802 | AI Severity Suggestion | Draft | DI-0009 | AI-generated severity suggestions |
+| REQ-DI-0803 | Human Severity Review | Draft | DI-0009 | Review and adjust AI severity |
+| REQ-DI-0804 | Severity Audit Trail | Draft | DI-0009 | Audit severity changes and decisions |
+| REQ-DI-0805 | Unknown Severity | Draft | DI-0009 | Support unknown severity |
+| REQ-DI-0806 | Severity Review Triggers | Draft | DI-0009 | Route significant severity for review |
+| REQ-DI-0807 | Maintenance Routing Influence | Draft | DI-0009 | Severity influences maintenance routing |
+| REQ-DI-0808 | Safety Escalation | Draft | DI-0009 | Escalate safety-impacting damage |
+| REQ-DI-0809 | Severity Is Not Liability | Draft | DI-0009 | Severity does not determine liability or charge |
+| REQ-DI-0810 | Severity Configuration | Draft | DI-0009 | Configurable thresholds and routing rules |
+| REQ-DI-0811 | Severity KPIs | Draft | DI-0009 | Track severity metrics |
