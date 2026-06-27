@@ -89,3 +89,22 @@ Requirements have been registered below.
 | REQ-DI-0410 | AI Fallback | Draft | DI-0005 | Preserve evidence and manual review when AI unavailable |
 | REQ-DI-0411 | AI Quality Metrics | Draft | DI-0005 | Track AI quality metrics and override rates |
 | REQ-DI-0412 | No Final AI Liability Decision | Draft | DI-0005 | AI cannot independently assign final liability |
+| REQ-DI-0500 | Damage Comparison | Draft | DI-0006 | Compare current evidence against historical evidence |
+| REQ-DI-0501 | Baseline Selection | Draft | DI-0006 | Record selected historical baseline |
+| REQ-DI-0502 | Comparison Outcome Classification | Draft | DI-0006 | Use standard comparison outcomes |
+| REQ-DI-0503 | New Damage Candidate Identification | Draft | DI-0006 | Identify candidate new damage |
+| REQ-DI-0504 | Pre-Existing Damage Matching | Draft | DI-0006 | Match current damage to prior damage |
+| REQ-DI-0505 | Changed Damage Identification | Draft | DI-0006 | Identify worsened or changed damage |
+| REQ-DI-0506 | Repaired Damage Identification | Draft | DI-0006 | Identify repaired historical damage |
+| REQ-DI-0507 | Uncertainty Disclosure | Draft | DI-0006 | Classify inconclusive results clearly |
+| REQ-DI-0508 | No New Damage Without Evidence | Draft | DI-0006 | Missing history does not prove new damage |
+| REQ-DI-0509 | Comparison Confidence | Draft | DI-0006 | Provide confidence scores where practical |
+| REQ-DI-0510 | Human Review Routing | Draft | DI-0006 | Route significant or uncertain findings |
+| REQ-DI-0511 | Comparison Audit Trail | Draft | DI-0006 | Preserve comparison audit history |
+| REQ-DI-0512 | Comparison Evidence References | Draft | DI-0006 | Reference current and historical evidence |
+| REQ-DI-0513 | CROMS Comparison Summary | Draft | DI-0006 | Provide comparison summary to CROMS |
+| REQ-DI-0514 | Maintenance Comparison Context | Draft | DI-0006 | Provide comparison context to Maintenance |
+| REQ-DI-0515 | Reviewer Override | Draft | DI-0006 | Authorized reviewers can override outcomes |
+| REQ-DI-0516 | Comparison Feedback Loop | Draft | DI-0006 | Capture feedback to improve quality |
+| REQ-DI-0517 | Tenant Isolation | Draft | DI-0006 | Enforce tenant isolation for history retrieval |
+| REQ-DI-0518 | Secure Evidence Access | Draft | DI-0006 | Access evidence only through authorized mechanisms |
