@@ -211,3 +211,23 @@ Requirements have been registered below.
 | REQ-DI-1214 | Event Auditability | Draft | DI-0013 | Audit event publishing and processing |
 | REQ-DI-1215 | Idempotent Event Consumption | Draft | DI-0013 | Consumers tolerate duplicate delivery |
 | REQ-DI-1216 | Event Failure Handling | Draft | DI-0013 | Retry, dead-letter, alerting, and replay |
+| REQ-DI-1300 | Security and Privacy Controls | Draft | DI-0014 | Security/privacy controls for Damage Intelligence |
+| REQ-DI-1301 | Authentication Required | Draft | DI-0014 | Protected APIs/evidence require authentication |
+| REQ-DI-1302 | Authorization Required | Draft | DI-0014 | Protected operations require authorization |
+| REQ-DI-1303 | Tenant Isolation | Draft | DI-0014 | Tenant isolation across system boundaries |
+| REQ-DI-1304 | Secure Image Storage | Draft | DI-0014 | Access-controlled image storage |
+| REQ-DI-1305 | Controlled Image Access | Draft | DI-0014 | No permanent public image URLs |
+| REQ-DI-1306 | Evidence Integrity | Draft | DI-0014 | Protect approved evidence from alteration |
+| REQ-DI-1307 | Audit Logging | Draft | DI-0014 | Audit significant actions |
+| REQ-DI-1308 | Privacy by Design | Draft | DI-0014 | Minimize customer-linked data |
+| REQ-DI-1309 | Secure AI Processing | Draft | DI-0014 | Tenant-safe and privacy-safe AI processing |
+| REQ-DI-1310 | Secure Event Payloads | Draft | DI-0014 | No secrets, tokens, or unrestricted URLs in events |
+| REQ-DI-1311 | Secure Reports | Draft | DI-0014 | Access-controlled reports |
+| REQ-DI-1312 | Secure Integration | Draft | DI-0014 | Authenticated and authorized integrations |
+| REQ-DI-1313 | Secrets Protection | Draft | DI-0014 | Secrets not stored in code/logs/events/reports |
+| REQ-DI-1314 | Secure Logging | Draft | DI-0014 | Logs avoid sensitive data |
+| REQ-DI-1315 | Data Retention Controls | Draft | DI-0014 | Retention and archival controls |
+| REQ-DI-1316 | Mobile Offline Security | Draft | DI-0014 | Protect offline mobile evidence |
+| REQ-DI-1317 | Security Monitoring | Draft | DI-0014 | Monitor suspicious security activity |
+| REQ-DI-1318 | Security Testing | Draft | DI-0014 | Security testing before production |
+| REQ-DI-1319 | Privacy Testing | Draft | DI-0014 | Privacy testing for minimization and controls |
