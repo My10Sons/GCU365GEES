@@ -472,3 +472,13 @@ Requirements have been registered below.
 | REQ-DI-2714 | Recovery Validation | Draft | DI-0028 | Validate integrity before reopening operations |
 | REQ-DI-2715 | DR Testing | Draft | DI-0028 | Test disaster recovery procedures |
 | REQ-DI-2716 | Post-Recovery Review | Draft | DI-0028 | Review critical recovery events |
+| REQ-DI-2800 | Product Roadmap | Draft | DI-0029 | Product roadmap for Damage Intelligence |
+| REQ-DI-2801 | Roadmap Phasing | Draft | DI-0029 | Phased delivery from readiness to advanced intelligence |
+| REQ-DI-2802 | MVP Scope | Draft | DI-0029 | MVP scope for inspection, evidence, audit, and reporting |
+| REQ-DI-2803 | AI Roadmap Safety | Draft | DI-0029 | AI roadmap preserves advisory boundaries |
+| REQ-DI-2804 | Integration Roadmap | Draft | DI-0029 | CROMS and Maintenance integration sequencing |
+| REQ-DI-2805 | Operational Roadmap | Draft | DI-0029 | Monitoring, runbooks, retention, release, and DR roadmap |
+| REQ-DI-2806 | Localization Roadmap | Draft | DI-0029 | Arabic localization and RTL roadmap |
+| REQ-DI-2807 | Dependency Tracking | Draft | DI-0029 | Track identity, storage, audit, integration, AI, and reporting dependencies |
+| REQ-DI-2808 | Roadmap Governance | Draft | DI-0029 | Governance for customer-impacting roadmap changes |
+| REQ-DI-2809 | Roadmap Release Readiness | Draft | DI-0029 | Roadmap phases consider testing, security, operations, and readiness |
