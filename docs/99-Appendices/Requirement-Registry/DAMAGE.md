@@ -499,3 +499,14 @@ DI-0027
 DI-0028
 DI-0029
 DI-0030
+| REQ-DI-3000 | Existing System Integration Scope | Draft | DI-0031 | Damage Intelligence scope for existing CROMS and Maintenance systems |
+| REQ-DI-3001 | No CROMS Replacement | Draft | DI-0031 | Damage Intelligence is not a replacement for CROMS |
+| REQ-DI-3002 | No Maintenance Replacement | Draft | DI-0031 | Damage Intelligence is not a replacement for GCU365Maintenance |
+| REQ-DI-3003 | No Fleet Asset System Scope | Draft | DI-0031 | Damage Intelligence is not a Fleet or vehicle asset lifecycle system |
+| REQ-DI-3004 | CROMS Ownership Boundary | Draft | DI-0031 | CROMS owns rental lifecycle and final rental charge |
+| REQ-DI-3005 | Maintenance Ownership Boundary | Draft | DI-0031 | Maintenance owns work orders, repair execution, and actual repair cost |
+| REQ-DI-3006 | Damage Intelligence Ownership Boundary | Draft | DI-0031 | Damage Intelligence owns evidence, image analysis, findings, comparison, and reports |
+| REQ-DI-3007 | Advisory AI Boundary | Draft | DI-0031 | AI does not decide final liability, charge, cost, rental closure, or work execution |
+| REQ-DI-3008 | Integration Reference Model | Draft | DI-0031 | Integration through references, evidence packages, reports, callbacks, and APIs |
+| REQ-DI-3009 | Scope Drift Control | Draft | DI-0031 | Prevent drift into CROMS, Maintenance, Fleet, Finance, or asset ownership |
+| REQ-DI-3010 | Existing System Preservation | Draft | DI-0031 | Preserve existing CROMS and Maintenance workflows |
