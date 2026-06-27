@@ -437,3 +437,21 @@ Requirements have been registered below.
 | REQ-DI-2514 | Hotfix Strategy | Draft | DI-0026 | Controlled urgent production fixes |
 | REQ-DI-2515 | Monitoring Validation | Draft | DI-0026 | Validate monitoring and alerts after release |
 | REQ-DI-2516 | Release Records | Draft | DI-0026 | Release records with artifacts, approvals, tests, and rollback plan |
+| REQ-DI-2600 | Operational Runbook | Draft | DI-0027 | Operational runbook for Damage Intelligence |
+| REQ-DI-2601 | Incident Severity Classification | Draft | DI-0027 | Critical, High, Medium, and Low severity levels |
+| REQ-DI-2602 | Daily Operational Checks | Draft | DI-0027 | Daily health, workflow, AI, integration, audit, and security checks |
+| REQ-DI-2603 | Inspection Incident Handling | Draft | DI-0027 | Troubleshooting inspection workflow incidents |
+| REQ-DI-2604 | Evidence Incident Handling | Draft | DI-0027 | Troubleshooting image and evidence incidents |
+| REQ-DI-2605 | AI Incident Handling | Draft | DI-0027 | Troubleshooting AI processing incidents |
+| REQ-DI-2606 | Comparison Incident Handling | Draft | DI-0027 | Troubleshooting damage comparison incidents |
+| REQ-DI-2607 | Review and Case Incident Handling | Draft | DI-0027 | Troubleshooting review queue and damage case incidents |
+| REQ-DI-2608 | CROMS Integration Incident Handling | Draft | DI-0027 | Troubleshooting CROMS integration incidents |
+| REQ-DI-2609 | Maintenance Integration Incident Handling | Draft | DI-0027 | Troubleshooting Maintenance integration incidents |
+| REQ-DI-2610 | Report Incident Handling | Draft | DI-0027 | Troubleshooting report generation and access incidents |
+| REQ-DI-2611 | Security Incident Escalation | Draft | DI-0027 | Escalation for tenant, evidence, access, and secrets incidents |
+| REQ-DI-2612 | Audit Failure Handling | Draft | DI-0027 | Handling audit creation and storage failures |
+| REQ-DI-2613 | Retention Incident Handling | Draft | DI-0027 | Handling retention, archive, deletion, and hold incidents |
+| REQ-DI-2614 | Configuration Incident Handling | Draft | DI-0027 | Handling configuration incidents and rollback |
+| REQ-DI-2615 | Deployment Incident Handling | Draft | DI-0027 | Handling deployment, rollback, and hotfix incidents |
+| REQ-DI-2616 | Incident Communication | Draft | DI-0027 | Secure and privacy-safe incident communication |
+| REQ-DI-2617 | Post-Incident Review | Draft | DI-0027 | Post-incident review for Critical and High incidents |
