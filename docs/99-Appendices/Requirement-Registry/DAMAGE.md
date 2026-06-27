@@ -491,3 +491,11 @@ Requirements have been registered below.
 | REQ-DI-2906 | Security and Privacy Terminology | Draft | DI-0030 | Security and privacy glossary terms |
 | REQ-DI-2907 | Audit and Traceability Terminology | Draft | DI-0030 | Audit and traceability glossary terms |
 | REQ-DI-2908 | Terminology Consistency | Draft | DI-0030 | Consistent terminology across artifacts |
+DI-0023
+DI-0024
+DI-0025
+DI-0026
+DI-0027
+DI-0028
+DI-0029
+DI-0030
