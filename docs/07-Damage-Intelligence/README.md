@@ -365,6 +365,21 @@ Before considering this folder complete, confirm:
 ---
 | DI-0001 to DI-0031 | Drafted |
 ---
+---
+
+# Implementation Execution Plans
+
+The following implementation execution plans convert the Damage Intelligence documentation package into production-ready engineering delivery sprints.
+
+| Sprint | Document | Purpose |
+|--------|----------|---------|
+| SPRINT-00 | [implementation/SPRINT-00-Engineering-Setup.md](implementation/SPRINT-00-Engineering-Setup.md) | Prepares the engineering foundation, repository setup, backend, AI service, web, mobile, database, storage, identity, CI/CD, QA, and smoke test baseline |
+| SPRINT-01 | [implementation/SPRINT-01-Production-Inspection-and-Evidence-Foundation.md](implementation/SPRINT-01-Production-Inspection-and-Evidence-Foundation.md) | Implements production-ready inspection sessions, evidence handling, secure image upload, tenant isolation, audit, and controlled evidence access |
+| SPRINT-02 | [implementation/SPRINT-02-Production-Image-Quality-and-AI-Detection.md](implementation/SPRINT-02-Production-Image-Quality-and-AI-Detection.md) | Implements production-ready image quality validation, AI-assisted damage detection, confidence scoring, uncertainty handling, and advisory AI outputs |
+| SPRINT-03 | [implementation/SPRINT-03-Production-Review-Comparison-and-Damage-Cases.md](implementation/SPRINT-03-Production-Review-Comparison-and-Damage-Cases.md) | Implements production-ready damage comparison, review queue, review decisions, additional evidence requests, and damage case context |
+| SPRINT-04 | [implementation/SPRINT-04-Production-CROMS-and-Maintenance-Integration.md](implementation/SPRINT-04-Production-CROMS-and-Maintenance-Integration.md) | Implements production-ready integration with existing GCU365 CROMS and GCU365Maintenance while preserving ownership boundaries |
+| SPRINT-05 | [implementation/SPRINT-05-Production-Reports-Monitoring-Security-and-Release.md](implementation/SPRINT-05-Production-Reports-Monitoring-Security-and-Release.md) | Implements production-ready reports, evidence packages, monitoring, alerts, security validation, operational readiness, and release gates |
+---
 # Revision History
 
 | Version | Date | Description |
