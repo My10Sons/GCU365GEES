@@ -49,7 +49,7 @@ Repository Root
 
 - Folder: [docs/07-Damage-Intelligence/](docs/07-Damage-Intelligence/)
 - Index: [docs/07-Damage-Intelligence/README.md](docs/07-Damage-Intelligence/README.md)
-- Scope: Vehicle inspection evidence, AI-assisted damage detection, damage comparison, damage cases, CROMS integration, Maintenance integration, reporting, audit, retention, monitoring, localization, deployment, operations, disaster recovery, roadmap, and glossary.
+- Scope: Vehicle inspection evidence, AI-assisted damage detection, damage comparison, damage cases, CROMS integration, Maintenance integration, reporting, audit, retention, monitoring, localization, [...]
 ---
 # Root-Level Documents
 
@@ -376,4 +376,3 @@ This repository is the authoritative engineering source of truth for the GEES Fr
 Every implementation SHALL trace back to approved specifications contained within this repository.
 
 No implementation SHALL supersede the approved engineering architecture or governance.
-
