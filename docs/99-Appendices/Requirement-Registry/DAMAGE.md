@@ -20,3 +20,39 @@ Requirements have been registered below.
 | REQ-DI-0006 | Maintenance Integration | Draft | DI-0001 | Confirmed damage may route to Maintenance |
 | REQ-DI-0007 | CROMS Integration | Draft | DI-0001 | Supports check-out and check-in workflows |
 | REQ-DI-0008 | AI Explainability | Draft | DI-0001 | AI findings include confidence and explanation where practical |
+| REQ-DI-0100 | Standardized Inspection Workflow | Draft | DI-0002 | Standard workflow for check-out and check-in |
+| REQ-DI-0101 | Check-Out Baseline Inspection | Draft | DI-0002 | Baseline condition before rental starts |
+| REQ-DI-0102 | Check-In Return Inspection | Draft | DI-0002 | Return condition after rental ends |
+| REQ-DI-0103 | Guided Photo Capture | Draft | DI-0002 | Standardized capture positions |
+| REQ-DI-0104 | Mandatory Capture Set | Draft | DI-0002 | Minimum required inspection photos |
+| REQ-DI-0105 | Image Quality Validation | Draft | DI-0002 | Validate usability of inspection photos |
+| REQ-DI-0106 | Inspection Evidence Preservation | Draft | DI-0002 | Preserve photos, metadata, and context |
+| REQ-DI-0107 | AI-Assisted Damage Detection | Draft | DI-0002 | AI detects visible vehicle damage |
+| REQ-DI-0108 | Damage Classification | Draft | DI-0002 | Classify type, area, and severity |
+| REQ-DI-0109 | Supported Damage Types | Draft | DI-0002 | Standard taxonomy of damage types |
+| REQ-DI-0110 | Historical Damage Comparison | Draft | DI-0002 | Compare current and previous evidence |
+| REQ-DI-0111 | Damage Delta Classification | Draft | DI-0002 | New, existing, changed, repaired, uncertain |
+| REQ-DI-0112 | Confidence Scoring | Draft | DI-0002 | AI confidence for findings |
+| REQ-DI-0113 | Human Review Requirement | Draft | DI-0002 | Human review before final decisions |
+| REQ-DI-0114 | Human Override | Draft | DI-0002 | Confirm, edit, reject, or override AI findings |
+| REQ-DI-0115 | Damage Case Creation | Draft | DI-0002 | Structured damage case creation |
+| REQ-DI-0116 | Damage Case Lifecycle | Draft | DI-0002 | Damage case state management |
+| REQ-DI-0117 | Maintenance Routing | Draft | DI-0002 | Route repair-required damage to Maintenance |
+| REQ-DI-0118 | CROMS Rental Context | Draft | DI-0002 | Consume rental context from CROMS |
+| REQ-DI-0119 | Vehicle Context | Draft | DI-0002 | Consume vehicle master context |
+| REQ-DI-0120 | Customer Dispute Evidence | Draft | DI-0002 | Preserve evidence for dispute review |
+| REQ-DI-0121 | Damage Report Generation | Draft | DI-0002 | Generate structured damage reports |
+| REQ-DI-0122 | Audit Trail | Draft | DI-0002 | Audit capture, AI, review, and decisions |
+| REQ-DI-0123 | Role-Based Access | Draft | DI-0002 | Enforce permissions |
+| REQ-DI-0124 | Privacy Protection | Draft | DI-0002 | Protect customer and inspection data |
+| REQ-DI-0125 | Secure Image Storage | Draft | DI-0002 | Secure access-controlled image storage |
+| REQ-DI-0126 | Offline Capture Support | Draft | DI-0002 | Support weak connectivity where required |
+| REQ-DI-0127 | Evidence Integrity | Draft | DI-0002 | Protect evidence from unauthorized alteration |
+| REQ-DI-0128 | AI Explainability | Draft | DI-0002 | Explain AI findings where practical |
+| REQ-DI-0129 | AI Uncertainty Handling | Draft | DI-0002 | Route uncertain findings for review |
+| REQ-DI-0130 | Repair Estimate Support | Draft | DI-0002 | Support repair cost or effort estimates |
+| REQ-DI-0131 | Damage History | Draft | DI-0002 | Maintain vehicle damage history |
+| REQ-DI-0132 | Reporting and Analytics | Draft | DI-0002 | Support operational damage reports |
+| REQ-DI-0133 | Multi-Tenant Isolation | Draft | DI-0002 | Preserve tenant data isolation |
+| REQ-DI-0134 | API-First Integration | Draft | DI-0002 | Expose governed APIs and events |
+| REQ-DI-0135 | No Final AI Liability Decision | Draft | DI-0002 | Human approval required for final liability decisions |
