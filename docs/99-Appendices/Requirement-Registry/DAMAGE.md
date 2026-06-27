@@ -269,3 +269,19 @@ Requirements have been registered below.
 | REQ-DI-1516 | Reporting Data Quality | Draft | DI-0016 | Reports identify missing/uncertain data |
 | REQ-DI-1517 | Reporting Localization | Draft | DI-0016 | English and Arabic reporting labels |
 | REQ-DI-1518 | Reporting Performance | Draft | DI-0016 | Reporting does not degrade operations |
+| REQ-DI-1600 | CROMS Integration | Draft | DI-0017 | Integration with CROMS rental workflows |
+| REQ-DI-1601 | CROMS Ownership Boundary | Draft | DI-0017 | CROMS owns rental lifecycle and closure |
+| REQ-DI-1602 | Damage Intelligence Ownership Boundary | Draft | DI-0017 | Damage Intelligence owns evidence and damage records |
+| REQ-DI-1603 | Check-Out Inspection Request | Draft | DI-0017 | CROMS can request check-out inspection |
+| REQ-DI-1604 | Check-In Inspection Request | Draft | DI-0017 | CROMS can request check-in inspection |
+| REQ-DI-1605 | Rental Damage Summary | Draft | DI-0017 | Provide rental damage summary to CROMS |
+| REQ-DI-1606 | Damage Comparison Status to CROMS | Draft | DI-0017 | Provide comparison outcome summary |
+| REQ-DI-1607 | Damage Case Status to CROMS | Draft | DI-0017 | Provide damage case status updates |
+| REQ-DI-1608 | Evidence Report Reference | Draft | DI-0017 | Provide controlled report references |
+| REQ-DI-1609 | No Final Rental Closure by Damage Intelligence | Draft | DI-0017 | Damage Intelligence does not close rentals |
+| REQ-DI-1610 | No Final Customer Charge by Damage Intelligence | Draft | DI-0017 | Damage Intelligence does not determine final charges |
+| REQ-DI-1611 | Integration Security | Draft | DI-0017 | Secure authenticated and authorized integration |
+| REQ-DI-1612 | Integration Idempotency | Draft | DI-0017 | Avoid duplicate inspections/cases/reports |
+| REQ-DI-1613 | Integration Traceability | Draft | DI-0017 | Trace rental to evidence, case, report, and audit |
+| REQ-DI-1614 | Integration Failure Handling | Draft | DI-0017 | Retry, visible status, audit, and recovery |
+| REQ-DI-1615 | Customer Dispute Evidence Support | Draft | DI-0017 | Controlled evidence for dispute workflows |
