@@ -250,3 +250,22 @@ Requirements have been registered below.
 | REQ-DI-1416 | Audit Immutability | Draft | DI-0015 | Audit records immutable or tamper-evident |
 | REQ-DI-1417 | Audit Privacy Protection | Draft | DI-0015 | Audit logs avoid sensitive data leakage |
 | REQ-DI-1418 | Requirement Traceability | Draft | DI-0015 | Requirements trace to implementation artifacts |
+| REQ-DI-1500 | Reporting and Dashboards | Draft | DI-0016 | Reporting and dashboards for Damage Intelligence |
+| REQ-DI-1501 | Role-Based Reporting Access | Draft | DI-0016 | Reports enforce role and object access |
+| REQ-DI-1502 | Tenant-Isolated Reporting | Draft | DI-0016 | Reporting enforces tenant isolation |
+| REQ-DI-1503 | Operations Dashboard | Draft | DI-0016 | Daily inspection and damage workflow visibility |
+| REQ-DI-1504 | Inspection Compliance Dashboard | Draft | DI-0016 | Inspection completion and evidence quality |
+| REQ-DI-1505 | Damage Case Dashboard | Draft | DI-0016 | Damage case status and resolution |
+| REQ-DI-1506 | Fleet Damage Dashboard | Draft | DI-0016 | Fleet-level damage trend reporting |
+| REQ-DI-1507 | Maintenance Routing Dashboard | Draft | DI-0016 | Reporting for Maintenance-routed cases |
+| REQ-DI-1508 | AI Quality Dashboard | Draft | DI-0016 | AI quality and override metrics |
+| REQ-DI-1509 | Review Performance Dashboard | Draft | DI-0016 | Human review workload and outcomes |
+| REQ-DI-1510 | Repair Estimate Dashboard | Draft | DI-0016 | Advisory repair estimate reporting |
+| REQ-DI-1511 | Audit Dashboard | Draft | DI-0016 | Audit reporting for authorized users |
+| REQ-DI-1512 | Standard Reports | Draft | DI-0016 | Standard inspection, damage, AI, and evidence reports |
+| REQ-DI-1513 | Report Auditability | Draft | DI-0016 | Audit report generation and access |
+| REQ-DI-1514 | Secure Report Export | Draft | DI-0016 | Authorized and auditable exports |
+| REQ-DI-1515 | Customer-Facing Report Controls | Draft | DI-0016 | Controlled customer-facing reports |
+| REQ-DI-1516 | Reporting Data Quality | Draft | DI-0016 | Reports identify missing/uncertain data |
+| REQ-DI-1517 | Reporting Localization | Draft | DI-0016 | English and Arabic reporting labels |
+| REQ-DI-1518 | Reporting Performance | Draft | DI-0016 | Reporting does not degrade operations |
