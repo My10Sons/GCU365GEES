@@ -13,7 +13,7 @@ created: "2026-06-27"
 updated: "2026-06-27"
 authoritative: true
 ai_consumable: true
-related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008, DI-0009, DI-0010, DI-0011, DI-0012, DI-0013, DI-0014, DI-0015, DI-0016, DI-0017, DI-0018, DI-0019, DI-0020, DI-0021, DI-0022, DI-0023, DI-0024, DI-0025, DI-0026, DI-0027, DI-0028, DI-0029, DI-0030"
+related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008, DI-0009, DI-0010, DI-0011, DI-0012, DI-0013, DI-0014, DI-0015, DI-0016, DI-0017, DI-0018, DI-0019, DI-0020, DI-0021, D[...]"
 ---
 
 # Damage Intelligence Documentation Index
@@ -22,24 +22,26 @@ related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008
 
 This folder contains the complete product, architecture, integration, security, operational, testing, roadmap, and terminology documentation for Damage Intelligence.
 
-Damage Intelligence is the GCU365 capability responsible for vehicle inspection evidence, AI-assisted damage detection, damage comparison, damage case management, human review, repair estimate support, CROMS integration, Maintenance integration, reporting, audit, retention, monitoring, localization, deployment, operations, disaster recovery, and product roadmap planning.
+Damage Intelligence is the GCU365 capability responsible for vehicle inspection evidence, AI-assisted damage detection, damage comparison, damage case management, human review, repair estimate support[...] 
 
 This README provides the official navigation index for all Damage Intelligence documentation.
 
 ---
+
 ## Scope Clarification
 
 Damage Intelligence is not a replacement for GCU365 CROMS or GCU365Maintenance.
 
 GCU365 CROMS and GCU365Maintenance are existing systems already developed and used.
 
-Damage Intelligence provides image analysis, vehicle inspection evidence processing, AI-assisted damage detection, damage comparison, damage case context, and reporting services that integrate with those existing systems.
+Damage Intelligence provides image analysis, vehicle inspection evidence processing, AI-assisted damage detection, damage comparison, damage case context, and reporting services that integrate with external systems for lifecycle and maintenance workflows.
 
 CROMS remains the system of record for rental operations.
 
 GCU365Maintenance remains the system of record for maintenance workflows, work orders, repair execution, and actual repair costs.
 
 Damage Intelligence owns inspection evidence, image analysis, damage findings, comparison results, damage cases, review context, and damage-related reports.
+
 ---
 # Folder Path
 
@@ -137,7 +139,7 @@ The recommended reading order is:
 | DI-0025 | [DI-0025-Localization-and-Arabic-Support.md](DI-0025-Localization-and-Arabic-Support.md) | Defines Arabic support, RTL layout, localized labels, reports, exports, and fallback |
 | DI-0026 | [DI-0026-Deployment-and-Release-Strategy.md](DI-0026-Deployment-and-Release-Strategy.md) | Defines deployment, release gates, CI/CD, rollback, hotfix, and release records |
 | DI-0027 | [DI-0027-Operational-Runbook.md](DI-0027-Operational-Runbook.md) | Defines operational incident response, troubleshooting, escalation, and recovery procedures |
-| DI-0028 | [DI-0028-Disaster-Recovery-and-Business-Continuity.md](DI-0028-Disaster-Recovery-and-Business-Continuity.md) | Defines DR, backup, restore, degraded modes, manual continuity, and recovery validation |
+| DI-0028 | [DI-0028-Disaster-Recovery-and-Business-Continuity.md](DI-0028-Disaster-Recovery-and-Business-Continuity.md) | Defines DR, backup, restore, degraded modes, manual continuity, and recovery [...]
 | DI-0029 | [DI-0029-Product-Roadmap.md](DI-0029-Product-Roadmap.md) | Defines phased roadmap, MVP, dependencies, sequencing, and future capabilities |
 | DI-0030 | [DI-0030-Glossary-and-Terminology.md](DI-0030-Glossary-and-Terminology.md) | Defines glossary, stable codes, Arabic labels, terminology, and ownership language |
 
