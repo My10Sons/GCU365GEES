@@ -1,4 +1,21 @@
 ---
+id: "DI-0022"
+title: "Damage Intelligence Data Retention and Archival"
+version: "1.0.0"
+document_type: "Product Specification"
+document_class: "Data Retention and Archival Specification"
+status: "Draft"
+classification: "Internal"
+owner: "Riyadah Technology"
+reviewers: "Chief Enterprise Architect, Product Owner, Security Lead, Privacy Lead, Compliance Lead, Damage Intelligence Lead, CROMS Lead, Maintenance Lead, QA Lead, DevOps Lead"
+approvers: ""
+created: "2026-06-27"
+updated: "2026-06-27"
+authoritative: true
+ai_consumable: true
+related: "DI-0001, DI-0002, DI-0004, DI-0005, DI-0006, DI-0007, DI-0011, DI-0012, DI-0014, DI-0015, DI-0016, DI-0017, DI-0018, DI-0019, DI-0020, DI-0021, RA-0001, RA-0002, GEES-0007, GEES-0009, PLATFORM-0005"
+---
+---
 
 id: "DI-0022"
 title: "Damage Intelligence Data Retention and Archival"
