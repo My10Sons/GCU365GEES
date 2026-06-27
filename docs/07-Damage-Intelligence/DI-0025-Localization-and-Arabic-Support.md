@@ -1,5 +1,4 @@
 ---
-
 id: "DI-0025"
 title: "Damage Intelligence Localization and Arabic Support"
 version: "1.0.0"
@@ -15,6 +14,7 @@ updated: "2026-06-27"
 authoritative: true
 ai_consumable: true
 related: "DI-0001, DI-0002, DI-0003, DI-0004, DI-0007, DI-0008, DI-0009, DI-0010, DI-0011, DI-0014, DI-0016, DI-0019, DI-0020, DI-0024, GEES-0007, GEES-0009, PLATFORM-0005"
+---
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Damage Intelligence Localization and Arabic Support
