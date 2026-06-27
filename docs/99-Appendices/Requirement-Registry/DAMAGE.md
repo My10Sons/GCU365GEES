@@ -544,3 +544,8 @@ DI-0030
 | REQ-DI-3413 | Monitoring Test Coverage | Draft | DI-0035 | Test health endpoints, dependency health, failure visibility, and alert privacy |
 | REQ-DI-3414 | Localization Test Coverage | Draft | DI-0035 | Test Arabic, RTL, fallback, and export readability |
 | REQ-DI-3415 | Release Smoke Tests | Draft | DI-0035 | Smoke tests for production release readiness |
+DI-0031 → REQ-DI-3000 to REQ-DI-3010
+DI-0032 → REQ-DI-3100 to REQ-DI-3110
+DI-0033 → REQ-DI-3200 to REQ-DI-3206
+DI-0034 → REQ-DI-3300 to REQ-DI-3316
+DI-0035 → REQ-DI-3400 to REQ-DI-3415
