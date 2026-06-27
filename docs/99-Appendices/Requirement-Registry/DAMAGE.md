@@ -482,3 +482,12 @@ Requirements have been registered below.
 | REQ-DI-2807 | Dependency Tracking | Draft | DI-0029 | Track identity, storage, audit, integration, AI, and reporting dependencies |
 | REQ-DI-2808 | Roadmap Governance | Draft | DI-0029 | Governance for customer-impacting roadmap changes |
 | REQ-DI-2809 | Roadmap Release Readiness | Draft | DI-0029 | Roadmap phases consider testing, security, operations, and readiness |
+| REQ-DI-2900 | Glossary and Terminology | Draft | DI-0030 | Glossary and terminology across Damage Intelligence |
+| REQ-DI-2901 | Stable Code Terminology | Draft | DI-0030 | Stable codes preserved independent of labels |
+| REQ-DI-2902 | Localized Term Labels | Draft | DI-0030 | English and Arabic labels for user-facing terms |
+| REQ-DI-2903 | Ownership Boundary Terminology | Draft | DI-0030 | CROMS, Maintenance, and Damage Intelligence ownership terms |
+| REQ-DI-2904 | Advisory Output Terminology | Draft | DI-0030 | Advisory AI and estimate terminology |
+| REQ-DI-2905 | Taxonomy Terminology | Draft | DI-0030 | Standard damage, severity, comparison, review, inspection, and capture terms |
+| REQ-DI-2906 | Security and Privacy Terminology | Draft | DI-0030 | Security and privacy glossary terms |
+| REQ-DI-2907 | Audit and Traceability Terminology | Draft | DI-0030 | Audit and traceability glossary terms |
+| REQ-DI-2908 | Terminology Consistency | Draft | DI-0030 | Consistent terminology across artifacts |
