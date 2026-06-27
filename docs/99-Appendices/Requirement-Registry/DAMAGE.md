@@ -285,3 +285,19 @@ Requirements have been registered below.
 | REQ-DI-1613 | Integration Traceability | Draft | DI-0017 | Trace rental to evidence, case, report, and audit |
 | REQ-DI-1614 | Integration Failure Handling | Draft | DI-0017 | Retry, visible status, audit, and recovery |
 | REQ-DI-1615 | Customer Dispute Evidence Support | Draft | DI-0017 | Controlled evidence for dispute workflows |
+| REQ-DI-1700 | Maintenance Integration | Draft | DI-0018 | Integration with Maintenance repair workflows |
+| REQ-DI-1701 | Maintenance Ownership Boundary | Draft | DI-0018 | Maintenance owns work orders and repair execution |
+| REQ-DI-1702 | Damage Intelligence Ownership Boundary | Draft | DI-0018 | Damage Intelligence owns evidence and damage records |
+| REQ-DI-1703 | Damage Case Routing | Draft | DI-0018 | Route repair-required damage cases |
+| REQ-DI-1704 | Maintenance Evidence Package | Draft | DI-0018 | Controlled evidence package for Maintenance |
+| REQ-DI-1705 | Advisory Estimate Separation | Draft | DI-0018 | Advisory estimates are not actual costs |
+| REQ-DI-1706 | Work Order Reference Synchronization | Draft | DI-0018 | Store Maintenance work order reference |
+| REQ-DI-1707 | Repair Status Synchronization | Draft | DI-0018 | Receive repair status updates |
+| REQ-DI-1708 | Post-Repair Inspection | Draft | DI-0018 | Support post-repair evidence workflow |
+| REQ-DI-1709 | Actual Cost Ownership | Draft | DI-0018 | Actual cost owned by Maintenance or Finance |
+| REQ-DI-1710 | Maintenance Integration Security | Draft | DI-0018 | Secure authenticated and authorized integration |
+| REQ-DI-1711 | Maintenance Integration Idempotency | Draft | DI-0018 | Avoid duplicate maintenance requests/work orders |
+| REQ-DI-1712 | Maintenance Integration Traceability | Draft | DI-0018 | Trace damage case to work order and repair status |
+| REQ-DI-1713 | Maintenance Failure Handling | Draft | DI-0018 | Retry, visible status, audit, and recovery |
+| REQ-DI-1714 | Additional Evidence Request | Draft | DI-0018 | Maintenance can request more evidence |
+| REQ-DI-1715 | Maintenance Rejection Handling | Draft | DI-0018 | Record rejection and route for review |
