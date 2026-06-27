@@ -124,3 +124,14 @@ Requirements have been registered below.
 | REQ-DI-0613 | Secure Image Upload | Draft | DI-0007 | Secure upload and controlled storage |
 | REQ-DI-0614 | Capture Audit Trail | Draft | DI-0007 | Audit significant capture actions |
 | REQ-DI-0615 | Capture Compliance Metrics | Draft | DI-0007 | Track capture compliance metrics |
+| REQ-DI-0700 | Standard Damage Taxonomy | Draft | DI-0008 | Governed taxonomy for damage classification |
+| REQ-DI-0701 | Standard Damage Type Codes | Draft | DI-0008 | Stable damage type codes |
+| REQ-DI-0702 | Vehicle Area Taxonomy | Draft | DI-0008 | Standardized vehicle area codes |
+| REQ-DI-0703 | Unknown Classification | Draft | DI-0008 | Support unknown/uncertain values |
+| REQ-DI-0704 | Taxonomy Versioning | Draft | DI-0008 | Version taxonomy values |
+| REQ-DI-0705 | Taxonomy Localization | Draft | DI-0008 | Support localized labels |
+| REQ-DI-0706 | AI Taxonomy Compliance | Draft | DI-0008 | AI outputs map to approved taxonomy |
+| REQ-DI-0707 | No Unapproved Taxonomy Expansion | Draft | DI-0008 | New taxonomy values require governance |
+| REQ-DI-0708 | Historical Taxonomy Preservation | Draft | DI-0008 | Preserve historical taxonomy values |
+| REQ-DI-0709 | Review Outcome Taxonomy | Draft | DI-0008 | Standard human review outcomes |
+| REQ-DI-0710 | Repair Relevance Taxonomy | Draft | DI-0008 | Standard repair relevance values |
