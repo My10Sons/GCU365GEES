@@ -1,1 +1,1098 @@
+---
+id: DI-0010
+title: Damage Intelligence Repair Cost Estimation
+version: 1.0.0
+document_type: Product Specification
+document_class: Repair Cost Estimation Specification
+status: Draft
+classification: Internal
+owner: Riyadah Technology
+reviewers:
+  - Chief Enterprise Architect
+  - Product Owner
+  - AI Engineering Lead
+  - Maintenance Lead
+  - Finance Lead
+  - Operations Lead
+  - QA Lead
+approvers: []
+created: 2026-06-27
+updated: 2026-06-27
+authoritative: true
+ai_consumable: true
+related:
+  - DI-0001
+  - DI-0002
+  - DI-0005
+  - DI-0006
+  - DI-0008
+  - DI-0009
+  - RA-0001
+  - RA-0002
+  - GEES-0005
+  - GEES-0007
+  - PLATFORM-0005
+---
 
+# Damage Intelligence Repair Cost Estimation
+
+## Executive Summary
+
+This document defines the Repair Cost Estimation capability within Damage Intelligence.
+
+Repair Cost Estimation provides preliminary, advisory estimates of repair effort, repair category, labor requirements, parts requirements, material costs, and expected repair cost ranges based on confirmed or reviewable vehicle damage findings.
+
+Repair Cost Estimation supports:
+
+- Maintenance review.
+- Repair planning.
+- Damage case prioritization.
+- Customer dispute support.
+- Operational cost visibility.
+- Workshop decision support.
+- Fleet availability planning.
+
+Repair Cost Estimation SHALL NOT independently determine final customer charges, final repair invoices, legal liability, insurance liability, or final financial settlement.
+
+All estimates produced by Damage Intelligence SHALL be treated as advisory until reviewed and approved by authorized Maintenance, Operations, Finance, or other approved business roles.
+
+---
+
+# Purpose
+
+The purpose of this document is to define the business and technical behavior expected from Repair Cost Estimation.
+
+This specification SHALL guide:
+
+- Estimation logic
+- AI estimation behavior
+- Maintenance integration
+- Finance integration
+- Damage case workflow
+- API specifications
+- Data model specifications
+- Reporting
+- Test cases
+- Acceptance criteria
+- Audit design
+
+---
+
+# Scope
+
+## In Scope
+
+Repair Cost Estimation includes:
+
+- Preliminary repair estimate generation.
+- Repair category suggestion.
+- Labor effort range suggestion.
+- Parts requirement suggestion.
+- Material requirement suggestion.
+- Repair urgency indication.
+- Estimate confidence.
+- Estimate assumptions.
+- Human review of estimates.
+- Estimate revision history.
+- Estimate auditability.
+- Maintenance routing support.
+- Operational reporting.
+
+## Out of Scope
+
+The following are out of scope for this specification:
+
+- Final customer charge calculation.
+- Final repair invoice generation.
+- Final insurance claim value.
+- Legal liability determination.
+- Automated billing without approval.
+- Workshop execution management.
+- Technician payroll calculation.
+- Parts procurement automation.
+- Manufacturer repair procedure replacement.
+- Full financial accounting.
+
+---
+
+# Estimation Principles
+
+Repair Cost Estimation SHALL follow these principles:
+
+1. Advisory by Default
+2. Human Approval Required
+3. Evidence-Based Estimation
+4. Explainability
+5. Configurability
+6. Traceability
+7. Auditability
+8. Maintenance Alignment
+9. Financial Separation
+10. Continuous Improvement
+
+Repair estimates SHALL support decisions but SHALL NOT replace approved maintenance or finance processes.
+
+---
+
+# Business Objective
+
+The primary objective of Repair Cost Estimation is to provide an early, structured estimate of the likely repair impact of confirmed or suspected damage.
+
+The estimate SHOULD help answer:
+
+- What type of repair may be required?
+- Is repair likely needed?
+- What vehicle area is affected?
+- What severity is involved?
+- What labor category may be needed?
+- Are parts likely required?
+- What is the estimated cost range?
+- Should Maintenance review the case?
+- Should the vehicle be held from rental availability?
+
+---
+
+# Estimation Contexts
+
+Repair Cost Estimation SHALL support the following contexts.
+
+| Context | Description |
+|---------|-------------|
+| Rental Return Damage | Estimate impact of damage found during check-in |
+| Maintenance Intake | Estimate likely repair scope before work order planning |
+| Damage Review | Support reviewer decision-making |
+| Fleet Cost Analysis | Estimate damage cost trends across vehicles |
+| Customer Dispute Support | Provide advisory evidence for internal review |
+| Post-Repair Comparison | Compare estimated repair impact against actual repair outcome |
+
+Version 1 SHALL prioritize Rental Return Damage and Maintenance Intake.
+
+---
+
+# Estimate Types
+
+Damage Intelligence MAY produce different estimate types.
+
+| Estimate Type | Description |
+|---------------|-------------|
+| Advisory Estimate | Preliminary estimate generated before maintenance approval |
+| Reviewer Estimate | Estimate adjusted by authorized reviewer |
+| Maintenance Estimate | Estimate accepted or revised by Maintenance |
+| Historical Estimate | Estimate derived from previous similar cases |
+| AI Estimate | Estimate generated by AI or rules-based engine |
+| Final Repair Cost | Actual repair cost from Maintenance or Finance; not owned by Damage Intelligence |
+
+Damage Intelligence owns advisory estimates.
+
+Maintenance or Finance owns actual repair costs and final charges.
+
+---
+
+# Estimation Inputs
+
+Repair Cost Estimation SHOULD consume the following inputs where available.
+
+## Damage Inputs
+
+- Damage Type
+- Damage Category
+- Vehicle Area
+- Severity
+- Comparison Outcome
+- Damage Dimensions where available
+- Evidence Images
+- Human Review Decision
+- Damage Case Status
+
+## Vehicle Inputs
+
+- Vehicle ID
+- Make
+- Model
+- Year
+- Trim
+- Vehicle Type
+- Paint Color
+- Mileage
+- Warranty Status where available
+- Vehicle Class
+- Fleet Category
+
+## Operational Inputs
+
+- Branch
+- Tenant
+- Inspection Type
+- Rental Context
+- Maintenance Policy
+- Repair Routing Policy
+- Vehicle Availability Policy
+
+## Cost Inputs
+
+- Labor Rate
+- Paint/Material Rate
+- Parts Catalog where available
+- Historical Repair Costs
+- Vendor Rate Card
+- Currency
+- Tax Configuration where applicable
+
+---
+
+# Estimation Outputs
+
+Repair Cost Estimation SHOULD produce structured outputs.
+
+Each estimate SHOULD include:
+
+- Estimate ID
+- Damage Case ID
+- Damage Finding ID
+- Estimate Type
+- Repair Category
+- Estimated Labor Hours Range
+- Estimated Parts Requirement
+- Estimated Materials Requirement
+- Estimated Cost Range
+- Currency
+- Confidence Score
+- Assumptions
+- Exclusions
+- Review Recommendation
+- Maintenance Routing Recommendation
+- AI or Rule Engine Identifier
+- Created Timestamp
+- Reviewer Decision where applicable
+
+---
+
+# Standard Estimate Output Example
+
+Estimate output SHOULD be representable in structured form similar to:
+
+~~~json
+{
+  "estimateId": "EST-DI-000001",
+  "damageCaseId": "DMC-DI-000045",
+  "damageFindingId": "DMF-DI-000188",
+  "estimateType": "AdvisoryEstimate",
+  "repairCategory": "BodyRepair",
+  "vehicleArea": "Rear Bumper",
+  "damageType": "SCRATCH",
+  "severity": "MODERATE",
+  "estimatedLaborHours": {
+    "minimum": 1.5,
+    "maximum": 3.0
+  },
+  "estimatedCost": {
+    "minimum": 350.00,
+    "maximum": 750.00,
+    "currency": "SAR"
+  },
+  "partsRequired": false,
+  "materialsRequired": true,
+  "confidenceScore": 0.72,
+  "reviewRecommendation": "MaintenanceReviewRequired",
+  "assumptions": [
+    "Visible damage appears limited to bumper surface",
+    "No replacement parts identified from inspection evidence"
+  ],
+  "exclusions": [
+    "Hidden structural damage not assessed",
+    "Final workshop inspection required"
+  ],
+  "createdAt": "2026-06-27T00:00:00Z"
+}
+~~~
+
+This example is illustrative. Final schema SHALL be defined in later API and data specifications.
+
+---
+
+# Repair Categories
+
+Repair Cost Estimation SHOULD support standardized repair categories.
+
+| Code | Repair Category | Description |
+|------|-----------------|-------------|
+| NO_REPAIR | No Repair | No immediate repair expected |
+| MONITOR | Monitor | Monitor damage condition |
+| CLEANING | Cleaning | Cleaning or surface treatment |
+| POLISHING | Polishing | Surface polishing or buffing |
+| PAINT_TOUCH_UP | Paint Touch-Up | Localized paint correction |
+| PAINT_REPAIR | Paint Repair | Paint repair for affected area |
+| BODY_REPAIR | Body Repair | Panel or bumper repair |
+| PART_REPLACEMENT | Part Replacement | Replacement of damaged component |
+| GLASS_REPAIR | Glass Repair | Glass chip or crack repair |
+| GLASS_REPLACEMENT | Glass Replacement | Replace glass component |
+| WHEEL_REPAIR | Wheel Repair | Rim or wheel repair |
+| TIRE_REPLACEMENT | Tire Replacement | Tire replacement |
+| LIGHT_REPLACEMENT | Light Replacement | Replace damaged light unit |
+| INTERIOR_REPAIR | Interior Repair | Repair interior material or trim |
+| SAFETY_REVIEW | Safety Review | Safety assessment required |
+| UNKNOWN | Unknown | Repair category cannot be determined |
+
+---
+
+# Estimate Confidence
+
+Repair Cost Estimation SHOULD include confidence scores.
+
+Confidence SHOULD consider:
+
+- Damage type certainty.
+- Severity certainty.
+- Vehicle area certainty.
+- Image quality.
+- Historical repair data availability.
+- Parts catalog availability.
+- Labor rate availability.
+- Similar prior cases.
+- Human review status.
+- Hidden damage risk.
+
+Confidence SHALL be lowered when evidence is incomplete or uncertain.
+
+---
+
+# Estimate Confidence Levels
+
+| Level | Suggested Range | Meaning |
+|-------|-----------------|---------|
+| High | 0.80–1.00 | Estimate is likely reliable for planning |
+| Medium | 0.50–0.79 | Estimate is useful but requires review |
+| Low | 0.00–0.49 | Estimate is uncertain and should not be relied on without review |
+| Unknown | N/A | Confidence cannot be calculated |
+
+---
+
+# Estimation Methods
+
+Repair Cost Estimation MAY use one or more methods.
+
+## Rules-Based Estimation
+
+Uses configured rules based on:
+
+- Damage type
+- Severity
+- Vehicle area
+- Repair category
+- Labor rate
+- Material rate
+- Parts requirement
+
+## Historical Estimation
+
+Uses prior repair cases with similar:
+
+- Vehicle type
+- Damage type
+- Severity
+- Vehicle area
+- Repair category
+
+## AI-Assisted Estimation
+
+Uses AI to suggest:
+
+- Repair category
+- Labor range
+- Parts likelihood
+- Cost range
+- Explanation
+- Confidence
+
+## Maintenance-Reviewed Estimation
+
+Uses human Maintenance review to confirm, adjust, or replace advisory estimate.
+
+---
+
+# Preferred Estimation Strategy
+
+Version 1 SHOULD use a conservative hybrid approach:
+
+```text
+Damage Finding
+    ↓
+Severity Assessment
+    ↓
+Repair Category Rule
+    ↓
+Historical Cost Lookup where available
+    ↓
+AI Assistance where available
+    ↓
+Advisory Estimate
+    ↓
+Human Maintenance Review
+```
+
+The system SHOULD avoid presenting estimates as final charges.
+
+---
+
+# Cost Components
+
+Repair Cost Estimation MAY include the following cost components.
+
+| Component | Description |
+|-----------|-------------|
+| Labor | Estimated technician or workshop labor |
+| Parts | Replacement component cost |
+| Paint | Paint or refinishing cost |
+| Materials | Consumables and repair materials |
+| Vendor | External repair vendor estimate |
+| Tax | Applicable tax where configured |
+| Other | Other approved cost components |
+
+Version 1 MAY provide a total cost range without detailed cost breakdown if detailed data is unavailable.
+
+---
+
+# Currency
+
+Repair Cost Estimation SHALL record currency.
+
+Default currency SHOULD be:
+
+```text
+SAR
+```
+
+Currency SHALL be configurable for future expansion.
+
+---
+
+# Cost Range
+
+Repair estimates SHOULD be expressed as a range rather than a single fixed amount where uncertainty exists.
+
+Example:
+
+```text
+SAR 350 – SAR 750
+```
+
+Ranges are preferred because visual inspection may not reveal hidden damage.
+
+---
+
+# Hidden Damage Disclaimer
+
+Repair estimates generated from images SHALL indicate that hidden damage may not be visible.
+
+Estimates SHOULD include disclaimers where appropriate:
+
+- Final repair cost requires workshop inspection.
+- Hidden damage may change cost.
+- Parts availability may affect cost.
+- Paint matching may affect cost.
+- Vendor pricing may vary.
+
+---
+
+# Human Review
+
+Human review SHALL be required when:
+
+- Estimate may be used for customer communication.
+- Estimate may affect financial decision.
+- Estimate may affect vehicle availability.
+- Severity is Major or Critical.
+- Confidence is below configured threshold.
+- Parts replacement is suggested.
+- Safety review is required.
+- Business policy requires review.
+
+Authorized users SHALL be able to:
+
+- Accept estimate.
+- Edit estimate.
+- Reject estimate.
+- Request Maintenance review.
+- Escalate estimate.
+- Add notes.
+- Link estimate to work order.
+
+---
+
+# Maintenance Integration
+
+Repair Cost Estimation SHALL support Maintenance integration.
+
+Damage Intelligence SHOULD provide Maintenance with:
+
+- Damage Case ID
+- Damage Finding ID
+- Damage Type
+- Vehicle Area
+- Severity
+- Evidence Package
+- Advisory Estimate
+- Repair Category
+- Confidence
+- Assumptions
+- Exclusions
+- Review Notes
+
+Maintenance SHALL own:
+
+- Final repair plan
+- Work order
+- Technician assignment
+- Parts reservation
+- Actual repair cost
+- Repair completion status
+
+---
+
+# CROMS Integration
+
+Repair Cost Estimation MAY support CROMS by providing:
+
+- Damage cost estimate summary.
+- Damage review status.
+- Maintenance routing status.
+- Evidence report reference.
+- Estimated vehicle availability impact.
+
+CROMS SHALL NOT treat advisory repair estimates as final customer charges without approved business workflow and human review.
+
+---
+
+# Estimate Lifecycle
+
+Repair estimates SHOULD follow this lifecycle:
+
+```text
+Draft
+  ↓
+Generated
+  ↓
+Pending Review
+  ↓
+Reviewed
+  ↓
+Accepted / Edited / Rejected / Escalated
+  ↓
+Routed to Maintenance
+  ↓
+Superseded by Actual Cost
+  ↓
+Closed
+```
+
+Actual repair cost may supersede advisory estimate after Maintenance completion.
+
+---
+
+# Estimate Status Values
+
+| Status | Meaning |
+|--------|---------|
+| Draft | Estimate not ready |
+| Generated | Estimate generated by system or AI |
+| PendingReview | Human review required |
+| Reviewed | Estimate reviewed |
+| Accepted | Estimate accepted as advisory |
+| Edited | Estimate adjusted by reviewer |
+| Rejected | Estimate rejected |
+| Escalated | Requires higher review |
+| RoutedToMaintenance | Sent to Maintenance |
+| Superseded | Replaced by Maintenance/Finance actual cost |
+| Closed | Estimate workflow complete |
+
+---
+
+# Estimate Audit Requirements
+
+The system SHALL audit:
+
+- Estimate creation
+- Estimate method
+- AI estimate generation
+- Rule-based estimate generation
+- Historical estimate lookup
+- Estimate confidence
+- Estimate edit
+- Estimate acceptance
+- Estimate rejection
+- Estimate escalation
+- Maintenance routing
+- Actual cost supersession
+- Estimate report generation
+
+Audit records SHOULD include:
+
+- User or system actor
+- Timestamp
+- Damage Case ID
+- Damage Finding ID
+- Previous value where applicable
+- New value where applicable
+- Reason or note
+- Evidence references
+
+---
+
+# Estimate Accuracy Feedback
+
+Damage Intelligence SHOULD support feedback loops.
+
+After actual repair costs are available, the system SHOULD compare:
+
+- Advisory estimate
+- Maintenance estimate
+- Actual repair cost
+
+This comparison MAY be used to improve:
+
+- Rules
+- AI estimation
+- Historical cost models
+- Confidence scoring
+- Reporting accuracy
+
+---
+
+# Estimate Quality Metrics
+
+Damage Intelligence SHOULD track:
+
+- Estimate acceptance rate
+- Estimate override rate
+- Estimate rejection rate
+- Average estimate variance from actual repair cost
+- Estimate confidence distribution
+- Estimate generation time
+- Estimates requiring Maintenance review
+- Estimate accuracy by damage type
+- Estimate accuracy by severity
+- Estimate accuracy by vehicle area
+- Estimate accuracy by branch or vendor
+
+---
+
+# Risk and Limitations
+
+Repair Cost Estimation has known limitations.
+
+| Risk | Description | Mitigation |
+|------|-------------|------------|
+| Hidden damage | Damage not visible in images | Include disclaimer and require maintenance review |
+| Missing parts data | Parts cost unavailable | Use range or mark parts unknown |
+| Poor image quality | Estimate may be unreliable | Lower confidence and request review |
+| Regional price variation | Repair costs vary by branch/vendor | Configurable rate cards |
+| AI overconfidence | Estimate may appear more accurate than it is | Confidence scoring and human review |
+| Customer misunderstanding | Advisory estimate treated as final charge | Clear labels and approval workflow |
+| Outdated historical costs | Old costs may be inaccurate | Periodic cost model review |
+
+---
+
+# Configuration
+
+Repair Cost Estimation SHOULD support configuration for:
+
+- Labor rates
+- Vendor rates
+- Paint/material rates
+- Default repair categories
+- Damage type repair rules
+- Severity cost modifiers
+- Vehicle class modifiers
+- Branch policy
+- Tenant policy
+- Review thresholds
+- Currency
+- Tax handling where applicable
+
+Configuration changes SHALL be audited.
+
+---
+
+# Security and Privacy
+
+Repair Cost Estimation SHALL comply with GEES security standards.
+
+The system SHALL protect:
+
+- Damage evidence
+- Cost estimates
+- Customer-linked damage cases
+- Maintenance routing data
+- Vendor pricing where confidential
+- User review decisions
+
+Access to estimate details SHALL be permission-controlled.
+
+---
+
+# Reporting
+
+Repair Cost Estimation SHOULD support reports including:
+
+- Estimated damage cost by period
+- Estimated damage cost by branch
+- Estimate accuracy vs actual cost
+- Repair category distribution
+- Severity-to-cost analysis
+- Estimate override report
+- Maintenance routing estimate report
+- Customer dispute estimate report
+
+---
+
+# Normative Requirements
+
+## Requirement
+
+ID: REQ-DI-0900
+
+Title:
+Repair Cost Estimation
+
+Statement:
+Damage Intelligence SHALL support advisory repair cost estimation for damage findings where sufficient evidence and configuration exist.
+
+Priority:
+High
+
+Verification:
+Functional Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0901
+
+Title:
+Advisory Estimate
+
+Statement:
+Repair estimates generated by Damage Intelligence SHALL be advisory until reviewed and approved by authorized users where required.
+
+Priority:
+Critical
+
+Verification:
+Governance Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0902
+
+Title:
+Estimate Inputs
+
+Statement:
+Repair Cost Estimation SHALL consider damage type, vehicle area, severity, and evidence quality where available.
+
+Priority:
+High
+
+Verification:
+Functional Test
+
+---
+
+## Requirement
+
+ID: REQ-DI-0903
+
+Title:
+Estimate Output Structure
+
+Statement:
+Repair Cost Estimation SHALL produce structured estimate outputs suitable for review, storage, reporting, and integration.
+
+Priority:
+High
+
+Verification:
+API/Data Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0904
+
+Title:
+Estimate Confidence
+
+Statement:
+Repair Cost Estimation SHOULD include confidence or uncertainty indicators.
+
+Priority:
+High
+
+Verification:
+AI Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0905
+
+Title:
+Estimate Range
+
+Statement:
+Repair Cost Estimation SHOULD provide cost ranges where uncertainty exists.
+
+Priority:
+High
+
+Verification:
+Business Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0906
+
+Title:
+Human Estimate Review
+
+Statement:
+Authorized users SHALL be able to review, edit, reject, or escalate repair estimates.
+
+Priority:
+Critical
+
+Verification:
+Workflow Test
+
+---
+
+## Requirement
+
+ID: REQ-DI-0907
+
+Title:
+Estimate Audit Trail
+
+Statement:
+Repair estimate creation, modification, review, routing, and supersession SHALL be auditable.
+
+Priority:
+Critical
+
+Verification:
+Audit Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0908
+
+Title:
+Maintenance Integration
+
+Statement:
+Repair estimates SHALL be transferable to Maintenance as advisory context when damage is routed for repair review.
+
+Priority:
+High
+
+Verification:
+Integration Test
+
+---
+
+## Requirement
+
+ID: REQ-DI-0909
+
+Title:
+Actual Cost Ownership
+
+Statement:
+Actual repair cost SHALL be owned by Maintenance or Finance, not by Damage Intelligence.
+
+Priority:
+Critical
+
+Verification:
+Architecture Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0910
+
+Title:
+No Final Customer Charge
+
+Statement:
+Damage Intelligence repair estimates SHALL NOT independently determine final customer charges.
+
+Priority:
+Critical
+
+Verification:
+Governance Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0911
+
+Title:
+Hidden Damage Disclaimer
+
+Statement:
+Repair estimates based on image evidence SHOULD identify that hidden damage may affect final cost.
+
+Priority:
+High
+
+Verification:
+Report Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0912
+
+Title:
+Estimate Feedback Loop
+
+Statement:
+Damage Intelligence SHOULD support comparison of advisory estimates against actual repair costs for continuous improvement.
+
+Priority:
+Medium
+
+Verification:
+Analytics Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0913
+
+Title:
+Estimate Configuration
+
+Statement:
+Repair Cost Estimation SHOULD support configurable labor rates, material rates, repair rules, and thresholds.
+
+Priority:
+Medium
+
+Verification:
+Configuration Review
+
+---
+
+## Requirement
+
+ID: REQ-DI-0914
+
+Title:
+Estimate Security
+
+Statement:
+Repair estimate details SHALL be protected using role-based access controls and audit logging.
+
+Priority:
+Critical
+
+Verification:
+Security Review
+
+---
+
+# Business Rules
+
+## BR-DI-0500 — Estimate Is Advisory
+
+Damage Intelligence repair estimates SHALL be advisory unless reviewed and accepted through approved business workflow.
+
+---
+
+## BR-DI-0501 — Estimate Is Not Charge
+
+A repair estimate SHALL NOT be treated as a final customer charge.
+
+---
+
+## BR-DI-0502 — Final Cost Owned Outside Damage Intelligence
+
+Actual repair cost SHALL be owned by Maintenance or Finance.
+
+---
+
+## BR-DI-0503 — Estimate Requires Evidence
+
+Repair estimates SHOULD be linked to damage evidence and damage findings.
+
+---
+
+## BR-DI-0504 — Low Confidence Requires Review
+
+Low-confidence estimates SHALL require human review before operational use.
+
+---
+
+## BR-DI-0505 — Critical Damage Requires Maintenance Review
+
+Critical or safety-relevant damage SHALL require Maintenance review before release decisions.
+
+---
+
+## BR-DI-0506 — Estimate Changes Must Be Audited
+
+Any change to an estimate SHALL create an audit record.
+
+---
+
+# AI Implementation Contract
+
+AI development agents SHALL:
+
+- Treat this document as the authoritative Repair Cost Estimation specification.
+- Preserve all requirement IDs.
+- Preserve the advisory nature of estimates.
+- Never convert repair estimates into final customer charges.
+- Never assign final legal or financial liability.
+- Preserve Maintenance and Finance ownership of actual costs.
+- Preserve audit and review requirements.
+- Generate future APIs, schemas, tests, UI components, and reports consistent with this specification.
+- Raise ambiguity where repair estimation rules, rate cards, or ownership are unclear.
+
+---
+
+# References
+
+- DI-0005 – AI Damage Detection
+- DI-0006 – Damage Comparison
+- DI-0008 – Damage Taxonomy
+- DI-0009 – Severity Assessment
+- RA-0001 – Enterprise Context Architecture
+- RA-0002 – Domain-Driven Design Architecture
+- GEES-0005 – AI Engineering Standard
+- GEES-0007 – Enterprise Security Standard
+- PLATFORM-0005 – GEES Core and Application Architecture
+
+---
+
+# Revision History
+
+| Version | Date | Description |
+|----------|------|-------------|
+| 1.0.0 | 2026-06-27 | Initial Damage Intelligence Repair Cost Estimation Specification |
