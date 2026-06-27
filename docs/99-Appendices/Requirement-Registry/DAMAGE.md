@@ -56,3 +56,11 @@ Requirements have been registered below.
 | REQ-DI-0133 | Multi-Tenant Isolation | Draft | DI-0002 | Preserve tenant data isolation |
 | REQ-DI-0134 | API-First Integration | Draft | DI-0002 | Expose governed APIs and events |
 | REQ-DI-0135 | No Final AI Liability Decision | Draft | DI-0002 | Human approval required for final liability decisions |
+| REQ-DI-0200 | Persona-Aware Design | Draft | DI-0003 | Workflows align to primary personas |
+| REQ-DI-0201 | Role-Based Capabilities | Draft | DI-0003 | Persona-aligned permissions |
+| REQ-DI-0202 | Customer Transparency | Draft | DI-0003 | Customer-facing evidence transparency |
+| REQ-DI-0203 | Reviewer Workflow Support | Draft | DI-0003 | Tools for AI and historical comparison review |
+| REQ-DI-0204 | Maintenance Persona Support | Draft | DI-0003 | Evidence and severity context for maintenance roles |
+| REQ-DI-0205 | Management Reporting Personas | Draft | DI-0003 | Reports and dashboards for managers |
+| REQ-DI-0206 | AI Quality Review Persona | Draft | DI-0003 | Monitor AI output quality and human override patterns |
+| REQ-DI-0207 | Persona-Based Permission Design | Draft | DI-0003 | Permissions based on responsibility and least privilege |
