@@ -147,3 +147,18 @@ Requirements have been registered below.
 | REQ-DI-0809 | Severity Is Not Liability | Draft | DI-0009 | Severity does not determine liability or charge |
 | REQ-DI-0810 | Severity Configuration | Draft | DI-0009 | Configurable thresholds and routing rules |
 | REQ-DI-0811 | Severity KPIs | Draft | DI-0009 | Track severity metrics |
+| REQ-DI-0900 | Repair Cost Estimation | Draft | DI-0010 | Advisory repair cost estimation |
+| REQ-DI-0901 | Advisory Estimate | Draft | DI-0010 | Estimates are advisory until reviewed |
+| REQ-DI-0902 | Estimate Inputs | Draft | DI-0010 | Use damage type, area, severity, and evidence |
+| REQ-DI-0903 | Estimate Output Structure | Draft | DI-0010 | Structured estimate outputs |
+| REQ-DI-0904 | Estimate Confidence | Draft | DI-0010 | Include confidence or uncertainty indicators |
+| REQ-DI-0905 | Estimate Range | Draft | DI-0010 | Provide cost ranges where uncertain |
+| REQ-DI-0906 | Human Estimate Review | Draft | DI-0010 | Authorized users can review/edit estimates |
+| REQ-DI-0907 | Estimate Audit Trail | Draft | DI-0010 | Audit estimate lifecycle actions |
+| REQ-DI-0908 | Maintenance Integration | Draft | DI-0010 | Transfer estimate context to Maintenance |
+| REQ-DI-0909 | Actual Cost Ownership | Draft | DI-0010 | Actual cost owned by Maintenance or Finance |
+| REQ-DI-0910 | No Final Customer Charge | Draft | DI-0010 | Estimate does not determine final customer charge |
+| REQ-DI-0911 | Hidden Damage Disclaimer | Draft | DI-0010 | Image-based estimates identify hidden-damage limitation |
+| REQ-DI-0912 | Estimate Feedback Loop | Draft | DI-0010 | Compare estimates to actual repair costs |
+| REQ-DI-0913 | Estimate Configuration | Draft | DI-0010 | Configurable rates/rules/thresholds |
+| REQ-DI-0914 | Estimate Security | Draft | DI-0010 | RBAC and audit for estimate details |
