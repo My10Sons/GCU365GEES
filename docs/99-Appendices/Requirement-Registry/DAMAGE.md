@@ -76,3 +76,16 @@ Requirements have been registered below.
 | REQ-DI-0309 | Offline Capture Workflow | Draft | DI-0004 | Offline capture and sync where required |
 | REQ-DI-0310 | Inspection Audit Trail | Draft | DI-0004 | Audit significant workflow actions |
 | REQ-DI-0311 | Workflow Exception Handling | Draft | DI-0004 | Defined exception paths |
+| REQ-DI-0400 | AI Damage Detection | Draft | DI-0005 | AI-assisted visible vehicle damage detection |
+| REQ-DI-0401 | Structured AI Findings | Draft | DI-0005 | AI outputs structured damage findings |
+| REQ-DI-0402 | Damage Type Classification | Draft | DI-0005 | Classify detected damage by type |
+| REQ-DI-0403 | Vehicle Area Identification | Draft | DI-0005 | Identify affected vehicle area where practical |
+| REQ-DI-0404 | Confidence Scoring | Draft | DI-0005 | Assign confidence scores to findings |
+| REQ-DI-0405 | Human Review Routing | Draft | DI-0005 | Route significant or uncertain findings for review |
+| REQ-DI-0406 | Uncertainty Handling | Draft | DI-0005 | Explicitly identify uncertain findings |
+| REQ-DI-0407 | AI Finding Auditability | Draft | DI-0005 | Audit AI requests, outputs, failures, and review decisions |
+| REQ-DI-0408 | AI Privacy Protection | Draft | DI-0005 | Protect images, customer data, and tenant data |
+| REQ-DI-0409 | AI Provider Abstraction | Draft | DI-0005 | Abstract AI providers behind governed interface |
+| REQ-DI-0410 | AI Fallback | Draft | DI-0005 | Preserve evidence and manual review when AI unavailable |
+| REQ-DI-0411 | AI Quality Metrics | Draft | DI-0005 | Track AI quality metrics and override rates |
+| REQ-DI-0412 | No Final AI Liability Decision | Draft | DI-0005 | AI cannot independently assign final liability |
