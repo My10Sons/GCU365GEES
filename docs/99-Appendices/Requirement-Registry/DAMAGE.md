@@ -365,3 +365,21 @@ Requirements have been registered below.
 | REQ-DI-2113 | CROMS Retention Dependency | Draft | DI-0022 | Prevent deletion while needed by CROMS workflows |
 | REQ-DI-2114 | Maintenance Retention Dependency | Draft | DI-0022 | Prevent deletion while needed by Maintenance workflows |
 | REQ-DI-2115 | Backup Retention Alignment | Draft | DI-0022 | Align backups with enterprise backup policy |
+| REQ-DI-2200 | Operational Monitoring and Alerts | Draft | DI-0023 | Monitoring and alerting across Damage Intelligence |
+| REQ-DI-2201 | Health Checks | Draft | DI-0023 | Health checks for core dependencies |
+| REQ-DI-2202 | Inspection Workflow Monitoring | Draft | DI-0023 | Monitor inspection status and stuck workflows |
+| REQ-DI-2203 | Evidence Processing Monitoring | Draft | DI-0023 | Monitor image upload, quality, and evidence access |
+| REQ-DI-2204 | AI Processing Monitoring | Draft | DI-0023 | Monitor AI queue, completion, failures, and latency |
+| REQ-DI-2205 | Damage Comparison Monitoring | Draft | DI-0023 | Monitor comparison results and failures |
+| REQ-DI-2206 | Damage Case Monitoring | Draft | DI-0023 | Monitor damage case lifecycle and backlog |
+| REQ-DI-2207 | CROMS Integration Monitoring | Draft | DI-0023 | Monitor CROMS integration health |
+| REQ-DI-2208 | Maintenance Integration Monitoring | Draft | DI-0023 | Monitor Maintenance integration health |
+| REQ-DI-2209 | Report Monitoring | Draft | DI-0023 | Monitor report generation and access |
+| REQ-DI-2210 | Event Monitoring | Draft | DI-0023 | Monitor event publication and processing |
+| REQ-DI-2211 | Security Monitoring | Draft | DI-0023 | Monitor authorization and suspicious access |
+| REQ-DI-2212 | Audit Monitoring | Draft | DI-0023 | Monitor audit creation and access |
+| REQ-DI-2213 | Retention Job Monitoring | Draft | DI-0023 | Monitor retention, archival, deletion, and holds |
+| REQ-DI-2214 | Alert Severity Classification | Draft | DI-0023 | Classify alerts by severity |
+| REQ-DI-2215 | Alert Routing | Draft | DI-0023 | Route alerts to responsible owners |
+| REQ-DI-2216 | Monitoring Privacy Protection | Draft | DI-0023 | Prevent sensitive data leakage in monitoring |
+| REQ-DI-2217 | Correlation ID in Monitoring | Draft | DI-0023 | Correlation IDs across monitoring signals |
