@@ -6,7 +6,7 @@ This registry will contain all approved Damage Intelligence requirements.
 
 ## Status
 
-No requirements have been registered yet.
+Requirements have been registered below.
 
 ## Registered Requirements
 
