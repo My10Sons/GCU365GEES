@@ -142,7 +142,10 @@ The recommended reading order is:
 | DI-0028 | [DI-0028-Disaster-Recovery-and-Business-Continuity.md](DI-0028-Disaster-Recovery-and-Business-Continuity.md) | Defines DR, backup, restore, degraded modes, manual continuity, and recovery [...]
 | DI-0029 | [DI-0029-Product-Roadmap.md](DI-0029-Product-Roadmap.md) | Defines phased roadmap, MVP, dependencies, sequencing, and future capabilities |
 | DI-0030 | [DI-0030-Glossary-and-Terminology.md](DI-0030-Glossary-and-Terminology.md) | Defines glossary, stable codes, Arabic labels, terminology, and ownership language |
-
+| DI-0032 | [DI-0032-Implementation-Plan.md](DI-0032-Implementation-Plan.md) | Defines implementation phases, workstreams, engineering tasks, integrations, QA, DevOps, and release readiness |
+| DI-0033 | [DI-0033-User-Stories-and-Backlog.md](DI-0033-User-Stories-and-Backlog.md) | Defines epics, user stories, MVP backlog, post-MVP backlog, and technical backlog |
+| DI-0034 | [DI-0034-OpenAPI-Contract.md](DI-0034-OpenAPI-Contract.md) | Defines API contract for inspection, image upload, AI analysis, comparison, review, cases, integrations, reports, configuration, audit, and health |
+| DI-0035 | [DI-0035-QA-Test-Case-Pack.md](DI-0035-QA-Test-Case-Pack.md) | Defines QA test cases for functional, API, integration, security, audit, AI, reporting, localization, performance, and release smoke testing |
 ---
 
 # Document Groups
