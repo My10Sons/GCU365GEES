@@ -231,3 +231,22 @@ Requirements have been registered below.
 | REQ-DI-1317 | Security Monitoring | Draft | DI-0014 | Monitor suspicious security activity |
 | REQ-DI-1318 | Security Testing | Draft | DI-0014 | Security testing before production |
 | REQ-DI-1319 | Privacy Testing | Draft | DI-0014 | Privacy testing for minimization and controls |
+| REQ-DI-1400 | Audit and Traceability | Draft | DI-0015 | Audit and traceability across Damage Intelligence |
+| REQ-DI-1401 | Standard Audit Record | Draft | DI-0015 | Standard audit record structure |
+| REQ-DI-1402 | Evidence Audit | Draft | DI-0015 | Audit evidence lifecycle actions |
+| REQ-DI-1403 | AI Audit | Draft | DI-0015 | Audit AI requests, outputs, failures, and reviews |
+| REQ-DI-1404 | Human Review Audit | Draft | DI-0015 | Audit review decisions and overrides |
+| REQ-DI-1405 | Damage Case Audit | Draft | DI-0015 | Audit damage case lifecycle |
+| REQ-DI-1406 | Comparison Audit | Draft | DI-0015 | Audit comparison baseline, outcome, and review |
+| REQ-DI-1407 | Repair Estimate Audit | Draft | DI-0015 | Audit advisory estimate lifecycle |
+| REQ-DI-1408 | Report Audit | Draft | DI-0015 | Audit report generation and access |
+| REQ-DI-1409 | Security Audit | Draft | DI-0015 | Audit sensitive access and security events |
+| REQ-DI-1410 | End-to-End Traceability | Draft | DI-0015 | Trace rental context to evidence, decisions, reports, and audit |
+| REQ-DI-1411 | Evidence Traceability | Draft | DI-0015 | Damage findings trace to evidence |
+| REQ-DI-1412 | AI Traceability | Draft | DI-0015 | AI outputs trace to inputs and review outcomes |
+| REQ-DI-1413 | Human Decision Traceability | Draft | DI-0015 | Human decisions trace to reviewer, reason, evidence, and object |
+| REQ-DI-1414 | Correlation ID Propagation | Draft | DI-0015 | Correlation IDs across APIs/events/jobs/reports |
+| REQ-DI-1415 | Audit Access Control | Draft | DI-0015 | Audit access is controlled and audited |
+| REQ-DI-1416 | Audit Immutability | Draft | DI-0015 | Audit records immutable or tamper-evident |
+| REQ-DI-1417 | Audit Privacy Protection | Draft | DI-0015 | Audit logs avoid sensitive data leakage |
+| REQ-DI-1418 | Requirement Traceability | Draft | DI-0015 | Requirements trace to implementation artifacts |
