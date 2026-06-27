@@ -315,3 +315,22 @@ Requirements have been registered below.
 | REQ-DI-1811 | Performance Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for performance |
 | REQ-DI-1812 | Data Integrity Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for data integrity |
 | REQ-DI-1813 | Release Acceptance Criteria | Draft | DI-0019 | Acceptance criteria for release readiness |
+| REQ-DI-1900 | Damage Intelligence Test Strategy | Draft | DI-0020 | Test strategy across Damage Intelligence |
+| REQ-DI-1901 | Requirement Traceability Testing | Draft | DI-0020 | Critical requirements trace to tests |
+| REQ-DI-1902 | Inspection Workflow Testing | Draft | DI-0020 | Test inspection lifecycle and state transitions |
+| REQ-DI-1903 | Evidence Testing | Draft | DI-0020 | Test image, quality, evidence access, and integrity |
+| REQ-DI-1904 | AI Testing | Draft | DI-0020 | Test AI analysis and review behavior |
+| REQ-DI-1905 | Damage Comparison Testing | Draft | DI-0020 | Test baseline and comparison outcomes |
+| REQ-DI-1906 | Damage Case Testing | Draft | DI-0020 | Test damage case lifecycle |
+| REQ-DI-1907 | API Testing | Draft | DI-0020 | Test API security, validation, and idempotency |
+| REQ-DI-1908 | Event Testing | Draft | DI-0020 | Test event publication and processing |
+| REQ-DI-1909 | CROMS Integration Testing | Draft | DI-0020 | Test CROMS integration |
+| REQ-DI-1910 | Maintenance Integration Testing | Draft | DI-0020 | Test Maintenance integration |
+| REQ-DI-1911 | Security Testing | Draft | DI-0020 | Test authentication, authorization, and tenant isolation |
+| REQ-DI-1912 | Privacy Testing | Draft | DI-0020 | Test privacy and data minimization |
+| REQ-DI-1913 | Audit and Traceability Testing | Draft | DI-0020 | Test audit and traceability |
+| REQ-DI-1914 | Reporting Testing | Draft | DI-0020 | Test dashboards, reports, exports, and access |
+| REQ-DI-1915 | Performance Testing | Draft | DI-0020 | Test performance and scalability |
+| REQ-DI-1916 | Reliability Testing | Draft | DI-0020 | Test retries, failures, and recovery |
+| REQ-DI-1917 | Data Integrity Testing | Draft | DI-0020 | Test identifiers, references, states, and evidence |
+| REQ-DI-1918 | Regression Testing | Draft | DI-0020 | Maintain regression tests for critical paths |
