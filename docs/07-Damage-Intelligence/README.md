@@ -27,7 +27,20 @@ Damage Intelligence is the GCU365 capability responsible for vehicle inspection 
 This README provides the official navigation index for all Damage Intelligence documentation.
 
 ---
+## Scope Clarification
 
+Damage Intelligence is not a replacement for GCU365 CROMS or GCU365Maintenance.
+
+GCU365 CROMS and GCU365Maintenance are existing systems already developed and used.
+
+Damage Intelligence provides image analysis, vehicle inspection evidence processing, AI-assisted damage detection, damage comparison, damage case context, and reporting services that integrate with those existing systems.
+
+CROMS remains the system of record for rental operations.
+
+GCU365Maintenance remains the system of record for maintenance workflows, work orders, repair execution, and actual repair costs.
+
+Damage Intelligence owns inspection evidence, image analysis, damage findings, comparison results, damage cases, review context, and damage-related reports.
+---
 # Folder Path
 
 ```text
