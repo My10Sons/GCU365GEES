@@ -1,4 +1,21 @@
 ---
+id: "DI-0014"
+title: "Damage Intelligence Security and Privacy"
+version: "1.0.0"
+document_type: "Product Specification"
+document_class: "Security and Privacy Specification"
+status: "Draft"
+classification: "Internal"
+owner: "Riyadah Technology"
+reviewers: "Chief Enterprise Architect, Product Owner, Security Lead, Privacy Lead, API Architecture Lead, AI Engineering Lead, CROMS Lead, Maintenance Lead"
+approvers: ""
+created: "2026-06-27"
+updated: "2026-06-27"
+authoritative: true
+ai_consumable: true
+related: "DI-0001, DI-0002, DI-0004, DI-0005, DI-0006, DI-0007, DI-0008, DI-0009, DI-0010, DI-0011, DI-0012, DI-0013, RA-0001, RA-0002, GEES-0007, GEES-0009, PLATFORM-0005"
+---
+---
 
 id: DI-0014
 title: Damage Intelligence Security and Privacy
