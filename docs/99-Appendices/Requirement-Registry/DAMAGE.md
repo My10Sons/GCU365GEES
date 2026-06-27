@@ -349,3 +349,19 @@ Requirements have been registered below.
 | REQ-DI-2012 | Risk Readiness | Draft | DI-0021 | Implementation risks reviewed |
 | REQ-DI-2013 | Approval Readiness | Draft | DI-0021 | Required readiness approvals |
 | REQ-DI-2014 | Minimum Readiness Gate | Draft | DI-0021 | Minimum gate before implementation |
+| REQ-DI-2100 | Data Retention and Archival | Draft | DI-0022 | Retention and archival requirements across Damage Intelligence |
+| REQ-DI-2101 | Configurable Retention Policies | Draft | DI-0022 | Retention policies by category and tenant |
+| REQ-DI-2102 | Evidence Retention | Draft | DI-0022 | Retain evidence and prevent silent deletion |
+| REQ-DI-2103 | Damage Case Retention | Draft | DI-0022 | Retain open, disputed, or held damage cases |
+| REQ-DI-2104 | Audit Record Retention | Draft | DI-0022 | Retain audit records per policy |
+| REQ-DI-2105 | Report Retention and Expiration | Draft | DI-0022 | Report retention, archival, versioning, and expiration |
+| REQ-DI-2106 | Legal Hold | Draft | DI-0022 | Legal hold blocks deletion |
+| REQ-DI-2107 | Dispute Hold | Draft | DI-0022 | Dispute hold blocks deletion |
+| REQ-DI-2108 | Controlled Deletion | Draft | DI-0022 | Deletion requires expiry, no holds, authorization, and audit |
+| REQ-DI-2109 | Archive Access Control | Draft | DI-0022 | Archived data remains access-controlled |
+| REQ-DI-2110 | Retention Audit | Draft | DI-0022 | Audit retention, archive, deletion, and hold actions |
+| REQ-DI-2111 | Retention Job Reliability | Draft | DI-0022 | Safe failure handling for retention jobs |
+| REQ-DI-2112 | Retention Privacy Protection | Draft | DI-0022 | Minimize long-term sensitive data exposure |
+| REQ-DI-2113 | CROMS Retention Dependency | Draft | DI-0022 | Prevent deletion while needed by CROMS workflows |
+| REQ-DI-2114 | Maintenance Retention Dependency | Draft | DI-0022 | Prevent deletion while needed by Maintenance workflows |
+| REQ-DI-2115 | Backup Retention Alignment | Draft | DI-0022 | Align backups with enterprise backup policy |
