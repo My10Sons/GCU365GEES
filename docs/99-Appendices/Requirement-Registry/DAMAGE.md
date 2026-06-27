@@ -194,3 +194,20 @@ Requirements have been registered below.
 | REQ-DI-1112 | Domain Events | Draft | DI-0012 | Emit events for lifecycle changes |
 | REQ-DI-1113 | Tenant Isolation in Domain Model | Draft | DI-0012 | Tenant isolation support in domain objects |
 | REQ-DI-1114 | Auditability in Domain Model | Draft | DI-0012 | Audit significant state and decision changes |
+| REQ-DI-1200 | Damage Intelligence Events | Draft | DI-0013 | Governed domain and integration events |
+| REQ-DI-1201 | Standard Event Envelope | Draft | DI-0013 | Standard event envelope fields |
+| REQ-DI-1202 | Event Versioning | Draft | DI-0013 | Events are versioned |
+| REQ-DI-1203 | Tenant Isolation in Events | Draft | DI-0013 | Events preserve tenant context |
+| REQ-DI-1204 | Secure Event Payloads | Draft | DI-0013 | No secrets, tokens, or unrestricted image URLs |
+| REQ-DI-1205 | Inspection Events | Draft | DI-0013 | Inspection lifecycle events |
+| REQ-DI-1206 | Image Events | Draft | DI-0013 | Image registration and quality events |
+| REQ-DI-1207 | AI Analysis Events | Draft | DI-0013 | AI request/completion/failure events |
+| REQ-DI-1208 | Damage Finding Events | Draft | DI-0013 | Damage finding lifecycle events |
+| REQ-DI-1209 | Damage Comparison Events | Draft | DI-0013 | Comparison lifecycle events |
+| REQ-DI-1210 | Damage Case Events | Draft | DI-0013 | Damage case lifecycle events |
+| REQ-DI-1211 | Review Events | Draft | DI-0013 | Review decisions and escalations |
+| REQ-DI-1212 | Maintenance Routing Events | Draft | DI-0013 | Maintenance routing/status events |
+| REQ-DI-1213 | CROMS Integration Events | Draft | DI-0013 | CROMS check-out/check-in integration events |
+| REQ-DI-1214 | Event Auditability | Draft | DI-0013 | Audit event publishing and processing |
+| REQ-DI-1215 | Idempotent Event Consumption | Draft | DI-0013 | Consumers tolerate duplicate delivery |
+| REQ-DI-1216 | Event Failure Handling | Draft | DI-0013 | Retry, dead-letter, alerting, and replay |
