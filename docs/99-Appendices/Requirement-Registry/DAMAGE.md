@@ -420,3 +420,20 @@ Requirements have been registered below.
 | REQ-DI-2414 | Localization Security | Draft | DI-0025 | Secure rendering of localized content |
 | REQ-DI-2415 | Localization Privacy | Draft | DI-0025 | Privacy controls for localized outputs |
 | REQ-DI-2416 | Translation Governance | Draft | DI-0025 | Governance for translations and terminology |
+| REQ-DI-2500 | Deployment and Release Strategy | Draft | DI-0026 | Deployment and release strategy across Damage Intelligence |
+| REQ-DI-2501 | Controlled Environments | Draft | DI-0026 | Development, QA, integration, staging, UAT, and production environments |
+| REQ-DI-2502 | CI/CD Controls | Draft | DI-0026 | Build, test, scan, traceability, and approval controls |
+| REQ-DI-2503 | Release Gates | Draft | DI-0026 | Required release approvals and gates |
+| REQ-DI-2504 | Artifact Traceability | Draft | DI-0026 | Trace deployment to artifact, commit, version, and approval |
+| REQ-DI-2505 | Database Migration Safety | Draft | DI-0026 | Safe migrations preserving evidence and tenant isolation |
+| REQ-DI-2506 | AI Release Control | Draft | DI-0026 | Controlled AI model, provider, and threshold releases |
+| REQ-DI-2507 | API Release Control | Draft | DI-0026 | API compatibility, versioning, and migration planning |
+| REQ-DI-2508 | Event Release Control | Draft | DI-0026 | Versioned event schema release control |
+| REQ-DI-2509 | Integration Release Validation | Draft | DI-0026 | Validate CROMS and Maintenance integration releases |
+| REQ-DI-2510 | Configuration Release Control | Draft | DI-0026 | Validate, audit, approve, and rollback high-risk configuration |
+| REQ-DI-2511 | Feature Flag Release Control | Draft | DI-0026 | Controlled rollout using feature flags |
+| REQ-DI-2512 | Smoke Testing | Draft | DI-0026 | Production smoke testing after deployment |
+| REQ-DI-2513 | Rollback Strategy | Draft | DI-0026 | Rollback or mitigation strategy for releases |
+| REQ-DI-2514 | Hotfix Strategy | Draft | DI-0026 | Controlled urgent production fixes |
+| REQ-DI-2515 | Monitoring Validation | Draft | DI-0026 | Validate monitoring and alerts after release |
+| REQ-DI-2516 | Release Records | Draft | DI-0026 | Release records with artifacts, approvals, tests, and rollback plan |
