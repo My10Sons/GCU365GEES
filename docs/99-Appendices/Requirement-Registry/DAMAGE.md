@@ -179,3 +179,18 @@ Requirements have been registered below.
 | REQ-DI-1014 | API Error Standardization | Draft | DI-0011 | Standard error responses |
 | REQ-DI-1015 | Idempotent Operations | Draft | DI-0011 | Idempotency for important operations |
 | REQ-DI-1016 | OpenAPI Specification | Draft | DI-0011 | OpenAPI required before implementation complete |
+| REQ-DI-1100 | Damage Intelligence Domain Model | Draft | DI-0012 | Logical domain model for Damage Intelligence |
+| REQ-DI-1101 | Domain Boundary | Draft | DI-0012 | Separate owned objects from external references |
+| REQ-DI-1102 | Inspection Session Aggregate | Draft | DI-0012 | InspectionSession governs workflow and evidence |
+| REQ-DI-1103 | Inspection Image Entity | Draft | DI-0012 | InspectionImage belongs to InspectionSession |
+| REQ-DI-1104 | Damage Finding Aggregate | Draft | DI-0012 | Model detected/reported/reviewed damage |
+| REQ-DI-1105 | Damage Comparison Aggregate | Draft | DI-0012 | Model historical comparison results |
+| REQ-DI-1106 | Damage Case Aggregate | Draft | DI-0012 | Model operational damage case handling |
+| REQ-DI-1107 | Review Decision Entity | Draft | DI-0012 | Capture authorized human decisions |
+| REQ-DI-1108 | Repair Estimate Aggregate | Draft | DI-0012 | Advisory estimates separate from actual costs |
+| REQ-DI-1109 | External References | Draft | DI-0012 | Reference externally owned domain objects |
+| REQ-DI-1110 | Domain State Control | Draft | DI-0012 | Define lifecycle states for aggregates |
+| REQ-DI-1111 | Domain Invariants | Draft | DI-0012 | Enforce evidence, AI, review, taxonomy, and audit invariants |
+| REQ-DI-1112 | Domain Events | Draft | DI-0012 | Emit events for lifecycle changes |
+| REQ-DI-1113 | Tenant Isolation in Domain Model | Draft | DI-0012 | Tenant isolation support in domain objects |
+| REQ-DI-1114 | Auditability in Domain Model | Draft | DI-0012 | Audit significant state and decision changes |
