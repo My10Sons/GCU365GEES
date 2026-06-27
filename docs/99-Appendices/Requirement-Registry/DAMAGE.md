@@ -162,3 +162,20 @@ Requirements have been registered below.
 | REQ-DI-0912 | Estimate Feedback Loop | Draft | DI-0010 | Compare estimates to actual repair costs |
 | REQ-DI-0913 | Estimate Configuration | Draft | DI-0010 | Configurable rates/rules/thresholds |
 | REQ-DI-0914 | Estimate Security | Draft | DI-0010 | RBAC and audit for estimate details |
+| REQ-DI-1000 | Damage Intelligence API | Draft | DI-0011 | Governed APIs for Damage Intelligence |
+| REQ-DI-1001 | API Versioning | Draft | DI-0011 | Explicit API versioning |
+| REQ-DI-1002 | API Authentication | Draft | DI-0011 | APIs require authentication |
+| REQ-DI-1003 | API Authorization | Draft | DI-0011 | Authorization and tenant isolation |
+| REQ-DI-1004 | Inspection Session APIs | Draft | DI-0011 | Create/retrieve/start/submit/close inspections |
+| REQ-DI-1005 | Image APIs | Draft | DI-0011 | Upload/register/retrieve/validate images |
+| REQ-DI-1006 | AI Analysis APIs | Draft | DI-0011 | Trigger and retrieve AI analysis |
+| REQ-DI-1007 | Damage Comparison APIs | Draft | DI-0011 | Trigger and retrieve comparison results |
+| REQ-DI-1008 | Damage Case APIs | Draft | DI-0011 | Manage damage cases |
+| REQ-DI-1009 | Human Review APIs | Draft | DI-0011 | Submit review decisions |
+| REQ-DI-1010 | Maintenance Routing APIs | Draft | DI-0011 | Route repair-required damage |
+| REQ-DI-1011 | CROMS Integration APIs | Draft | DI-0011 | Check-out/check-in integration |
+| REQ-DI-1012 | Taxonomy APIs | Draft | DI-0011 | Retrieve taxonomy values |
+| REQ-DI-1013 | API Auditability | Draft | DI-0011 | Audit significant operations |
+| REQ-DI-1014 | API Error Standardization | Draft | DI-0011 | Standard error responses |
+| REQ-DI-1015 | Idempotent Operations | Draft | DI-0011 | Idempotency for important operations |
+| REQ-DI-1016 | OpenAPI Specification | Draft | DI-0011 | OpenAPI required before implementation complete |
