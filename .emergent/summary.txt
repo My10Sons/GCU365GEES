@@ -1,0 +1,118 @@
+<analysis>**original_problem_statement**: The user is building Damage Intelligence, a production-ready, multi-tenant image-analysis and damage-detection capability that plugs into the existing GCU365 CROMS (rental) and GCU365Maintenance (workshop) systems. It requires a documented, traceability-first approach following a strict 8-task sequence. PRODUCT REQUIREMENTS: Manage inspection evidence, AI-assisted damage detection (Gemini), damage comparison, review queues, damage cases, and external integrations. 
+
+**User's preferred language**: English (INSTRUCT next agent to respond in English only).
+
+**what currently exists?**: A fully functioning baseline system comprising a FastAPI backend, MongoDB database, and a React shell. Sprints 00 (Engineering Setup), 01 (Production Inspection & Evidence), and 02 (Image Quality & AI Detection) are 100% complete, heavily tested, and verified via . Real Gemini vision models are wired for AI assessments.
+
+**Last working item**: 
+- Last item agent was working: The agent successfully wrapped up Sprint 02 (TASK-03) and explicitly set up the environment state (via  and drafting ) for a fresh context session to tackle the massive scope of Sprint 03 (TASK-04). 
+- Status: COMPLETED (Sprint 02) / NOT STARTED (Sprint 03).
+- Agent Testing Done: Y
+- Which testing method agent to use? Both (testing_agent_v3 for e2e, plus python smoke tests).
+- User Testing Done: N
+
+**All Pending/In progress Issue list**: 
+None. The codebase is currently 100% green with 0 outstanding bugs from the testing agent. 
+
+**In progress Task List**: 
+None. The previous session was cleanly shut down to preserve context window limits for the next sprint.
+
+**Upcoming and Future Tasks**:
+- **Task 1: TASK-04 / Sprint 03 — Production Review, Comparison, and Damage Cases (P0)** 
+  - *Where to resume*: Read  for locked decisions, plus .
+  - *Details*: Implement comparison API (auto-anchor + explicit baseline + 4-class output), review-queue collection + decision workflow + auto-routing, damage-case domain + status lifecycle, per-vehicle evidence strip endpoint (DI-0037), and matching web screens.
+- **Task 2: TASK-05 / Sprint 04 — Production CROMS and Maintenance Integration (P1)**
+- **Task 3: TASK-06 / Sprint 05 — Production Reports, Monitoring, Security and Release (P1)**
+- **Task 4: TASK-07 — Full Regression and Production Readiness Validation (P2)**
+- **Task 5: TASK-08 — Final Handover Report (P2)**
+
+**Completed work in this session**:
+- **TASK-00 (Repository Understanding and Scope Lock)**: Completed, missing DI-0034 API contract resolved.
+- **TASK-01 / Sprint 00 (Engineering Setup)**: FastAPI/MongoDB/React setup, JWT auth, tenant isolation, error middleware.
+- **TASK-02 / Sprint 01 (Production Inspection and Evidence Foundation)**: Inspection models, external ref stubs, secure upload/registration logic, UI screens.
+- **TASK-03 / Sprint 02 (Image Quality & AI Advisory Damage Detection)**: Gemini 3.5 Flash for image quality and Gemini 3.1 Pro for damage detection wired via . Dynamic threshold configurations.
+
+**Earlier issues found/mentioned but not fixed**:
+None. All issues raised by the testing agent (e.g., 422 vs 400 status codes, React hooks scope bug) were completely resolved.
+
+**Known issue recurrence from previous fork**:
+- Issue recurrence in previous fork: None (First fork).
+- Recurrence count: 0
+- Status: NOT STARTED
+
+**Code Architecture**:
+
+
+**Key Technical Concepts**:
+- Backend: FastAPI (Python), Clean Architecture principles.
+- Database: MongoDB (Motor, Pydantic integration).
+- Frontend: React 19 (CRA/Vite), Tailwind CSS, shadcn/ui.
+- Auth: Custom JWT with Tenant () isolation.
+
+**key DB schema**:
+- : {tenantId, inspectionSessionId, status, references}
+- : {tenantId, inspectionSessionId, imageId, capturePosition}
+- : {tenantId, confidenceThreshold, isTenantOverride}
+
+**changes in tech stack**:
+- **APPROVED SUBSTITUTION**: Replaced requested ASP.NET Core / PostgreSQL / Blazor stack with FastAPI / MongoDB / React per user authorization (documented in ).
+
+**All files of reference**:
+-  (Contains vital locked decisions for Sprint 03).
+-  (Auth users & passwords).
+-  (Authoritative API spec).
+-  (Drafted in this session, to be implemented in Sprint 03).
+
+**Areas that need refactoring**:
+None. Code is heavily linted and thoroughly verified by the testing agent.
+
+**key api endpoints**:
+- 
+- 
+- 
+- 
+
+**Critical Info for New Agent**:
+- **YOU MUST START TASK-04 / SPRINT-03 IMMEDIATELY**.
+- **READ  FIRST**. It contains 4 explicitly locked decisions for Sprint 03 that you *must not re-ask* the user about:
+  1. Comparison anchor: API accepts explicit baseline OR auto-anchors to the most recent prior inspection.
+  2. Auto-route: Low confidence findings AUTO-ROUTE to review queue upon Run AI.
+  3. Comparison classes: , , , .
+  4. DI-0037 (Per-Vehicle Evidence Strip) is approved to be bundled into Sprint 03 scope.
+- Maintain the high traceability bar: Create , run tests, and use  at the end of the sprint.
+
+**documents and test reports created in this job**:
+- 
+- 
+- 
+- 
+- 
+- 
+-  through 
+
+**Last 10 User Messages and any pending HUMAN messages**:
+1. User confirmed Option 1: 1 (Start TASK-04/Sprint 03 in a fresh session). *(Completed: Agent wrapped up and shut down cleanly).*
+2. User outlined TASK-04 / Sprint 03 reading materials, deliverables, and instructed the agent not to re-ask locked design questions. *(Completed: Agent read and advised context window was too low to start).*
+3. User answered design questions: Bundle DI-0037 (Yes), Comparison classes (NEW_DAMAGE, PRE_EXISTING, RESOLVED, NOT_COMPARABLE). *(Completed: Agent saved to PRD).*
+4. User provided instructions for Sprint 02 testing agent execution and provided TASK-04 locked decisions (Both anchor types, Auto-route low confidence). *(Completed: Agent saved to PRD).*
+5. User chose Gemini Vision for image quality over Python-only. *(Completed: Agent implemented).*
+
+**Project Health Check**:
+- Broken: None
+- Mocked: CROMS and Maintenance integration endpoints are temporarily stubbed (this is expected until Sprint 04).
+
+**3rd Party Integrations**:
+- Gemini 3.5 Flash (Image Quality) — uses Emergent LLM Key
+- Gemini 3.1 Pro Preview (Damage Detection) — uses Emergent LLM Key
+
+**Testing status**:
+- Testing agent used after significant changes: YES (Iterations 1 to 5)
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: , , 
+- Known regressions: None
+
+**Credentials to test flow**:
+Detailed in . (Contains  and  admins/inspectors).
+
+**What agent forgot to execute**:
+Nothing was forgotten. The agent deliberately paused implementation of Sprint 03 to preserve context window integrity and requested a fresh session.</analysis>
