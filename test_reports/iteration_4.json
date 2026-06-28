@@ -1,0 +1,49 @@
+{
+  "summary": "Sprint 02 first testing pass. BACKEND: 21/21 new Sprint 02 pytest GREEN with REAL automotive JPEG happy-path (116KB Unsplash car image) — quality-check returns non-ERROR with real qualityScore + blur/lighting/framing/occlusion scores; AI analysis returns COMPLETED with modelVersion='gemini:gemini-3.1-pro-preview', findings parsed against 8 allowed damageType enums and AUTO_ACCEPTABLE/LOW_CONFIDENCE/UNCERTAIN status enums; per-session quality summary, retry produces fresh finding ids, audit trail rows (QUALITY_CHECK_COMPLETED + AI_ANALYSIS_COMPLETED) have tenantId/actorId/correlationId/safeMetadata with NO base64/raw bytes, cross-tenant 404 on all 4 surfaces, Sprint 03-05 scope still 404, all Sprint-02 Mongo indexes present, Inspector PUT-thresholds = 403 FORBIDDEN + GET = 200, threshold validation (>1 / <0) returns 400 VALIDATION_ERROR, default 0.70 with models map correct. Failure-handling AC verified manually: DI_AI_TIMEOUT_SECONDS=1 → quality-check still returns SAFE envelope (qualityStatus=ERROR, modelVersion set, recaptureRecommendations populated). REGRESSION: Sprint 00 + Sprint 01 pytest 63/63 GREEN, smoke_sprint02.py GREEN. FRONTEND: BLOCKED — InspectionDetail.jsx fails to compile with 30+ ESLint no-undef errors (canAi, canAiRead, aiFindings/setAiFindings, aiBusy/setAiBusy, aiSummary/setAiSummary, aiError/setAiError all referenced but never declared). The CRA error overlay covers the entire app including /login, so NO frontend flow can be tested in this state.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "InspectionDetail.jsx",
+        "issue": "Compilation/runtime failure: 30+ no-undef errors. Missing state declarations for canAi, canAiRead, aiFindings/setAiFindings, aiBusy/setAiBusy, aiSummary/setAiSummary, aiError/setAiError. CRA error overlay blocks every route including /login — entire frontend is unusable.",
+        "selector": "[data-testid='inspection-detail-ai'], [data-testid='inspection-detail-quality'], [data-testid='inspection-detail-ai-section'], [data-testid='ai-findings-grid']",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {"flow": "Run-AI / Quality-check buttons (Admin & Inspector)", "issue": "Cannot verify — compilation error blocks rendering", "affected_selectors": ["[data-testid='inspection-detail-quality']", "[data-testid='inspection-detail-ai']"]},
+      {"flow": "Reviewer hidden buttons + read-only findings", "issue": "Cannot verify — compilation error blocks rendering", "affected_selectors": []},
+      {"flow": "AI section + finding cards rendering", "issue": "Cannot verify — compilation error blocks rendering", "affected_selectors": ["[data-testid='ai-findings-grid']", "[data-testid^='ai-finding-card-']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint02_backend.py",
+    "/app/backend/tests/test_sprint01_backend.py",
+    "/app/backend/tests/test_sprint00_backend.py",
+    "/app/backend/tests/smoke_sprint02.py",
+    "/app/test_reports/pytest/sprint02_results.xml",
+    "/app/test_reports/pytest/sprint00_01_regression.xml",
+    "/app/test_reports/assets/car1.jpg",
+    "/app/test_reports/assets/car_damage.jpg"
+  ],
+  "action_items": [
+    "FIX InspectionDetail.jsx: declare the missing useState hooks at the top of the component — `const [aiFindings, setAiFindings] = useState([]); const [aiBusy, setAiBusy] = useState(false); const [aiSummary, setAiSummary] = useState(null); const [aiError, setAiError] = useState('');` and the two permission flags — `const canAi = has('di.ai.request'); const canAiRead = has('di.ai.read');`. Once added, retest frontend AC for Admin/Inspector/Reviewer.",
+    "Optional: address pre-existing pytest deprecation warning ('Class-scoped fixture defined as instance method') in test_sprint01_backend.py::TestEvidenceAccessLink and test_sprint02_backend.py::TestHappyPathAIAnalysis — convert to @classmethod."
+  ],
+  "critical_code_review_comments": [
+    "InspectionDetail.jsx ships ~6 undeclared identifiers — should have been caught by `yarn lint`/CI before this hand-off. Add `eslint --max-warnings 0` to CI to block such regressions.",
+    "smoke_sprint02.py persists a 0.6 threshold via PUT and never restores it. Smoke tests should be hermetic (read default, mutate, restore in finally).",
+    "Audit safeMetadata contract: passes today, but there is no explicit allowlist of permitted keys — recommend a server-side projection so a future dev can't accidentally include raw bytes."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sprint02_backend.py (new, 21 tests)"
+  ],
+  "success_rate": {"backend": "100% (21/21 Sprint02 pytest + 63/63 regression + smoke_sprint02 + failure-handling AC)", "frontend": "0% (build broken, unable to render any page)"},
+  "test_credentials": "Used seeded creds from /app/memory/test_credentials.md (admin@riyadah.tech / DamageAdmin#2026, inspector@riyadah.tech / Inspector#2026, doha.admin@riyadah.tech / DohaAdmin#2026). All login OK.",
+  "seed_data_creation": "Test sessions VEH-S02-HAPPY + VEH-TIMEOUT under TENANT-000001; two real Unsplash JPEGs in /app/test_reports/assets/. No teardown needed.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Sprint 02 is fully verified including the real-image happy path that the smoke test could not exercise. Frontend is blocked by one easy fix (declare the missing useState hooks + canAi/canAiRead in InspectionDetail.jsx ~line 40). After E1's fix, retest: (1) admin & inspector see both buttons + Run-AI populates section + cards; (2) reviewer sees existing findings but NO Run-AI / Quality-check buttons; (3) data-testid='inspection-detail-ai-section' + 'ai-findings-grid' + 'ai-finding-card-{id}' visible with damageType/area/confidence%/severity/status pill + 'advisory — not a liability decision' text in header. Assets ready at /app/test_reports/assets/car1.jpg.",
+  "rca of the issue": "InspectionDetail.jsx adds JSX consumers of `canAi`, `canAiRead`, `aiFindings`, `aiBusy`, `aiSummary`, `aiError`, plus 4 setters, but the corresponding `useState` declarations and `has(...)` permission lookups were never added — likely partial commit of the Sprint-02 frontend hand-off. CRA's eslint-loader fails the build with no-undef, surfacing an overlay on every route. Mitigation: declare all 4 useStates + 2 permission flags at top of the component (alongside existing canUpload/canSubmit/canCancel/canAccess), then `yarn lint` should pass and the AI buttons + section will render."
+}
