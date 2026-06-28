@@ -38,6 +38,13 @@ export default function InspectionDetail() {
   const canSubmit = has("di.inspections.submit");
   const canCancel = has("di.inspections.cancel");
   const canAccess = has("di.evidence.access");
+  const canAi = has("di.ai.request");
+  const canAiRead = has("di.ai.read");
+
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiFindings, setAiFindings] = useState([]);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiError, setAiError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
