@@ -64,6 +64,17 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — Sprint 03 (TASK-04) — **DONE**
+
+- **Damage comparison with REAL Gemini multimodal vision** (`gemini-3.1-pro-preview`, multi-image baseline-vs-current per capture position via new `call_vision_model_multi`). Baseline anchor accepts explicit `baselineInspectionSessionId` OR auto-anchors to the most recent prior SUBMITTED inspection for the same `externalVehicleRef` (DECISION-Sprint03-a). Missing baseline / no-overlap → `NOT_COMPARABLE` (never auto-confirms new damage). Outcome codes: `NEW, PRE_EXISTING, CHANGED, REPAIRED, UNCERTAIN, NOT_COMPARABLE` (DECISION-Sprint03-c, full spec set; locked 4-class maps onto these).
+- **Review queue** (`di_review_queue_items`, idempotent on object): LOW_CONFIDENCE/UNCERTAIN AI findings + review-required comparison results auto-route on Run AI / Run comparison (DECISION-Sprint03-b; per-tenant `autoRouteLowConfidence` switch, default true, on `di_ai_configuration` via PUT `/configuration/ai-thresholds`). Decision codes `CONFIRMED/REJECTED/EDITED/ESCALATED/ADDITIONAL_EVIDENCE_REQUIRED/DEFERRED/DUPLICATE` (reason enforced where required); EDITED applies + audits before/after diff. Additional-evidence requests stored + linked.
+- **Damage cases** (`di_damage_cases` + status history + links collection): create from findings/comparison results, duplicate prevention (sha256 dedupeKey over inspection+linked ids while an active case exists → 409), controlled status lifecycle with transition map + reason enforcement, link-evidence/finding/comparison endpoints. Ownership boundary preserved (no charge/closure/repair-cost/work-order).
+- **DI-0037 Per-Vehicle Evidence Strip** (DECISION-Sprint03-d): GET `/inspection-sessions/{id}/per-vehicle-strip` — prior same-vehicle evidence in tenant, no raw objectPath/URLs.
+- 13 endpoints under 3 new routers (`comparison.py`, `review.py`, `damage_cases.py`); 10 new MongoDB collections w/ tenant-scoped indexes; new audit actions for all comparison/review/case events.
+- Web: Review Queue list + Review Item detail (decision + additional-evidence + create-case), Damage Cases list + detail (status update + history), comparison panel + per-vehicle strip on InspectionDetail. 40+ new data-testids.
+- Tests: `backend/tests/smoke_sprint03.py` (17 assertion blocks, all green incl. real Gemini). Regression: Sprint 00/01/02 smokes updated (stale 404 guards) and green. Testing agent iteration_6 — backend 100% (17/17), frontend 100% on all ACs, 0 issues.
+- Delivery record: `docs/07-Damage-Intelligence/implementation/SPRINT-03-DELIVERY-NOTES.md`.
+
 ### 2026-06-28 — Sprint 02 (TASK-03) — **DONE**
 
 - **AI advisory damage detection wired to real Gemini multimodal vision** via Emergent LLM key (`gemini-3.5-flash` for image-quality, `gemini-3.1-pro-preview` for damage detection — both swappable via env without code change).
@@ -95,13 +106,11 @@ actual repair cost, fleet master, or finance posting.
 
 ### P0 — Next sprint
 
-- **TASK-03 / Sprint 02 — Production Image Quality and AI Detection.** Required reading: DI-0005, DI-0006, DI-0007, DI-0008, DI-0011, DI-0012, DI-0014, DI-0015, DI-0034, DI-0035, and `implementation/SPRINT-02-Production-Image-Quality-and-AI-Detection.md`. Deliverables: image-quality validation pipeline + recapture recommendation, AI advisory damage detection with model-version tracking, low-confidence routing to review queue placeholder, configurable thresholds in `di_ai_configuration` collection, audit trail for every AI invocation, web Image Quality + AI Detection screens.
+- **TASK-05 / Sprint 04 — Production CROMS + GCU365Maintenance Integration.** Required reading: DI-0031, DI-0034, DI-0035, and `implementation/SPRINT-04-Production-CROMS-and-Maintenance-Integration.md`. Deliverables: idempotent (`X-Idempotency-Key`) audited inbound/outbound integration APIs, opaque-ref shape alignment (DECISION-Sprint01-b), replace CROMS/Maintenance ping stubs with real contract surfaces, maintenance handoff foundation.
 
 ### P1 — Subsequent sprints
 
-- TASK-04 / Sprint 03 — Damage comparison, review queue, damage cases.
-- TASK-05 / Sprint 04 — CROMS + GCU365Maintenance integration (idempotent, audited, opaque-ref shape alignment per DECISION-Sprint01-b).
-- TASK-06 / Sprint 05 — Reports, evidence packages, monitoring, security hardening, release gates (including production object store, login pre-fill removal, X-Forwarded-For trust).
+- TASK-06 / Sprint 05 — Reports, evidence packages, monitoring, security hardening, release gates (production object store, login pre-fill removal, X-Forwarded-For trust).
 - TASK-07 — Full regression + production readiness validation.
 - TASK-08 — Final handover report.
 

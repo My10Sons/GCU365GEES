@@ -75,8 +75,12 @@ GET  /integrations/maintenance/ping
 /login                              public
 /                                   Dashboard (auth required)
 /inspections                        list (di.inspections.read)
-/inspections/:id                    detail (di.inspections.read)
-/review /cases /reports /admin      placeholders (Sprint 03+ / Sprint 05)
+/inspections/:id                    detail (di.inspections.read) — + Run comparison + per-vehicle strip (Sprint 03)
+/review                             review queue list (di.review.read) — Sprint 03
+/review/:id                         review item detail + decision form (di.review.read / di.review.decide) — Sprint 03
+/cases                              damage cases list (di.damagecases.read) — Sprint 03
+/cases/:id                          damage case detail + status update (di.damagecases.read / .update) — Sprint 03
+/reports /admin                     placeholders (Sprint 05)
 ```
 
 The login form is pre-filled with the primary-tenant admin for Sprint-0x dev convenience.
