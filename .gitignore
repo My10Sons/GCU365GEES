@@ -31,3 +31,9 @@ storage/local-dev/
 .vscode/
 .idea/
 
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
