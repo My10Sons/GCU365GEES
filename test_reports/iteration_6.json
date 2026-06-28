@@ -1,0 +1,40 @@
+{
+  "summary": "Sprint 03 end-to-end testing (backend + frontend). Backend smoke (smoke_sprint03.py) executed against the public REACT_APP_BACKEND_URL with both tenants (TENANT-000001 admin + RIYADAH-DOH-001 admin) — all 17 assertion blocks green, including a REAL Gemini multi-image baseline-anchored comparison (completed status=COMPLETED_WITH_WARNINGS, model=gemini:gemini-3.1-pro-preview). Frontend Sprint 03 routes /review, /review/:id, /cases, /cases/:id, /inspections/:id rendered all required data-testids, the decision + additional-evidence + status forms work, the inspection detail Run-comparison button triggers the comparison panel and the per-vehicle-strip section renders prior evidence for the same vehicle. Zero console errors, zero page errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_acceptance_criteria": [
+    "Comparison with NO baseline -> NOT_COMPARABLE (reason=no_prior_inspection) and auto-routes 1 review item; never auto-confirms NEW damage.",
+    "Baseline auto-anchor: prior submitted inspection on same externalVehicleRef is picked automatically; comparison returns COMPLETED_WITH_WARNINGS via real Gemini call (gemini:gemini-3.1-pro-preview).",
+    "GET /comparisons/{id} returns advisory payload; cross-tenant returns 404 (RIYADAH-DOH-001 admin denied).",
+    "Review queue lists auto-routed COMPARISON_RESULT item; /review-items/{id} cross-tenant returns 404.",
+    "Decision endpoint: REJECTED without reason -> 400 VALIDATION_ERROR; CONFIRMED -> reviewStatus=DECIDED.",
+    "Additional-evidence-request requires reason and sets the item state correctly.",
+    "Damage cases: creation from comparisonResultIds succeeds (status=OPEN, links populated); duplicate (same inspection + same linked id while active) -> 409 CONFLICT.",
+    "Status lifecycle OPEN->REVIEWED allowed; CLOSED without reason -> 400; with reason -> CLOSED + statusHistory >=3; OPEN from CLOSED -> 409 terminal transition.",
+    "GET /damage-cases/{id} cross-tenant -> 404.",
+    "Per-vehicle evidence strip: total>=1 prior items, isAdvisory=true, NO objectPath/accessUrl in payload items.",
+    "Comparison + case payloads contain no raw objectPath / /internal/storage URLs.",
+    "POST /inspection-sessions/{id}/ai-analysis response includes reviewItemsRouted.",
+    "FRONTEND: /review (review-root) renders 3 rows with review-link-{id}; clicking opens /review/:id (review-item-root) with review-decision-code/reason/submit + review-evidence-reason/submit forms.",
+    "FRONTEND: Additional-evidence submission via review-evidence-submit completes without console/page errors.",
+    "FRONTEND: /cases (cases-root) renders 2 rows; cases-link-{id} navigates to /cases/:id (case-detail-root) with case-status-select/reason/submit form and a status-history section.",
+    "FRONTEND: /inspections/:id shows inspection-detail-compare button + per-vehicle-strip section; clicking Run comparison triggers comparison-section (Damage Comparison panel) and renders the resulting status (COMPLETED_WITH_WARNINGS observed on VEH-S03-DE8F7537-B)."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/smoke_sprint03.py",
+    "/app/test_reports/assets/sprint03_final.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "smoke_sprint03.py is a comprehensive 17-step e2e that already exercises every Sprint-03 invariant including real-Gemini multi-image comparison, tenant isolation (TENANT-000001 vs RIYADAH-DOH-001), payload URL-leak negative checks, status history and 4xx/409 negative paths. Good coverage; no functional gap detected.",
+    "Per-vehicle strip and comparison payload both correctly omit objectPath / accessUrl — DI-0037 + DI-0031 evidence-boundary contract upheld.",
+    "Frontend decision form opens immediately and gracefully — no overlay blocking, no missing data-testids; the page mounts even when there are no prior comparisons for the chosen inspection (per-vehicle-strip is rendered conditionally and was present when prior evidence existed)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (17/17 smoke + Gemini integration)", "frontend": "100% on all executed ACs"},
+  "test_credentials_used": "admin@riyadah.tech / DamageAdmin#2026 (TENANT-000001 DI_Admin) + doha.admin@riyadah.tech / DohaAdmin#2026 (RIYADAH-DOH-001 DI_Admin, cross-tenant denial)",
+  "seed_data_creation": "Smoke test created 3 fresh inspection sessions on TENANT-000001 (VEH-S03-{tag}-A current, VEH-S03-{tag}-B baseline-submitted, VEH-S03-{tag}-B current) + 1 review item decision + 1 damage case (closed) + 1 baseline-anchored comparison via real Gemini call. All TEST data is prefixed VEH-S03-{tag} for traceability.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sprint 03 (review queue + decisions + additional-evidence + damage cases + lifecycle + per-vehicle strip + baseline-anchored real-Gemini comparison + AI auto-route field) is FULLY GREEN end-to-end against the public preview URL. Backend smoke is the source of truth — re-run via `cd /app/backend && set -a && . ./.env && set +a && DI_SMOKE_BASE_URL=$REACT_APP_BACKEND_URL /root/.venv/bin/python tests/smoke_sprint03.py`. Frontend test executed against the live cluster used existing inspection rows (page 1 of /inspections lists VEH-S03-* sessions created by the smoke run, so the comparison + per-vehicle-strip UI renders deterministically when a freshly-created baseline+current pair is opened)."
+}

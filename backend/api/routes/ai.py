@@ -291,6 +291,7 @@ async def ai_analysis_retry(
 
 class ThresholdsIn(BaseModel):
     confidenceThreshold: float = Field(..., ge=0.0, le=1.0)
+    autoRouteLowConfidence: Optional[bool] = None
 
 
 @router.get("/configuration/ai-thresholds")
@@ -301,10 +302,14 @@ async def get_thresholds(
     db = get_db()
     cfg = await db.di_ai_configuration.find_one({"tenantId": principal["tenantId"]})
     default = float(os.environ.get("DI_AI_DEFAULT_CONFIDENCE_THRESHOLD", "0.70"))
+    auto_route = (cfg or {}).get("autoRouteLowConfidence")
+    if not isinstance(auto_route, bool):
+        auto_route = True
     return ok(
         {
             "tenantId": principal["tenantId"],
             "confidenceThreshold": (cfg or {}).get("confidenceThreshold", default),
+            "autoRouteLowConfidence": auto_route,
             "isTenantOverride": cfg is not None,
             "models": {
                 "imageQuality": f"{os.environ.get('DI_AI_MODEL_QUALITY_PROVIDER','gemini')}:{os.environ.get('DI_AI_MODEL_QUALITY_NAME','gemini-3.5-flash')}",
@@ -324,15 +329,20 @@ async def update_thresholds(
     db = get_db()
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
+    set_fields = {"confidenceThreshold": payload.confidenceThreshold, "updatedAt": now,
+                  "updatedBy": principal["id"]}
+    if payload.autoRouteLowConfidence is not None:
+        set_fields["autoRouteLowConfidence"] = payload.autoRouteLowConfidence
     await db.di_ai_configuration.update_one(
         {"tenantId": principal["tenantId"]},
-        {"$set": {"confidenceThreshold": payload.confidenceThreshold, "updatedAt": now,
-                  "updatedBy": principal["id"]},
+        {"$set": set_fields,
          "$setOnInsert": {"tenantId": principal["tenantId"], "createdAt": now}},
         upsert=True,
     )
+    cfg = await db.di_ai_configuration.find_one({"tenantId": principal["tenantId"]})
     return ok(
         {"tenantId": principal["tenantId"], "confidenceThreshold": payload.confidenceThreshold,
+         "autoRouteLowConfidence": cfg.get("autoRouteLowConfidence", True),
          "isTenantOverride": True},
         request.state.correlation_id,
     )

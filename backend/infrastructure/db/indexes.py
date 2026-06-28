@@ -108,3 +108,39 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
 
     # --- Sprint 02: AI configuration (per tenant) ---
     await db.di_ai_configuration.create_index("tenantId", unique=True)
+
+    # --- Sprint 03: Damage comparisons ---
+    await db.di_damage_comparisons.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("createdAt", -1)]
+    )
+    await db.di_damage_comparisons.create_index([("tenantId", 1), ("status", 1)])
+    await db.di_damage_comparison_results.create_index(
+        [("tenantId", 1), ("comparisonId", 1), ("createdAt", 1)]
+    )
+    await db.di_damage_comparison_results.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1)]
+    )
+
+    # --- Sprint 03: Review queue (idempotent on object) ---
+    await db.di_review_queue_items.create_index(
+        [("tenantId", 1), ("objectType", 1), ("objectId", 1)], unique=True
+    )
+    await db.di_review_queue_items.create_index(
+        [("tenantId", 1), ("reviewStatus", 1), ("priority", 1), ("createdAt", 1)]
+    )
+    await db.di_review_queue_items.create_index([("tenantId", 1), ("inspectionSessionId", 1)])
+    await db.di_review_decisions.create_index([("tenantId", 1), ("reviewItemId", 1), ("recordedAt", -1)])
+    await db.di_additional_evidence_requests.create_index([("tenantId", 1), ("reviewItemId", 1)])
+
+    # --- Sprint 03: Damage cases ---
+    await db.di_damage_cases.create_index([("tenantId", 1), ("createdAt", -1)])
+    await db.di_damage_cases.create_index([("tenantId", 1), ("status", 1)])
+    await db.di_damage_cases.create_index([("tenantId", 1), ("inspectionSessionId", 1)])
+    await db.di_damage_cases.create_index([("tenantId", 1), ("externalVehicleRef", 1)])
+    await db.di_damage_cases.create_index([("tenantId", 1), ("dedupeKey", 1)])
+    await db.di_damage_case_status_history.create_index(
+        [("tenantId", 1), ("damageCaseId", 1), ("timestamp", 1)]
+    )
+    await db.di_damage_case_links.create_index(
+        [("tenantId", 1), ("damageCaseId", 1), ("linkType", 1), ("linkedId", 1)], unique=True
+    )

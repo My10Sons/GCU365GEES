@@ -114,10 +114,9 @@ def main() -> int:
         assert re_an["isAdvisory"] is True
         results.append("[OK] AI analysis retry")
 
-        # 14) Forbidden scope still 404 (comparisons / review / damage-cases)
-        for path in ("/comparisons", "/review-queue", "/damage-cases", "/reports"):
-            assert c.get(path, headers=h1).status_code == 404
-        results.append("[OK] forbidden scope (Sprint 03-05) still 404")
+        # 14) Reports remain out-of-scope until Sprint 05 (404). Comparison/review/cases now exist (Sprint 03).
+        assert c.get("/reports", headers=h1).status_code == 404
+        results.append("[OK] reports out-of-scope (Sprint 05) still 404")
 
     print("\n".join(results))
     print("\nSprint 02 production image quality + AI detection smoke test passed.")

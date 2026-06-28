@@ -55,7 +55,7 @@ export default function Shell() {
               Damage Intelligence
             </div>
             <div className="text-[11px] text-steel-400 font-mono">
-              v{process.env.REACT_APP_DI_VERSION || "0.1"} · Sprint 00
+              v{process.env.REACT_APP_DI_VERSION || "0.1"} · Sprint 03
             </div>
           </div>
         </div>

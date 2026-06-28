@@ -12,6 +12,10 @@ import Dashboard from "./pages/Dashboard";
 import Placeholder from "./pages/Placeholder";
 import Inspections from "./pages/Inspections";
 import InspectionDetail from "./pages/InspectionDetail";
+import ReviewQueue from "./pages/ReviewQueue";
+import ReviewItemDetail from "./pages/ReviewItemDetail";
+import DamageCases from "./pages/DamageCases";
+import DamageCaseDetail from "./pages/DamageCaseDetail";
 
 function Protected({ children }) {
   const { status, principal } = useAuth();
@@ -52,25 +56,19 @@ function AppRoutes() {
         />
         <Route
           path="review"
-          element={
-            <Placeholder
-              title="Review Queue"
-              sprint="Sprint 03 — TASK-04"
-              doc="DI-0006, DI-0011, DI-0019, DI-0034"
-              summary="Human review of AI findings, review decisions, additional-evidence requests, and damage-case linkage — delivered in Sprint 03."
-            />
-          }
+          element={<ReviewQueue />}
+        />
+        <Route
+          path="review/:id"
+          element={<ReviewItemDetail />}
         />
         <Route
           path="cases"
-          element={
-            <Placeholder
-              title="Damage Cases"
-              sprint="Sprint 03 — TASK-04"
-              doc="DI-0011, DI-0012, DI-0034"
-              summary="Damage case context: status history, evidence/finding/comparison links. AI is advisory; final liability and customer charge remain with CROMS/Finance."
-            />
-          }
+          element={<DamageCases />}
+        />
+        <Route
+          path="cases/:id"
+          element={<DamageCaseDetail />}
         />
         <Route
           path="reports"

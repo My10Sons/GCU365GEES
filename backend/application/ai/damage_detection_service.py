@@ -230,11 +230,17 @@ async def run_analysis_for_session(
                        "totalFailures": total_failures, "modelVersion": f"{_provider()}:{_model()}",
                        "confidenceThreshold": threshold},
     )
+    # Sprint 03 (DECISION-Sprint03-b): auto-route LOW_CONFIDENCE / UNCERTAIN findings to review.
+    from application.services.review_service import auto_route_session_findings
+    review_routed = await auto_route_session_findings(
+        tenant_id=principal["tenantId"], inspection_session_id=str(session["_id"]),
+        ai_analysis_id=str(analysis_id), correlation_id=correlation_id,
+    )
     return {
         "id": str(analysis_id), "status": final_status,
         "totalImages": len(images), "totalFindings": total_findings,
         "totalFailures": total_failures, "modelVersion": f"{_provider()}:{_model()}",
-        "confidenceThreshold": threshold,
+        "confidenceThreshold": threshold, "reviewItemsRouted": review_routed,
     }
 
 

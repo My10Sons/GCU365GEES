@@ -166,10 +166,10 @@ def main() -> int:
         assert unsigned.status_code == 403
         results.append("[OK] unsigned/forged evidence URL rejected")
 
-        # 16) Forbidden scope (review queue still 404 in Sprint 01)
-        rv = c.get("/review-queue", headers=h1)
+        # 16) Reports remain out-of-scope until Sprint 05 (404). Review queue & cases now exist (Sprint 03).
+        rv = c.get("/reports", headers=h1)
         assert rv.status_code == 404 and rv.json()["errors"][0]["code"] == "NOT_FOUND"
-        results.append("[OK] review-queue out-of-scope (404)")
+        results.append("[OK] reports out-of-scope (404)")
 
     print("\n".join(results))
     print("\nSprint 01 production inspection and evidence foundation smoke test passed.")

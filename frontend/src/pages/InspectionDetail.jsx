@@ -6,9 +6,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ImagePlus, Send, Ban, Eye, ShieldCheck, AlertTriangle, RefreshCcw, Loader2, Sparkles, Activity,
+  ArrowLeft, ImagePlus, Send, Ban, Eye, ShieldCheck, AlertTriangle, RefreshCcw, Loader2, Sparkles, Activity, GitCompare, History, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { inspectionsApi, evidenceApi, envelopeError, absoluteUrl } from "../lib/inspections-api";
+import { comparisonApi } from "../lib/sprint03-api";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import StatusBadge from "../components/inspection/StatusBadge";
@@ -40,11 +41,19 @@ export default function InspectionDetail() {
   const canAccess = has("di.evidence.access");
   const canAi = has("di.ai.request");
   const canAiRead = has("di.ai.read");
+  const canCompare = has("di.comparison.request");
+  const canCompareRead = has("di.comparison.read");
 
   const [aiBusy, setAiBusy] = useState(false);
   const [aiFindings, setAiFindings] = useState([]);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiError, setAiError] = useState("");
+
+  const [cmpBusy, setCmpBusy] = useState(false);
+  const [cmpError, setCmpError] = useState("");
+  const [comparison, setComparison] = useState(null);
+  const [strip, setStrip] = useState([]);
+  const [stripOpen, setStripOpen] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,12 +71,38 @@ export default function InspectionDetail() {
           setAiFindings(f.data.data.items || []);
         } catch { /* swallow */ }
       }
+      if (canCompareRead) {
+        try {
+          const cl = await comparisonApi.list(id);
+          if (cl.items && cl.items.length > 0) {
+            const latest = await comparisonApi.get(cl.items[0].comparisonId);
+            setComparison(latest);
+          }
+        } catch { /* swallow */ }
+      }
+      try {
+        const st = await comparisonApi.perVehicleStrip(id, 12);
+        setStrip(st.items || []);
+      } catch { /* swallow */ }
     } catch (err) {
       setError(envelopeError(err, "Could not load inspection."));
     } finally {
       setLoading(false);
     }
-  }, [id, canAiRead]);
+  }, [id, canAiRead, canCompareRead]);
+
+  const runComparison = async () => {
+    setCmpBusy(true);
+    setCmpError("");
+    try {
+      const r = await comparisonApi.request(id, {});
+      setComparison(r);
+    } catch (err) {
+      setCmpError(envelopeError(err, "Comparison failed."));
+    } finally {
+      setCmpBusy(false);
+    }
+  };
 
   const runAi = async () => {
     setAiBusy(true);
@@ -221,6 +256,17 @@ export default function InspectionDetail() {
               </button>
             </>
           )}
+          {canCompare && images.length > 0 && (
+            <button
+              onClick={runComparison}
+              disabled={cmpBusy}
+              className="px-3 py-1.5 rounded-md text-xs bg-ink-800 border border-ink-700 text-steel-100 hover:bg-ink-700/80 flex items-center gap-1.5 disabled:opacity-50"
+              data-testid={T.inspectionDetailCompare}
+            >
+              {cmpBusy ? <Loader2 className="size-3.5 animate-spin" /> : <GitCompare className="size-3.5" />}
+              Run comparison
+            </button>
+          )}
           {canSubmit && !isTerminal && (
             <button
               onClick={submit}
@@ -289,6 +335,40 @@ export default function InspectionDetail() {
           </div>
         </div>
       </section>
+
+      {strip.length > 0 && (
+        <section className="mb-6" data-testid={T.perVehicleStrip}>
+          <button
+            onClick={() => setStripOpen((o) => !o)}
+            data-testid={T.perVehicleStripToggle}
+            className="flex items-center gap-2 mb-3 text-sm font-semibold uppercase tracking-wider text-white"
+          >
+            {stripOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+            <History className="size-4 text-steel-300" /> Prior evidence for this vehicle
+            <span className="text-[11px] font-mono text-steel-400 normal-case tracking-normal">advisory memory aid · {strip.length}</span>
+          </button>
+          {stripOpen && (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {strip.map((t) => (
+                <div key={t.inspectionImageId} data-testid={`${T.perVehicleTile}-${t.inspectionImageId}`}
+                  className="shrink-0 w-44 rounded-lg border border-ink-700/70 bg-ink-900/60 p-3">
+                  <div className="text-[11px] font-mono text-steel-300">{t.inspectionType || "—"}</div>
+                  <div className="text-[11px] text-steel-400 mt-0.5">{t.capturePosition || "—"}</div>
+                  <div className="text-[10px] text-steel-500 mt-1 font-mono">{fmt(t.capturedAt)}</div>
+                  {t.evidenceId && canAccess && (
+                    <button
+                      onClick={() => requestAccess(t.evidenceId)}
+                      className="mt-2 px-2 py-1 rounded-md text-[11px] bg-ink-800 border border-ink-700 hover:bg-ink-700/80 text-steel-200 flex items-center gap-1.5"
+                    >
+                      <Eye className="size-3" /> Open
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -383,6 +463,59 @@ export default function InspectionDetail() {
                 </div>
               ))}
             </div>
+          )}
+        </section>
+      )}
+      {(cmpError || comparison) && (
+        <section className="mt-8" data-testid={T.comparisonSection}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-white flex items-center gap-2">
+              <GitCompare className="size-4 text-steel-300" /> Damage comparison
+            </h2>
+            <span className="text-[11px] font-mono text-steel-400">advisory — not a liability decision</span>
+          </div>
+          {cmpError && (
+            <div className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 mb-3">{cmpError}</div>
+          )}
+          {comparison && (
+            <>
+              <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4 mb-3 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[12px]">
+                  <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">status</div><div className="text-white font-mono">{comparison.status}</div></div>
+                  <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">baseline</div><div className="text-white font-mono break-all">{comparison.baselineInspectionSessionId || "—"}</div></div>
+                  <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">results</div><div className="text-white font-mono">{comparison.totalResults ?? "—"}</div></div>
+                  <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">routed to review</div><div className="text-white font-mono">{comparison.reviewItemsRouted ?? 0}</div></div>
+                </div>
+                {comparison.notComparableReason && (
+                  <div className="mt-2 text-[12px] text-amber400">NOT_COMPARABLE: {comparison.notComparableReason}</div>
+                )}
+              </div>
+              {(comparison.outcomes || []).length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {comparison.outcomes.map((o) => (
+                    <div key={o.comparisonResultId} data-testid={`${T.comparisonResultCard}-${o.comparisonResultId}`}
+                      className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-mono text-steel-300">{o.damageType || "—"}</span>
+                        <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                          o.comparisonOutcomeCode === "NEW" ? "bg-signal/15 text-signal-soft border-signal/40"
+                          : o.comparisonOutcomeCode === "PRE_EXISTING" ? "bg-ink-800 text-steel-300 border-ink-600"
+                          : o.comparisonOutcomeCode === "REPAIRED" ? "bg-emerald-400/10 text-emerald-400 border-emerald-400/40"
+                          : o.comparisonOutcomeCode === "CHANGED" ? "bg-amber400/15 text-amber400 border-amber400/40"
+                          : "bg-ink-800 text-steel-400 border-ink-600"
+                        }`}>{o.comparisonOutcomeCode}</span>
+                      </div>
+                      <div className="text-sm text-steel-100 mb-1">{o.area || "—"}</div>
+                      <div className="text-[11px] font-mono text-steel-400">
+                        {o.confidenceScore != null && `confidence ${(o.confidenceScore * 100).toFixed(0)}% · `}
+                        {o.capturePosition || "—"}
+                      </div>
+                      {o.reviewRequired && <div className="text-[10px] text-amber400 mt-1">review required</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       )}

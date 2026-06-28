@@ -140,3 +140,74 @@ async def call_vision_model(
 
     latency_ms = int((time.perf_counter() - started) * 1000)
     return None, f"{provider}:{model_name}", latency_ms, last_error
+
+
+async def call_vision_model_multi(
+    *,
+    provider: str,
+    model_name: str,
+    system_message: str,
+    user_prompt: str,
+    images: list[dict],
+    correlation_id: str,
+) -> tuple[dict | None, str, int, str | None]:
+    """
+    Multi-image variant used by the Sprint 03 comparison engine.
+    `images` is a list of {"path": str, "mime": str}. Order is significant — the
+    prompt should reference image positions (e.g. baseline first, current second).
+    Never logs image bytes. Returns (parsed_json_or_None, model_label, latency_ms, error).
+    """
+    file_contents = []
+    for img in images:
+        path = img.get("path")
+        if not path or not Path(path).exists():
+            return None, f"{provider}:{model_name}", 0, "image_missing"
+        file_contents.append(
+            FileContentWithMimeType(file_path=path, mime_type=img.get("mime") or "image/jpeg")
+        )
+
+    last_error: str | None = None
+    started = time.perf_counter()
+    retries = _max_retries()
+    for attempt in range(retries + 1):
+        chat = LlmChat(
+            api_key=_emergent_key(),
+            session_id=f"di-cmp-{uuid.uuid4().hex}",
+            system_message=system_message,
+        ).with_model(provider, model_name)
+        msg = UserMessage(text=user_prompt, file_contents=file_contents)
+        try:
+            text = await asyncio.wait_for(chat.send_message(msg), timeout=_timeout_seconds())
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            parsed = _extract_json_block(text or "")
+            log_event(
+                logger, 20, "AI compare call done",
+                provider=provider, model=model_name, latencyMs=latency_ms,
+                parsedOk=parsed is not None, images=len(file_contents),
+                attempt=attempt, correlationId=correlation_id,
+            )
+            if parsed is None:
+                last_error = "non_json_output"
+                if attempt < retries:
+                    continue
+                return None, f"{provider}:{model_name}", latency_ms, last_error
+            return parsed, f"{provider}:{model_name}", latency_ms, None
+        except asyncio.TimeoutError:
+            last_error = "timeout"
+            log_event(logger, 30, "AI compare timeout", provider=provider, model=model_name, attempt=attempt, correlationId=correlation_id)
+            if attempt < retries:
+                await asyncio.sleep(1.5 * (attempt + 1))
+                continue
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            return None, f"{provider}:{model_name}", latency_ms, last_error
+        except Exception as exc:  # noqa: BLE001
+            last_error = type(exc).__name__
+            log_event(logger, 40, "AI compare failed", provider=provider, model=model_name, error=last_error, attempt=attempt, correlationId=correlation_id)
+            if attempt < retries:
+                await asyncio.sleep(1.5 * (attempt + 1))
+                continue
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            return None, f"{provider}:{model_name}", latency_ms, last_error
+
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    return None, f"{provider}:{model_name}", latency_ms, last_error
