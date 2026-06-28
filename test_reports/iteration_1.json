@@ -1,0 +1,47 @@
+{
+  "summary": "Sprint 00 acceptance pass executed end-to-end. 22/22 backend pytest assertions and 7/7 frontend Playwright scenarios pass. Health/version/correlation/safe-error/auth/RBAC/brute-force/integration-stub/forbidden-scope/audit/MongoDB-index requirements all verified against the live preview URL.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint00_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/backend/tests/smoke_sprint00.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth.py _record_attempt + _is_locked: 15-minute sliding window is keyed on `client_ip:email`. Behind any load balancer / ingress that rewrites X-Forwarded-For, request.client.host can collapse to a single proxy IP and lock every tenant user from that subnet. Consider keying on email only or trusting X-Forwarded-For via a configurable proxies list before Sprint 05 production hardening.",
+    "admin_seed: admin/inspector/reviewer passwords come from .env at startup. If an operator changes DI_SEED_ADMIN_PASSWORD after first boot, ensure seed_baseline_principals re-hashes the existing user (verify idempotent update path) — looks correct in code, just call out as a release-checklist item.",
+    "Login form on /login is pre-filled with admin credentials. Already acknowledged in SPRINT-00-DELIVERY-NOTES.md as a Sprint-05 hardening item — verified present in delivery notes; no action needed for Sprint 00.",
+    "No code-level bugs found. File sizes under 700 lines, async used correctly, Mongo `_id` is excluded from API responses, envelope/error structure is consistent, all endpoints prefixed under /api/v1/damage-intelligence."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sprint00_backend.py (new — 22 pytest cases for Sprint 00 acceptance)",
+    "/app/test_reports/iteration_1.json (this file)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026 (DI_Admin, 21 perms); inspector@riyadah.tech / Inspector#2026 (DI_Inspector); reviewer@riyadah.tech / Reviewer#2026 (DI_Reviewer); Tenant TENANT-000001",
+  "seed_data_creation": "None created. Used existing seeded users from /app/backend/infrastructure/seed/admin_seed.py. Brute-force test self-cleans di_login_attempts entries to keep the run idempotent.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite: `pytest /app/backend/tests/test_sprint00_backend.py -v`. The brute-force test deletes its own di_login_attempts rows on entry+exit so it is idempotent. The smoke test `tests/smoke_sprint00.py` still runs from the in-container loopback. For Sprint 01+ scope, the TestForbiddenScope class lists the endpoints that MUST remain absent today — convert those to positive tests when the respective sprint endpoints land. The frontend interceptor logic was verified indirectly: `test_me_with_auth` and `test_tenant_scope_violation` confirm Authorization + X-Tenant-Id round-trip end to end.",
+  "verified_acceptance_criteria": {
+    "AC-DI-S00-001 health/version/correlation/safe-error": "PASS",
+    "AC-DI-S00-002 identity baseline (6 roles, 21 admin perms)": "PASS — DI_Admin returns exactly 21 perms; integration-only perms correctly absent",
+    "AC-DI-S00-003 tenant isolation via X-Tenant-Id": "PASS — TENANT_SCOPE_VIOLATION envelope on mismatch",
+    "AC-DI-S00-004 brute force lockout after 5 fails": "PASS — 6th attempt returns FORBIDDEN",
+    "AC-DI-S00-005 audit trail with correlationId, no secrets": "PASS — login success/fail audited; passwords/tokens absent",
+    "AC-DI-S00-006 MongoDB unique/compound indexes": "PASS — di_users unique(tenantId,email); di_audit_records (tenantId,objectType,objectId) + (tenantId,timestamp); di_integration_idempotency_records unique(tenantId,idempotencyKey)",
+    "AC-DI-S00-007 CROMS + Maintenance integration stubs": "PASS — both return status='stub'",
+    "AC-DI-S00-008 forbidden Sprint 01-05 endpoints absent": "PASS — all 7 probed paths return 404 NOT_FOUND envelope",
+    "AC-DI-S00-009 web shell + RBAC menu": "PASS — admin sees all; inspector only Dashboard + Inspections; locked badge + aria-disabled='true' present",
+    "AC-DI-S00-010 login/logout/refresh flows": "PASS",
+    "AC-DI-S00-011 smoke test (legacy)": "PASS (pre-existing tests/smoke_sprint00.py)"
+  }
+}

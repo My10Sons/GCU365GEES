@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  background: #08090c;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #dbe2ec;
+}
+
+::selection {
+  background: rgba(230, 57, 70, 0.35);
+  color: #ffffff;
+}
+
+/* Slim, refined scrollbar */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #1f2533;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #2a3142;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Faint grid texture for the auth and shell backgrounds */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(58, 66, 88, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(58, 66, 88, 0.18) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+}
+
+.glass {
+  background: rgba(17, 20, 27, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(58, 66, 88, 0.5);
+}
