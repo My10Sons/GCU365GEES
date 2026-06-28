@@ -64,6 +64,12 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — Light mode — **DONE**
+
+- Converted the color palette (ink/steel/signal/amber/emerald + `white`) to CSS-variable tokens with Tailwind alpha support; `:root` = dark (default), `html.light` = light overrides. No component rewrites needed.
+- Theme manager (`lib/theme.js`): persists to localStorage, applied pre-render (no flash). Sun/Moon toggle in the Shell header and on the Login page.
+- Verified in both modes across Dashboard, Reports, and nav — readable surfaces/text/badges/accents; clean compile.
+
 ### 2026-06-28 — Demo seeder + GitHub reminder — **DONE**
 
 - **One-click demo seeder**: admin-only `POST /demo/seed` runs a full advisory flow (inspection → evidence → AI → comparison → review item → damage case → evidence-package report) in ~2s; surfaced as a "Load demo data" button on the Dashboard with a success message. Verified via curl + live UI (metrics increment correctly).

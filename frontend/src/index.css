@@ -2,18 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---- Theme tokens (space-separated RGB channels for Tailwind alpha support) ---- */
+:root {
+  /* Dark (default) */
+  --ink-950: 8 9 12;
+  --ink-900: 12 14 19;
+  --ink-850: 17 20 27;
+  --ink-800: 22 26 35;
+  --ink-700: 31 37 51;
+  --ink-600: 42 49 66;
+  --ink-500: 58 66 88;
+
+  --signal: 230 57 70;
+  --signal-soft: 240 106 115;
+
+  --steel-50: 238 242 247;
+  --steel-100: 219 226 236;
+  --steel-200: 184 194 211;
+  --steel-300: 138 150 173;
+  --steel-400: 90 100 120;
+  --steel-500: 62 71 90;
+
+  --white: 255 255 255;
+  --amber400: 251 191 36;
+  --emerald400: 52 211 153;
+
+  --page-bg: 8 9 12;
+  --grid-line: 58 66 88;
+  --grid-alpha: 0.18;
+  --scrollbar-thumb: 31 37 51;
+  --scrollbar-thumb-hover: 42 49 66;
+  --glass-bg: 17 20 27;
+  --glass-alpha: 0.72;
+}
+
+html.light {
+  /* Light surfaces: ink-900/850 = card whites, ink-950 = page, ink-700/600 = borders */
+  --ink-950: 244 246 249;
+  --ink-900: 255 255 255;
+  --ink-850: 251 252 253;
+  --ink-800: 244 246 249;
+  --ink-700: 224 228 235;
+  --ink-600: 203 210 221;
+  --ink-500: 168 178 192;
+
+  --signal: 220 38 47;
+  --signal-soft: 200 30 40;
+
+  /* Steel inverts: text shades go dark in light mode */
+  --steel-50: 23 30 42;
+  --steel-100: 33 42 56;
+  --steel-200: 51 65 85;
+  --steel-300: 71 85 105;
+  --steel-400: 100 116 139;
+  --steel-500: 148 163 184;
+
+  /* "white" (used for headings/strong fg) becomes near-black in light mode */
+  --white: 17 24 39;
+  --amber400: 180 122 8;
+  --emerald400: 5 150 105;
+
+  --page-bg: 240 242 246;
+  --grid-line: 100 116 139;
+  --grid-alpha: 0.10;
+  --scrollbar-thumb: 203 210 221;
+  --scrollbar-thumb-hover: 168 178 192;
+  --glass-bg: 255 255 255;
+  --glass-alpha: 0.78;
+}
+
 html,
 body,
 #root {
   height: 100%;
-  background: #08090c;
+  background: rgb(var(--page-bg));
 }
 
 body {
   margin: 0;
   font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  color: #dbe2ec;
+  color: rgb(var(--steel-100));
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 ::selection {
@@ -27,11 +97,11 @@ body {
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #1f2533;
+  background: rgb(var(--scrollbar-thumb));
   border-radius: 8px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #2a3142;
+  background: rgb(var(--scrollbar-thumb-hover));
 }
 *::-webkit-scrollbar-track {
   background: transparent;
@@ -40,15 +110,15 @@ body {
 /* Faint grid texture for the auth and shell backgrounds */
 .bg-grid {
   background-image:
-    linear-gradient(rgba(58, 66, 88, 0.18) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(58, 66, 88, 0.18) 1px, transparent 1px);
+    linear-gradient(rgba(var(--grid-line) / var(--grid-alpha)) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--grid-line) / var(--grid-alpha)) 1px, transparent 1px);
   background-size: 48px 48px;
   background-position: -1px -1px;
 }
 
 .glass {
-  background: rgba(17, 20, 27, 0.72);
+  background: rgba(var(--glass-bg) / var(--glass-alpha));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(58, 66, 88, 0.5);
+  border: 1px solid rgb(var(--ink-700));
 }

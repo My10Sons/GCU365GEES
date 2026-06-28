@@ -1,3 +1,7 @@
+/** Colors are CSS-variable driven so the same class names adapt to light/dark.
+ *  Channels live in src/index.css (:root = dark default, html.light = light overrides). */
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`;
+
 module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}", "./public/index.html"],
   darkMode: "class",
@@ -5,28 +9,29 @@ module.exports = {
     extend: {
       colors: {
         ink: {
-          950: "#08090c",
-          900: "#0c0e13",
-          850: "#11141b",
-          800: "#161a23",
-          700: "#1f2533",
-          600: "#2a3142",
-          500: "#3a4258",
+          950: v("--ink-950"),
+          900: v("--ink-900"),
+          850: v("--ink-850"),
+          800: v("--ink-800"),
+          700: v("--ink-700"),
+          600: v("--ink-600"),
+          500: v("--ink-500"),
         },
         signal: {
-          DEFAULT: "#e63946", // damage / alert
-          soft: "#f06a73",
+          DEFAULT: v("--signal"),
+          soft: v("--signal-soft"),
         },
         steel: {
-          50: "#eef2f7",
-          100: "#dbe2ec",
-          200: "#b8c2d3",
-          300: "#8a96ad",
-          400: "#5a6478",
-          500: "#3e475a",
+          50: v("--steel-50"),
+          100: v("--steel-100"),
+          200: v("--steel-200"),
+          300: v("--steel-300"),
+          400: v("--steel-400"),
+          500: v("--steel-500"),
         },
-        amber400: "#fbbf24",
-        emerald400: "#34d399",
+        white: v("--white"),
+        amber400: v("--amber400"),
+        emerald400: v("--emerald400"),
       },
       fontFamily: {
         sans: [

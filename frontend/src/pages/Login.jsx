@@ -4,13 +4,15 @@
  */
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ShieldAlert, Loader2 } from "lucide-react";
+import { ShieldAlert, Loader2, Sun, Moon } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { envelopeError } from "../lib/api";
+import { useTheme } from "../lib/theme";
 import { T } from "../constants/testIds";
 
 export default function Login() {
   const { login } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -35,6 +37,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-ink-950 bg-grid relative overflow-hidden">
+      <button
+        data-testid="theme-toggle"
+        onClick={toggle}
+        title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+        className="absolute top-5 right-5 z-10 size-9 grid place-items-center rounded-md text-steel-300 bg-ink-800 border border-ink-700 hover:bg-ink-700/80 hover:text-white transition-colors"
+      >
+        {theme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
+      </button>
       {/* radial accent */}
       <div
         aria-hidden

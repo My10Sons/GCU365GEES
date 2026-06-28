@@ -14,9 +14,12 @@ import {
   Settings2,
   LogOut,
   ShieldAlert,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { IntegrationAlertBanner } from "./IntegrationAlertBanner";
+import { useTheme } from "../lib/theme";
 import { T } from "../constants/testIds";
 
 const NAV = [
@@ -30,6 +33,7 @@ const NAV = [
 
 export default function Shell() {
   const { principal, has, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
   const onLogout = async () => {
@@ -130,6 +134,14 @@ export default function Shell() {
           >
             {principal?.email} · {(principal?.roles || [])[0] || "—"}
           </span>
+          <button
+            data-testid="theme-toggle"
+            onClick={toggle}
+            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            className="size-8 grid place-items-center rounded-md text-steel-300 bg-ink-800 border border-ink-700 hover:bg-ink-700/80 hover:text-white transition-colors"
+          >
+            {theme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
+          </button>
           <button
             data-testid={T.logoutBtn}
             onClick={onLogout}
