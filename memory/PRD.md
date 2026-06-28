@@ -64,6 +64,11 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — Demo seeder + GitHub reminder — **DONE**
+
+- **One-click demo seeder**: admin-only `POST /demo/seed` runs a full advisory flow (inspection → evidence → AI → comparison → review item → damage case → evidence-package report) in ~2s; surfaced as a "Load demo data" button on the Dashboard with a success message. Verified via curl + live UI (metrics increment correctly).
+- **Save-to-GitHub reminder**: inline Dashboard tip pointing operators to the chat "Save to GitHub" option.
+
 ### 2026-06-28 — Deployment readiness + Ops alert banner — **DONE**
 
 - **deployment_agent: PASS** (no blockers) — env hygiene, CORS, ports, no hardcoded secrets/URLs, supervisor config valid, compilation clean.

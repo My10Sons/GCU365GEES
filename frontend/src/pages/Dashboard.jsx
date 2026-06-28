@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { T } from "../constants/testIds";
-import { Activity, Database, Cpu, HardDrive, Lock, GitBranch, CheckCircle2, XCircle, Plug, AlertTriangle } from "lucide-react";
+import { Activity, Database, Cpu, HardDrive, Lock, GitBranch, CheckCircle2, XCircle, Plug, AlertTriangle, Sparkles, Loader2, Github } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 
 const SPRINTS = [
@@ -72,11 +72,31 @@ function IntegStat({ label, value, warn }) {
 }
 
 export default function Dashboard() {
-  const { principal } = useAuth();
+  const { principal, has } = useAuth();
   const [deps, setDeps] = useState(null);
   const [version, setVersion] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState("");
+  const [demo, setDemo] = useState({ busy: false, msg: "" });
+  const canSeedDemo = has("di.configuration.manage");
+
+  const reloadMetrics = async () => {
+    try {
+      const m = await api.get("/monitoring/metrics");
+      setMetrics(m.data.data);
+    } catch { /* non-blocking */ }
+  };
+
+  const seedDemo = async () => {
+    setDemo({ busy: true, msg: "" });
+    try {
+      const { data } = await api.post("/demo/seed", {});
+      setDemo({ busy: false, msg: data.data.message });
+      await reloadMetrics();
+    } catch (err) {
+      setDemo({ busy: false, msg: "Demo seeding failed. Please retry." });
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -115,6 +135,25 @@ export default function Dashboard() {
           release hardening.
         </p>
       </div>
+
+      {canSeedDemo && (
+        <div className="flex flex-wrap items-center gap-3 mb-8">
+          <button
+            data-testid="dashboard-seed-demo"
+            onClick={seedDemo}
+            disabled={demo.busy}
+            className="px-3.5 py-2 rounded-md text-xs font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-2"
+          >
+            {demo.busy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+            {demo.busy ? "Generating demo data…" : "Load demo data"}
+          </button>
+          <span className="text-[11px] text-steel-400 flex items-center gap-1.5">
+            <Github className="size-3.5" /> Tip: use the “Save to GitHub” option in the chat to version your code.
+          </span>
+          {demo.msg && <span data-testid="dashboard-seed-demo-msg" className="text-[12px] text-emerald-400">{demo.msg}</span>}
+        </div>
+      )}
+
 
       {error && (
         <div className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 mb-6">
