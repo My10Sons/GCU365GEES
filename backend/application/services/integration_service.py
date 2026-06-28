@@ -33,6 +33,16 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+async def _latest_report(tenant_id: str, report_type: str, match: dict) -> Optional[dict]:
+    """Return a {reportId} reference for the most recent matching report, else None."""
+    db = get_db()
+    doc = await db.di_reports.find_one(
+        {"tenantId": tenant_id, "reportType": report_type, "status": "COMPLETED", **match},
+        sort=[("createdAt", -1)],
+    )
+    return {"reportId": str(doc["_id"]), "reportType": report_type} if doc else None
+
+
 async def _load_case(tenant_id: str, case_id: str) -> dict:
     db = get_db()
     try:
@@ -140,6 +150,10 @@ async def croms_damage_summary(*, principal: dict, rental_agreement_id: str, cor
 
     summary_status = "REVIEW_REQUIRED" if review_required > 0 else ("DAMAGE_FOUND" if total_findings > 0 else "NO_DAMAGE_DETECTED")
 
+    # Sprint 05 closing-the-loop: surface generated reports if available (else null).
+    report_ref = await _latest_report(tenant_id, "RENTAL_DAMAGE_SUMMARY_REPORT", {"rentalAgreementId": rental_agreement_id})
+    evidence_ref = await _latest_report(tenant_id, "EVIDENCE_PACKAGE_REPORT", {"inspectionSessionId": {"$in": session_ids}})
+
     await write_audit(
         tenant_id=tenant_id, actor_id=principal["id"], actor_type=ActorType.SERVICE,
         action=AuditAction.CROMS_DAMAGE_SUMMARY_ACCESSED, object_type=ObjectType.INTEGRATION,
@@ -155,8 +169,8 @@ async def croms_damage_summary(*, principal: dict, rental_agreement_id: str, cor
         "totalFindings": total_findings,
         "damageCaseIds": case_ids,
         "comparisonStatus": (latest_cmp or {}).get("status"),
-        "reportReference": None,
-        "evidencePackageReference": None,
+        "reportReference": report_ref,
+        "evidencePackageReference": evidence_ref,
         "finalCustomerChargeDecision": NOT_OWNED,
         "isAdvisory": True,
     }
@@ -216,12 +230,19 @@ async def maintenance_handoff(
 
     db = get_db()
     now = _now()
+    # Sprint 05 closing-the-loop: prefer caller-supplied refs, else auto-link generated reports.
+    evidence_ref = payload.get("evidencePackageReference")
+    if not evidence_ref and case.get("inspectionSessionId"):
+        evidence_ref = await _latest_report(tenant_id, "EVIDENCE_PACKAGE_REPORT",
+                                            {"inspectionSessionId": case["inspectionSessionId"]})
+    report_ref = await _latest_report(tenant_id, "DAMAGE_CASE_REPORT", {"damageCaseId": case_id})
     handoff_doc = {
         "tenantId": tenant_id,
         "damageCaseId": case_id,
         "vehicleId": payload.get("vehicleId") or case.get("externalVehicleRef"),
         "severityCode": payload.get("severityCode") or case.get("severityCode"),
-        "evidencePackageReference": payload.get("evidencePackageReference"),
+        "evidencePackageReference": evidence_ref,
+        "reportReference": report_ref,
         "advisoryEstimateReference": payload.get("advisoryEstimateReference"),
         "status": IntegrationStatus.SENT,
         "idempotencyKey": idempotency_key,
@@ -237,6 +258,7 @@ async def maintenance_handoff(
     await client.submit_handoff(tenant_id=tenant_id, damage_case_id=case_id, correlation_id=correlation_id)
 
     data = {"maintenanceHandoffId": handoff_id, "status": IntegrationStatus.SENT, "damageCaseId": case_id,
+            "evidencePackageReference": evidence_ref, "reportReference": report_ref,
             "workOrderExecutionOwnedBy": SourceSystemRef.MAINTENANCE}
     await write_audit(
         tenant_id=tenant_id, actor_id=principal["id"], actor_type=ActorType.SERVICE,

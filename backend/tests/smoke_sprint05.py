@@ -128,6 +128,13 @@ def main() -> int:
         assert m2["reports"]["generated"] >= 3
         results.append(f"[OK] monitoring metrics reflect activity (reports={m2['reports']['generated']})")
 
+        # 13) Closing-the-loop: CROMS damage-summary now surfaces the generated report reference.
+        c.post("/reports", headers=admin, json={"reportType": "EVIDENCE_PACKAGE_REPORT", "inspectionSessionId": sid}).raise_for_status()
+        svc, _ = login(c, os.environ["DI_SEED_INTEGRATION_EMAIL"], os.environ["DI_SEED_INTEGRATION_PASSWORD"])
+        di_summary = c.get(f"/integrations/croms/rental-agreements/{ra}/damage-summary", headers=svc).json()["data"]
+        assert di_summary["reportReference"] and di_summary["reportReference"]["reportId"] == rsum["reportId"], di_summary
+        results.append("[OK] CROMS damage-summary auto-links the rental damage summary report")
+
     print("\n".join(results))
     print("\nSprint 05 production reports monitoring security and release smoke test passed.")
     return 0
