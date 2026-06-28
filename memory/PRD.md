@@ -64,6 +64,18 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — Sprint 04 (TASK-05) — **DONE**
+
+- **CROMS integration** (service-to-service, JWT + DI_IntegrationService role): check-out / check-in inspection request APIs (store CROMS refs only, baseline link on check-in), rental damage-summary API (returns `finalCustomerChargeDecision: NOT_OWNED_BY_DAMAGE_INTELLIGENCE`), inspection-status API, damage-summary-ready notification (outbound stub).
+- **GCU365Maintenance integration**: handoff API (eligibility check, ownership preserved), work-order-reference / repair-status (actual cost stored as **reference only**, owned by Maintenance) / rejection / additional-evidence callbacks, handoff-status aggregation API.
+- **Idempotency** (`X-Idempotency-Key`, `di_integration_idempotency_records`): same tenant+key+payload replays stored response; different payload → `IDEMPOTENCY_CONFLICT` (409). Audited.
+- **Security & isolation**: integration perms gate every endpoint (non-integration principals 401/403); strict tenant scoping (cross-tenant → 404); no raw objectPath/URLs or secrets in payloads/logs; full integration audit action set.
+- New collections: `di_maintenance_handoffs`, `di_maintenance_references`, `di_maintenance_status_updates` (tenant-scoped indexes). Seeded `DI_IntegrationService` accounts per tenant.
+- Web: damage-case detail now surfaces read-only **Maintenance integration** context (handoffs, work orders, repair status) via `maintenanceContext` on the case GET.
+- Tests: `backend/tests/smoke_sprint04.py` (16 steps green incl. idempotency replay/conflict, ownership boundaries, tenant isolation, security). Regression Sprint 00–03 green. Testing agent iteration_7 — backend 100%, frontend 100%, 0 issues.
+- Delivery record: `docs/07-Damage-Intelligence/implementation/SPRINT-04-DELIVERY-NOTES.md`.
+- **MOCKED**: outbound CROMS/Maintenance client calls are stubs (`CromsClientStub`/`MaintenanceClientStub`) — inbound APIs + persistence are fully real.
+
 ### 2026-06-28 — Sprint 03 (TASK-04) — **DONE**
 
 - **Damage comparison with REAL Gemini multimodal vision** (`gemini-3.1-pro-preview`, multi-image baseline-vs-current per capture position via new `call_vision_model_multi`). Baseline anchor accepts explicit `baselineInspectionSessionId` OR auto-anchors to the most recent prior SUBMITTED inspection for the same `externalVehicleRef` (DECISION-Sprint03-a). Missing baseline / no-overlap → `NOT_COMPARABLE` (never auto-confirms new damage). Outcome codes: `NEW, PRE_EXISTING, CHANGED, REPAIRED, UNCERTAIN, NOT_COMPARABLE` (DECISION-Sprint03-c, full spec set; locked 4-class maps onto these).
@@ -106,11 +118,10 @@ actual repair cost, fleet master, or finance posting.
 
 ### P0 — Next sprint
 
-- **TASK-05 / Sprint 04 — Production CROMS + GCU365Maintenance Integration.** Required reading: DI-0031, DI-0034, DI-0035, and `implementation/SPRINT-04-Production-CROMS-and-Maintenance-Integration.md`. Deliverables: idempotent (`X-Idempotency-Key`) audited inbound/outbound integration APIs, opaque-ref shape alignment (DECISION-Sprint01-b), replace CROMS/Maintenance ping stubs with real contract surfaces, maintenance handoff foundation.
+- **TASK-06 / Sprint 05 — Reports, Monitoring, Security & Release.** Required reading: DI-0035 + `implementation/SPRINT-05-Production-Reports-Monitoring-Security-and-Release.md`. Deliverables: damage reports + evidence packages (referenced as null today in CROMS summary/handoff — to be implemented here), integration monitoring metrics + dashboards, security hardening (production object store, remove login pre-fill, X-Forwarded-For trust, rate limiting), release gates.
 
-### P1 — Subsequent sprints
+### P1 — Subsequent
 
-- TASK-06 / Sprint 05 — Reports, evidence packages, monitoring, security hardening, release gates (production object store, login pre-fill removal, X-Forwarded-For trust).
 - TASK-07 — Full regression + production readiness validation.
 - TASK-08 — Final handover report.
 

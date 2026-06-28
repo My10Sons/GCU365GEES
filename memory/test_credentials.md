@@ -19,6 +19,7 @@ Passwords come from `/app/backend/.env`.
 | **DI_Admin** | `admin@riyadah.tech` | `DamageAdmin#2026` | 21 (every business + di.configuration.manage + di.audit.read) |
 | **DI_Inspector** | `inspector@riyadah.tech` | `Inspector#2026` | 9 |
 | **DI_Reviewer** | `reviewer@riyadah.tech` | `Reviewer#2026` | 12 |
+| **DI_IntegrationService** | `integration.service@riyadah.tech` | `Integration#2026` | di.integrations.croms, di.integrations.maintenance, di.inspections.create, di.inspections.read |
 
 ### Tenant `RIYADAH-DOH-001`
 
@@ -26,6 +27,7 @@ Passwords come from `/app/backend/.env`.
 |------|-------|----------|-------------|
 | **DI_Admin** | `doha.admin@riyadah.tech` | `DohaAdmin#2026` | 21 |
 | **DI_Inspector** | `doha.inspector@riyadah.tech` | `DohaInspector#2026` | 9 |
+| **DI_IntegrationService** | `doha.integration.service@riyadah.tech` | `DohaIntegration#2026` | integrations (cross-tenant isolation tests) |
 
 ## API base
 
