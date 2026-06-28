@@ -32,3 +32,53 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.di_integration_idempotency_records.create_index(
         [("tenantId", 1), ("idempotencyKey", 1)], unique=True
     )
+
+    # --- Sprint 01: Inspection sessions ---
+    await db.di_inspection_sessions.create_index([("tenantId", 1), ("createdAt", -1)])
+    await db.di_inspection_sessions.create_index([("tenantId", 1), ("status", 1)])
+    await db.di_inspection_sessions.create_index([("tenantId", 1), ("inspectionType", 1)])
+    await db.di_inspection_sessions.create_index(
+        [("tenantId", 1), ("references.externalVehicleRef", 1)]
+    )
+    await db.di_inspection_sessions.create_index(
+        [("tenantId", 1), ("references.externalRentalAgreementRef", 1)]
+    )
+    await db.di_inspection_sessions.create_index(
+        [("tenantId", 1), ("references.externalBranchRef", 1)]
+    )
+
+    # --- Sprint 01: Inspection status history (append-only) ---
+    await db.di_inspection_status_history.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("timestamp", 1)]
+    )
+
+    # --- Sprint 01: Inspection images ---
+    await db.di_inspection_images.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("createdAt", 1)]
+    )
+    await db.di_inspection_images.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("uploadRequestId", 1)],
+        unique=True,
+        partialFilterExpression={"uploadRequestId": {"$exists": True}},
+    )
+
+    # --- Sprint 01: Evidence references ---
+    await db.di_evidence_references.create_index([("tenantId", 1), ("inspectionSessionId", 1)])
+    await db.di_evidence_references.create_index([("tenantId", 1), ("inspectionImageId", 1)])
+
+    # --- Sprint 01: Upload requests ---
+    await db.di_upload_requests.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("createdAt", -1)]
+    )
+    await db.di_upload_requests.create_index("expiresAt")
+
+    # --- Sprint 01: External system references (write-through index) ---
+    await db.di_external_system_references.create_index(
+        [("tenantId", 1), ("refType", 1), ("refValue", 1)]
+    )
+    await db.di_external_system_references.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1)]
+    )
+
+    # --- Sprint 01: Capture positions reference data ---
+    await db.di_capture_positions.create_index("code", unique=True)

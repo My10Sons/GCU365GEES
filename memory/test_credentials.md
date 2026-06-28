@@ -1,42 +1,83 @@
-# Test Credentials — Damage Intelligence (Sprint 00 baseline)
+# Test Credentials — Damage Intelligence
 
-These accounts are seeded at backend startup by
-`infrastructure/seed/admin_seed.py` (idempotent). Passwords come from
-`/app/backend/.env`.
+Seeded at backend startup by `infrastructure/seed/admin_seed.py` (idempotent).
+Passwords come from `/app/backend/.env`.
 
-## Tenant
+## Tenants
 
-| Tenant Id | Notes |
-|-----------|-------|
-| `TENANT-000001` | Default tenant for Sprint 00 baseline |
+| Tenant Id | Notes | Sprint introduced |
+|-----------|-------|-------------------|
+| `TENANT-000001`     | Generic primary tenant — preserved for Sprint-00 regression | Sprint 00 |
+| `RIYADAH-DOH-001`   | Riyadah Technology, Doha primary branch — used for multi-tenant isolation tests | Sprint 01 (DECISION-Sprint01-a) |
 
 ## Accounts
 
+### Tenant `TENANT-000001`
+
 | Role | Email | Password | Permissions |
 |------|-------|----------|-------------|
-| **DI_Admin** | `admin@riyadah.tech` | `DamageAdmin#2026` | 21 (every business permission + di.configuration.manage + di.audit.read) |
-| **DI_Inspector** | `inspector@riyadah.tech` | `Inspector#2026` | 9 (inspection capture + image upload + AI request/read + comparison read + evidence access) |
-| **DI_Reviewer** | `reviewer@riyadah.tech` | `Reviewer#2026` | 12 (review queue + decisions + damage cases + reports + comparison) |
+| **DI_Admin** | `admin@riyadah.tech` | `DamageAdmin#2026` | 21 (every business + di.configuration.manage + di.audit.read) |
+| **DI_Inspector** | `inspector@riyadah.tech` | `Inspector#2026` | 9 |
+| **DI_Reviewer** | `reviewer@riyadah.tech` | `Reviewer#2026` | 12 |
+
+### Tenant `RIYADAH-DOH-001`
+
+| Role | Email | Password | Permissions |
+|------|-------|----------|-------------|
+| **DI_Admin** | `doha.admin@riyadah.tech` | `DohaAdmin#2026` | 21 |
+| **DI_Inspector** | `doha.inspector@riyadah.tech` | `DohaInspector#2026` | 9 |
 
 ## API base
 
 ```
 Base URL : ${REACT_APP_BACKEND_URL}/api/v1/damage-intelligence
-Login    : POST /auth/login   body: { email, password }
-Refresh  : POST /auth/refresh body: { refreshToken }
-Self     : GET  /auth/me      headers: Authorization: Bearer <token>, X-Tenant-Id: TENANT-000001
-Logout   : POST /auth/logout  headers: Authorization: Bearer <token>
-Health   : GET  /health, GET /health/dependencies, GET /version (public)
-Stubs    : GET  /integrations/croms/ping, GET /integrations/maintenance/ping (public, Sprint-04 deferral note)
+
+# Auth (Sprint 00)
+POST /auth/login   body: { email, password }
+POST /auth/refresh body: { refreshToken }
+GET  /auth/me      headers: Authorization: Bearer <token>, X-Tenant-Id: <tenantId>
+POST /auth/logout  headers: Authorization: Bearer <token>
+
+# Reference (Sprint 01)
+GET  /reference/capture-positions
+
+# Inspection sessions (Sprint 01) — require Authorization + X-Tenant-Id
+POST   /inspection-sessions
+GET    /inspection-sessions/{id}
+GET    /inspection-sessions
+POST   /inspection-sessions/{id}/submit
+PATCH  /inspection-sessions/{id}/status
+POST   /inspection-sessions/{id}/images/upload-request
+POST   /inspection-sessions/{id}/images
+GET    /inspection-sessions/{id}/images
+
+# Evidence (Sprint 01)
+POST   /evidence/{evidenceId}/access-link
+
+# Signed-URL targets (NOT directly called by your client — they're targets of
+# the URLs returned by upload-request / access-link). Public-but-signature-bound.
+PUT  /internal/storage/upload?path=&exp=&sig=
+GET  /internal/storage/access?path=&exp=&sig=
+
+# Health (public)
+GET  /health
+GET  /health/dependencies
+GET  /version
+
+# Integration stubs (Sprint 04 placeholder)
+GET  /integrations/croms/ping
+GET  /integrations/maintenance/ping
 ```
 
-## Frontend route
+## Frontend routes
 
 ```
-Login screen : /login
-Dashboard    : /            (requires authentication)
-Placeholders : /inspections /review /cases /reports /admin
+/login                              public
+/                                   Dashboard (auth required)
+/inspections                        list (di.inspections.read)
+/inspections/:id                    detail (di.inspections.read)
+/review /cases /reports /admin      placeholders (Sprint 03+ / Sprint 05)
 ```
 
-The login form is pre-filled with the admin credentials for Sprint 00 dev
-convenience. Remove the pre-fill before any production release.
+The login form is pre-filled with the primary-tenant admin for Sprint-0x dev convenience.
+Remove the pre-fill before any non-dev deployment.

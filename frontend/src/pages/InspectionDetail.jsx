@@ -1,0 +1,288 @@
+/*
+ * Repository Traceability:
+ * - DI-SPRINT-01 (Inspection detail screen, status view, evidence access action,
+ *   submission action), DI-0034 endpoints, DI-0014 (no public URLs).
+ */
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft, ImagePlus, Send, Ban, Eye, ShieldCheck, AlertTriangle, RefreshCcw, Loader2,
+} from "lucide-react";
+import { inspectionsApi, evidenceApi, envelopeError, absoluteUrl } from "../lib/inspections-api";
+import { useAuth } from "../lib/auth-context";
+import StatusBadge from "../components/inspection/StatusBadge";
+import UploadImageModal from "../components/inspection/UploadImageModal";
+import { T } from "../constants/testIds";
+
+const TERMINAL = new Set(["SUBMITTED", "CANCELLED", "FAILED"]);
+
+function fmt(d) {
+  if (!d) return "—";
+  try { return new Date(d).toLocaleString(); } catch { return d; }
+}
+
+export default function InspectionDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { has } = useAuth();
+  const [session, setSession] = useState(null);
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [action, setAction] = useState({ busy: false, error: "" });
+  const [openUpload, setOpenUpload] = useState(false);
+  const [accessByEvidence, setAccessByEvidence] = useState({});
+
+  const canUpload = has("di.images.upload");
+  const canSubmit = has("di.inspections.submit");
+  const canCancel = has("di.inspections.cancel");
+  const canAccess = has("di.evidence.access");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [s, imgs] = await Promise.all([
+        inspectionsApi.get(id),
+        inspectionsApi.listImages(id),
+      ]);
+      setSession(s);
+      setImages(imgs.items || []);
+    } catch (err) {
+      setError(envelopeError(err, "Could not load inspection."));
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const isTerminal = session && TERMINAL.has(session.status);
+
+  const submit = async () => {
+    setAction({ busy: true, error: "" });
+    try {
+      const updated = await inspectionsApi.submit(id);
+      setSession(updated);
+    } catch (err) {
+      setAction({ busy: false, error: envelopeError(err, "Submission failed.") });
+      return;
+    }
+    setAction({ busy: false, error: "" });
+  };
+
+  const cancel = async () => {
+    const reason = window.prompt("Reason for cancelling this inspection?");
+    if (!reason) return;
+    setAction({ busy: true, error: "" });
+    try {
+      const updated = await inspectionsApi.patchStatus(id, { status: "CANCELLED", reason });
+      setSession(updated);
+    } catch (err) {
+      setAction({ busy: false, error: envelopeError(err, "Cancellation failed.") });
+      return;
+    }
+    setAction({ busy: false, error: "" });
+  };
+
+  const requestAccess = async (evidenceId) => {
+    try {
+      const r = await evidenceApi.accessLink(evidenceId, "Inspector preview", 5);
+      setAccessByEvidence((prev) => ({ ...prev, [evidenceId]: r }));
+      window.open(absoluteUrl(r.accessUrl), "_blank", "noopener");
+    } catch (err) {
+      window.alert(envelopeError(err, "Could not generate access link."));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="px-8 py-10 text-steel-300 text-sm" data-testid={T.inspectionDetailLoading}>
+        Loading inspection…
+      </div>
+    );
+  }
+
+  if (error || !session) {
+    return (
+      <div className="px-8 py-10 max-w-2xl">
+        <button onClick={() => navigate("/inspections")} className="text-sm text-steel-300 hover:text-white mb-4 flex items-center gap-1.5">
+          <ArrowLeft className="size-3.5" /> Back to inspections
+        </button>
+        <div className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 flex items-start gap-2" data-testid={T.inspectionDetailError}>
+          <AlertTriangle className="size-4 mt-0.5" />
+          <div>{error || "Inspection not found."}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid={T.inspectionDetailRoot} className="px-8 py-8 max-w-6xl">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <button
+            onClick={() => navigate("/inspections")}
+            className="text-xs text-steel-300 hover:text-white mb-3 flex items-center gap-1.5"
+            data-testid={T.inspectionDetailBack}
+          >
+            <ArrowLeft className="size-3.5" /> Back to inspections
+          </button>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold text-white font-mono" data-testid={T.inspectionDetailVehicle}>
+              {session.references?.externalVehicleRef || "—"}
+            </h1>
+            <StatusBadge status={session.status} testId={T.inspectionDetailStatus} />
+          </div>
+          <div className="mt-1 font-mono text-[11px] text-steel-400">
+            {session.inspectionType} · {session.sourceSystem} · created {fmt(session.createdAt)}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={load}
+            className="px-3 py-1.5 rounded-md text-xs text-steel-200 bg-ink-800 border border-ink-700 hover:bg-ink-700/80 flex items-center gap-1.5"
+            data-testid={T.inspectionDetailRefresh}
+          >
+            <RefreshCcw className="size-3.5" /> Refresh
+          </button>
+          {canUpload && !isTerminal && (
+            <button
+              onClick={() => setOpenUpload(true)}
+              className="px-3 py-1.5 rounded-md text-xs bg-ink-800 border border-ink-700 text-steel-100 hover:bg-ink-700/80 flex items-center gap-1.5"
+              data-testid={T.inspectionDetailUpload}
+            >
+              <ImagePlus className="size-3.5" /> Upload image
+            </button>
+          )}
+          {canSubmit && !isTerminal && (
+            <button
+              onClick={submit}
+              disabled={action.busy || images.length === 0}
+              title={images.length === 0 ? "Register at least one image before submitting" : ""}
+              className="px-3 py-1.5 rounded-md text-xs bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-1.5"
+              data-testid={T.inspectionDetailSubmit}
+            >
+              {action.busy ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+              Submit
+            </button>
+          )}
+          {canCancel && !isTerminal && (
+            <button
+              onClick={cancel}
+              disabled={action.busy}
+              className="px-3 py-1.5 rounded-md text-xs text-signal-soft bg-signal/10 border border-signal/30 hover:bg-signal/20 flex items-center gap-1.5"
+              data-testid={T.inspectionDetailCancel}
+            >
+              <Ban className="size-3.5" /> Cancel
+            </button>
+          )}
+        </div>
+      </div>
+
+      {action.error && (
+        <div className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 mb-4">
+          {action.error}
+        </div>
+      )}
+
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-6">
+        <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
+          <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-3">References</div>
+          <dl className="space-y-2 text-sm">
+            <RefRow label="Vehicle" value={session.references?.externalVehicleRef} />
+            <RefRow label="Rental" value={session.references?.externalRentalAgreementRef} />
+            <RefRow label="Branch" value={session.references?.externalBranchRef} />
+            <RefRow label="Maintenance" value={session.references?.externalMaintenanceRef} />
+            <RefRow label="Work order" value={session.references?.externalWorkOrderRef} />
+          </dl>
+          <p className="text-[11px] text-steel-400 mt-3 leading-relaxed">
+            CROMS and Maintenance refs are opaque strings. Real callback/write integrations land in Sprint 04.
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
+          <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-3">Lifecycle</div>
+          <dl className="space-y-2 text-sm">
+            <RefRow label="Created" value={fmt(session.createdAt)} />
+            <RefRow label="Updated" value={fmt(session.updatedAt)} />
+            <RefRow label="Submitted" value={fmt(session.submittedAt)} />
+            <RefRow label="Cancelled" value={fmt(session.cancelledAt)} />
+            <RefRow label="Failed" value={fmt(session.failedAt)} />
+            {session.statusReason && <RefRow label="Reason" value={session.statusReason} />}
+          </dl>
+        </div>
+
+        <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
+          <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-3">Evidence</div>
+          <div className="text-3xl font-semibold text-white">{session.registeredImageCount || 0}</div>
+          <div className="text-xs text-steel-400 mt-1">images registered (of {session.imageCount} total)</div>
+          <div className="mt-3 text-[11px] text-steel-400 leading-relaxed flex items-start gap-1.5">
+            <ShieldCheck className="size-3.5 mt-0.5 text-emerald-400" />
+            Evidence is tenant-scoped. Access links are time-limited and audited.
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-white">Inspection images</h2>
+          <span className="text-[11px] font-mono text-steel-400">{images.length} item(s)</span>
+        </div>
+        {images.length === 0 ? (
+          <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-8 text-center text-sm text-steel-400" data-testid={T.inspectionDetailNoImages}>
+            No images registered yet. {canUpload && !isTerminal && "Use “Upload image” to add one."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid={T.inspectionDetailImagesGrid}>
+            {images.map((img) => (
+              <div key={img.id} data-testid={`${T.inspectionImageCard}-${img.id}`} className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-mono text-steel-300">{img.capturePosition}</span>
+                  <StatusBadge status={img.status === "REGISTERED" ? "EVIDENCE_REGISTERED" : img.status} />
+                </div>
+                <div className="text-[11px] text-steel-400 font-mono leading-relaxed">
+                  {img.contentType} · {Math.round((img.fileSize || 0) / 1024)} KB
+                  {img.width && img.height && ` · ${img.width}×${img.height}`}
+                </div>
+                <div className="text-[11px] text-steel-500 mt-1">{fmt(img.createdAt)}</div>
+                {img.evidenceId && canAccess && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => requestAccess(img.evidenceId)}
+                      className="px-2.5 py-1 rounded-md text-[11px] bg-ink-800 border border-ink-700 hover:bg-ink-700/80 text-steel-200 flex items-center gap-1.5"
+                      data-testid={`${T.inspectionImageAccess}-${img.id}`}
+                    >
+                      <Eye className="size-3" /> Open evidence
+                    </button>
+                    {accessByEvidence[img.evidenceId] && (
+                      <p className="text-[10px] text-steel-500 mt-1.5 font-mono">
+                        link valid until {fmt(accessByEvidence[img.evidenceId].expiresAt)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <UploadImageModal
+        open={openUpload}
+        onClose={() => setOpenUpload(false)}
+        inspectionId={id}
+        onUploaded={() => load()}
+      />
+    </div>
+  );
+}
+
+function RefRow({ label, value }) {
+  return (
+    <div className="flex gap-3 items-baseline">
+      <dt className="text-[11px] uppercase tracking-wider text-steel-400 w-24 shrink-0">{label}</dt>
+      <dd className="font-mono text-[12px] text-steel-100 flex-1 break-all">{value || "—"}</dd>
+    </div>
+  );
+}

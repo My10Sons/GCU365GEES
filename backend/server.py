@@ -33,13 +33,18 @@ from api.middleware.safe_errors import (
     validation_exception_handler,
 )
 from api.routes import auth as auth_routes
+from api.routes import evidence as evidence_routes
 from api.routes import health as health_routes
+from api.routes import inspections as inspection_routes
 from api.routes import integration_stubs as integration_stub_routes
+from api.routes import reference as reference_routes
+from api.routes import storage_internal as storage_internal_routes
 from api.routes import version as version_routes
 from infrastructure.db.indexes import ensure_indexes
 from infrastructure.db.mongo import close as close_db, get_db
 from infrastructure.observability.logging import configure_logging, get_logger, log_event
 from infrastructure.seed.admin_seed import seed_baseline_principals
+from infrastructure.seed.capture_positions_seed import seed_capture_positions
 
 configure_logging()
 logger = get_logger("di.api")
@@ -80,6 +85,10 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 app.include_router(health_routes.router, prefix=API_BASE_PATH)
 app.include_router(version_routes.router, prefix=API_BASE_PATH)
 app.include_router(auth_routes.router, prefix=API_BASE_PATH)
+app.include_router(reference_routes.router, prefix=API_BASE_PATH)
+app.include_router(inspection_routes.router, prefix=API_BASE_PATH)
+app.include_router(evidence_routes.router, prefix=API_BASE_PATH)
+app.include_router(storage_internal_routes.router, prefix=API_BASE_PATH)
 app.include_router(integration_stub_routes.router, prefix=API_BASE_PATH)
 
 
@@ -88,9 +97,10 @@ async def on_startup() -> None:
     db = get_db()
     await ensure_indexes(db)
     await seed_baseline_principals()
+    await seed_capture_positions()
     await db.di_schema_version.update_one(
-        {"version": "sprint-00"},
-        {"$setOnInsert": {"version": "sprint-00", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},
+        {"version": "sprint-01"},
+        {"$setOnInsert": {"version": "sprint-01", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},
         upsert=True,
     )
     log_event(logger, 20, "Damage Intelligence API ready", baseApiPath=API_BASE_PATH)

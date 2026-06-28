@@ -51,16 +51,29 @@ async def _upsert_user(tenant_id: str, email: str, password: str, display_name: 
 
 
 async def seed_baseline_principals() -> None:
-    tenant_id = os.environ.get("DI_SEED_TENANT_ID", "TENANT-000001")
-    seeds = [
-        (os.environ.get("DI_SEED_ADMIN_EMAIL"), os.environ.get("DI_SEED_ADMIN_PASSWORD"),
+    primary_tenant = os.environ.get("DI_SEED_TENANT_ID", "TENANT-000001")
+    secondary_tenant = os.environ.get("DI_SEED_TENANT_ID_SECONDARY", "RIYADAH-DOH-001")
+
+    seeds: list[tuple[str, str | None, str | None, str, list[str]]] = [
+        # Primary tenant — preserved from Sprint 00 (regression compatibility)
+        (primary_tenant,
+         os.environ.get("DI_SEED_ADMIN_EMAIL"), os.environ.get("DI_SEED_ADMIN_PASSWORD"),
          "Damage Intelligence Admin", [Role.DI_ADMIN]),
-        (os.environ.get("DI_SEED_INSPECTOR_EMAIL"), os.environ.get("DI_SEED_INSPECTOR_PASSWORD"),
+        (primary_tenant,
+         os.environ.get("DI_SEED_INSPECTOR_EMAIL"), os.environ.get("DI_SEED_INSPECTOR_PASSWORD"),
          "Field Inspector", [Role.DI_INSPECTOR]),
-        (os.environ.get("DI_SEED_REVIEWER_EMAIL"), os.environ.get("DI_SEED_REVIEWER_PASSWORD"),
+        (primary_tenant,
+         os.environ.get("DI_SEED_REVIEWER_EMAIL"), os.environ.get("DI_SEED_REVIEWER_PASSWORD"),
          "Damage Reviewer", [Role.DI_REVIEWER]),
+        # Secondary tenant — Sprint 01 multi-tenant isolation testing (RIYADAH-DOH-001)
+        (secondary_tenant,
+         os.environ.get("DI_SEED_ADMIN_EMAIL_2"), os.environ.get("DI_SEED_ADMIN_PASSWORD_2"),
+         "Riyadah Doha Admin", [Role.DI_ADMIN]),
+        (secondary_tenant,
+         os.environ.get("DI_SEED_INSPECTOR_EMAIL_2"), os.environ.get("DI_SEED_INSPECTOR_PASSWORD_2"),
+         "Riyadah Doha Inspector", [Role.DI_INSPECTOR]),
     ]
-    for email, password, display_name, roles in seeds:
+    for tenant_id, email, password, display_name, roles in seeds:
         if not email or not password:
             continue
         await _upsert_user(tenant_id, email, password, display_name, roles)

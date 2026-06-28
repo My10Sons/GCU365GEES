@@ -10,6 +10,8 @@ import Login from "./pages/Login";
 import Shell from "./components/Shell";
 import Dashboard from "./pages/Dashboard";
 import Placeholder from "./pages/Placeholder";
+import Inspections from "./pages/Inspections";
+import InspectionDetail from "./pages/InspectionDetail";
 
 function Protected({ children }) {
   const { status, principal } = useAuth();
@@ -42,14 +44,11 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route
           path="inspections"
-          element={
-            <Placeholder
-              title="Inspection Sessions"
-              sprint="Sprint 01 — TASK-02"
-              doc="DI-0004, DI-0007, DI-0011, DI-0012, DI-0034"
-              summary="Inspection session creation, status lifecycle, vehicle/rental/branch references, secure image upload, image registration, evidence access — all delivered in Sprint 01."
-            />
-          }
+          element={<Inspections />}
+        />
+        <Route
+          path="inspections/:id"
+          element={<InspectionDetail />}
         />
         <Route
           path="review"
