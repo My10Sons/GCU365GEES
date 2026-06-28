@@ -232,9 +232,9 @@ class TestForbiddenScope:
         "/review-queue",
         "/reports",
     ]
+    # NOTE: /inspection-sessions and /inspection-sessions/{id}/images/upload-request
+    # are now implemented in Sprint 01 and removed from this Sprint 00 forbidden list.
     FORBIDDEN_POST = [
-        "/inspection-sessions",
-        "/inspection-sessions/abc/images/upload-request",
         "/inspection-sessions/abc/ai-analysis",
         "/damage-cases",
         "/integrations/croms/check-out-inspections",

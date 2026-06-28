@@ -1,0 +1,37 @@
+{
+  "summary": "RETEST of iteration_2's two HIGH-priority backend bugs (422→400 fix in /app/backend/api/middleware/safe_errors.py validation_exception_handler). Both reported cases now go GREEN. Full regression confirmed: 41/41 Sprint01 pytest + 22/22 Sprint00 pytest = 63/63 PASS. Both smoke tests (sprint00 + sprint01) print their 'passed' final line. Defensive checks confirmed: missing externalVehicleRef → 400 VALIDATION_ERROR with field='references.externalVehicleRef'; invalid JSON body → 400 VALIDATION_ERROR (no stack trace / no schema dump leaked); DomainError path (inspectionType='BOGUS') still returns 400 VALIDATION_ERROR with field='inspectionType' (Pydantic handler change did NOT regress DomainError-based 400s). The access-link bound checks (expiresInMinutes=0 and >60) are now HTTP 400 (verified by pytest test_access_link_validates_expires, which exercises both 0 and 120).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/test_sprint00_backend.py::TestForbiddenScope::test_post_endpoints_missing", "issue": "Stale Sprint00 negative-coverage test (pre-Sprint01 era) still listed /inspection-sessions and /inspection-sessions/{id}/images/upload-request in FORBIDDEN_POST, which were legitimately added in Sprint01. Fixed by trimming the list (test-only scaffolding fix). Iteration_2 falsely reported sprint00 22/22 because it never re-ran sprint00 after Sprint01 routes landed."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint01_backend.py",
+    "/app/backend/tests/test_sprint00_backend.py",
+    "/app/backend/tests/smoke_sprint00.py",
+    "/app/backend/tests/smoke_sprint01.py",
+    "/app/test_reports/pytest/retest_iter3_final.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "safe_errors.py: validation_exception_handler now correctly returns HTTP 400 with the standard envelope. Field-path derivation (loc[1:] joined by '.') correctly produces 'references.externalVehicleRef' for nested-body errors. No schema/internals leak.",
+    "Minor: pytest warning 'Class-scoped fixture defined as instance method is deprecated' in test_sprint01_backend.py::TestEvidenceAccessLink — convert fixture to @classmethod (non-blocking, future pytest 10.x).",
+    "Sprint00 negative-coverage tests should be marked as deprecated once their target endpoints exist in a later sprint, or use a dynamic skip — to avoid future false regressions like the one fixed here."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sprint00_backend.py — removed /inspection-sessions and /inspection-sessions/{id}/images/upload-request from FORBIDDEN_POST (now implemented in Sprint01)"
+  ],
+  "success_rate": {"backend": "100% (63/63 pytest + 2/2 smoke)", "frontend": "not retested (per request)"},
+  "test_credentials": "Used seeded creds from /app/backend/.env via DI_SEED_ADMIN_EMAIL / DI_SEED_ADMIN_PASSWORD. No new accounts created.",
+  "seed_data_creation": "Tests created TEST_/VEH-RETEST-* inspection sessions under TENANT-000001 via the API (~20 immutable history rows). No teardown required.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both iteration_2 HIGH bugs (422 instead of 400) are resolved by the one-line fix in safe_errors.py. Full backend suite green: 63/63 pytest + smoke_sprint00 + smoke_sprint01. Note: a stale Sprint00 negative-coverage test was trimmed (FORBIDDEN_POST list) — this was a pre-existing test-scaffolding issue not caused by the 422→400 fix. Frontend was 100% green in iteration_2 and not retested here. Suggested next: address pytest deprecation warning in TestEvidenceAccessLink (class-scoped fixture as instance method) and proceed with Sprint 02 work.",
+  "rca of the issue": "Root cause for iteration_2's two HIGH bugs: FastAPI's default RequestValidationError handler returns 422, but the project's standard contract (DI-0034) mandates HTTP 400 for body validation failures alongside the safe envelope {success:false, errors:[{code:'VALIDATION_ERROR',field,...}]}. The custom handler in safe_errors.py built the correct envelope but returned status_code=422. Fix: change status_code=422 → status_code=400. Mitigation: contract-test (already in test_sprint01_backend.py) now asserts both status code AND envelope shape together, preventing future drift."
+}

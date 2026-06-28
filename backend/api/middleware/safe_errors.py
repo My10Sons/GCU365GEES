@@ -67,7 +67,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         if isinstance(loc, (list, tuple)) and loc:
             first_field = ".".join(str(p) for p in loc[1:]) if len(loc) > 1 else str(loc[0])
     return JSONResponse(
-        status_code=422,
+        status_code=400,
         content=fail(ErrorCode.VALIDATION_ERROR, first_msg, _correlation_id(request), first_field),
     )
 
