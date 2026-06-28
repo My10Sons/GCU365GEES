@@ -64,66 +64,50 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
-### 2026-06-28 — Sprint 00 (TASK-01) — **DONE**
+### 2026-06-28 — Sprint 01 (TASK-02) — **DONE**
 
-- TASK-00 (Repository Understanding and Scope Lock) — complete
-- BLOCKER-001 (`DI-0034` missing) — resolved upstream, file synced
-- Stack-substitution decisions (DECISION-001..004) — approved by product owner
-- Backend FastAPI app online (`supervisor status backend = RUNNING`)
-  - 9 endpoints implemented: health (×2), version, auth (×4), integration ping (×2)
-  - 6 MongoDB collections + tenant-scoped indexes
-  - JWT (60min access, 7d refresh) + bcrypt + brute-force guard
-  - 6 roles × 23 permissions baseline
-  - Correlation-id middleware, safe-errors middleware, JSON logging that scrubs secrets
-  - CROMS + Maintenance integration **stubs** (Sprint-04 placeholder)
-  - HMAC-signed local-storage provider behind `StorageProvider` interface
-- Frontend React shell online (`supervisor status frontend = RUNNING`)
-  - `/login` with prefilled dev creds + safe error rendering
-  - `/` Dashboard with live health probes + DI-0031 scope card + sprint plan card
-  - `/inspections /review /cases /reports /admin` placeholders (each cites repo doc + sprint)
-  - Sidebar role-based menu visibility (permission-gated)
-  - `data-testid` registry (`src/constants/testIds.js`)
-- 11 of 11 Sprint 00 acceptance criteria PASS or formally DOCUMENTED
-- Smoke test `backend/tests/smoke_sprint00.py` — 12 assertions, all green
-- Delivery record: `docs/07-Damage-Intelligence/implementation/SPRINT-00-DELIVERY-NOTES.md`
-- Credentials: `/app/memory/test_credentials.md` and `/app/auth_testing.md`
+- All 12 acceptance criteria (AC-DI-S01-001 to AC-DI-S01-012) PASS
+- Two human-in-the-loop decisions captured: DECISION-Sprint01-a (seed `RIYADAH-DOH-001` alongside `TENANT-000001`), DECISION-Sprint01-b (opaque external string references, align in Sprint 04). Documented in `docs/07-Damage-Intelligence/implementation/SPRINT-01-DELIVERY-NOTES.md`.
+- Backend: 8 inspection/image endpoints + evidence access-link + capture-positions reference + signed-URL PUT/GET storage targets. 6 status lifecycle states with explicit transition map. Action-scoped HMAC (PUT signatures cannot be reused as GET). 7 new MongoDB collections with tenant-scoped indexes. 14 audit-action codes with `correlationId` everywhere.
+- Web: `/inspections` list (filters + pagination + create), `/inspections/:id` detail (references, lifecycle, images, upload/submit/cancel, evidence access link opens in a new tab). 40+ new `data-testid`s.
+- Testing agent regression — 63/63 pytest green (22 Sprint-00 + 41 Sprint-01) + both smoke tests green. One bug found & fixed mid-iteration: `validation_exception_handler` was returning HTTP 422 instead of DI-0034's required HTTP 400 for `VALIDATION_ERROR` envelopes; single-line fix in `/app/backend/api/middleware/safe_errors.py`.
+- Smoke tests preserved: `backend/tests/smoke_sprint00.py` (12 assertions) + `backend/tests/smoke_sprint01.py` (16 assertions).
+
+### 2026-06-28 — Sprint 00 (TASK-01) — DONE
+
+- (As previously recorded; see `docs/07-Damage-Intelligence/implementation/SPRINT-00-DELIVERY-NOTES.md`.)
+- TASK-00 Repository Scope Lock complete. BLOCKER-001 (`DI-0034`) resolved upstream.
+- FastAPI backend with health/version/auth/integration-stub endpoints, JWT + RBAC, tenant-scope cross-check, brute-force guard, safe-error envelope, correlation-id round-trip, HMAC-signed local storage abstraction. React shell with login + dashboard + sidebar.
 
 ## Prioritized Backlog
 
 ### P0 — Next sprint
 
-- **TASK-02 / Sprint 01 — Production Inspection and Evidence Foundation**
-  - Inspection session domain model, status lifecycle + status history
-  - External references (vehicle, rental, branch, maintenance placeholder)
-  - Capture positions, secure upload request, image registration, evidence references
-  - Evidence access link generation (controlled, time-limited)
-  - Tenant isolation tests, audit records, safe errors
-  - 9 APIs (POST `/inspection-sessions`, GET, list, submit, PATCH status, upload-request, register image, list images, evidence access-link)
-  - 8 collections (`di_inspection_sessions`, `di_inspection_status_history`, `di_inspection_images`, `di_evidence_references`, `di_upload_requests`, `di_external_system_references`, `di_capture_positions`, `di_audit_records`)
-  - Web: inspection foundation screens
-  - QA: TC-DI-0101..0205, 1101..1104, 1201, 1202, 1401, 1701
+- **TASK-03 / Sprint 02 — Production Image Quality and AI Detection.** Required reading: DI-0005, DI-0006, DI-0007, DI-0008, DI-0011, DI-0012, DI-0014, DI-0015, DI-0034, DI-0035, and `implementation/SPRINT-02-Production-Image-Quality-and-AI-Detection.md`. Deliverables: image-quality validation pipeline + recapture recommendation, AI advisory damage detection with model-version tracking, low-confidence routing to review queue placeholder, configurable thresholds in `di_ai_configuration` collection, audit trail for every AI invocation, web Image Quality + AI Detection screens.
 
 ### P1 — Subsequent sprints
 
-- TASK-03 / Sprint 02 — Image quality + AI detection (advisory) + low-confidence routing
-- TASK-04 / Sprint 03 — Damage comparison, review queue, damage cases
-- TASK-05 / Sprint 04 — CROMS + GCU365Maintenance integration (idempotent, audited)
-- TASK-06 / Sprint 05 — Reports, evidence packages, monitoring, security hardening, release gates
-- TASK-07 — Full regression + production readiness validation
-- TASK-08 — Final handover report
+- TASK-04 / Sprint 03 — Damage comparison, review queue, damage cases.
+- TASK-05 / Sprint 04 — CROMS + GCU365Maintenance integration (idempotent, audited, opaque-ref shape alignment per DECISION-Sprint01-b).
+- TASK-06 / Sprint 05 — Reports, evidence packages, monitoring, security hardening, release gates (including production object store, login pre-fill removal, X-Forwarded-For trust).
+- TASK-07 — Full regression + production readiness validation.
+- TASK-08 — Final handover report.
 
 ### P2 — Backlog / hardening
 
-- Split AI module into a separate Python service when pipeline complexity warrants
-- Replace local-disk storage with production object store (Sprint-05 hardening)
-- Mobile (Flutter) inspection capture
-- CI/CD pipeline wiring (build, test, lint, secret scan)
-- Arabic / RTL polish (DI-0025)
+- Replace local-disk storage with production object store (Sprint 05 hardening).
+- Split AI module into a separate Python service when pipeline complexity warrants.
+- Mobile (Flutter) inspection capture (DECISION-001d deferral).
+- CI/CD pipeline (AC-DI-S00-008 documented but not wired in Emergent preview).
+- Required-evidence-completeness rule before submit (e.g., all 6 required capture positions registered) — current Sprint-01 implementation allows submit on any non-zero image count.
+- Pytest deprecation cleanup (`test_sprint01_backend.py::TestEvidenceAccessLink` class-scoped fixture).
+- Arabic / RTL polish (DI-0025).
 
 ## Open Decisions / Risks
 
 | Item | Status |
 |------|--------|
-| Auth pre-fill on `/login` for dev convenience | Must be removed before any non-dev deployment |
+| Auth pre-fill on `/login` for dev convenience | Must be removed before any non-dev deployment (Sprint 05) |
 | CI/CD pipeline (AC-DI-S00-008) | Documented but not wired in the Emergent preview |
 | Production object storage provider | Deferred to Sprint 05 — abstraction in place |
+| Submit-readiness rule (required capture positions present) | Deferred — current sprint accepts ≥1 image |
