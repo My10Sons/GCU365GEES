@@ -32,6 +32,7 @@ from api.middleware.safe_errors import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from api.routes import ai as ai_routes
 from api.routes import auth as auth_routes
 from api.routes import evidence as evidence_routes
 from api.routes import health as health_routes
@@ -90,6 +91,7 @@ app.include_router(inspection_routes.router, prefix=API_BASE_PATH)
 app.include_router(evidence_routes.router, prefix=API_BASE_PATH)
 app.include_router(storage_internal_routes.router, prefix=API_BASE_PATH)
 app.include_router(integration_stub_routes.router, prefix=API_BASE_PATH)
+app.include_router(ai_routes.router, prefix=API_BASE_PATH)
 
 
 @app.on_event("startup")
@@ -99,8 +101,8 @@ async def on_startup() -> None:
     await seed_baseline_principals()
     await seed_capture_positions()
     await db.di_schema_version.update_one(
-        {"version": "sprint-01"},
-        {"$setOnInsert": {"version": "sprint-01", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},
+        {"version": "sprint-02"},
+        {"$setOnInsert": {"version": "sprint-02", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},
         upsert=True,
     )
     log_event(logger, 20, "Damage Intelligence API ready", baseApiPath=API_BASE_PATH)

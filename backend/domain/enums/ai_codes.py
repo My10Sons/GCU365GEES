@@ -1,0 +1,89 @@
+"""
+Repository Traceability:
+- Source Documents: DI-SPRINT-02 (Image Quality Statuses + Reason Codes + AI Analysis
+  Statuses + AI Finding Statuses), DI-0005, DI-0006, DI-0007, DI-0034.
+- Purpose: Stable enums for Sprint 02 quality + AI domain.
+"""
+
+
+class QualityStatus:
+    NOT_CHECKED = "NOT_CHECKED"
+    QUEUED = "QUEUED"
+    PROCESSING = "PROCESSING"
+    PASSED = "PASSED"
+    WARNING = "WARNING"
+    FAILED = "FAILED"
+    ERROR = "ERROR"
+
+
+ALL_QUALITY_STATUSES = [
+    QualityStatus.NOT_CHECKED, QualityStatus.QUEUED, QualityStatus.PROCESSING,
+    QualityStatus.PASSED, QualityStatus.WARNING, QualityStatus.FAILED, QualityStatus.ERROR,
+]
+
+
+class QualityReason:
+    BLURRY_IMAGE = "BLURRY_IMAGE"
+    LOW_LIGHT = "LOW_LIGHT"
+    OVEREXPOSED = "OVEREXPOSED"
+    OBSTRUCTED_VIEW = "OBSTRUCTED_VIEW"
+    LOW_RESOLUTION = "LOW_RESOLUTION"
+    INVALID_ANGLE = "INVALID_ANGLE"
+    VEHICLE_NOT_VISIBLE = "VEHICLE_NOT_VISIBLE"
+    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
+    FILE_TOO_LARGE = "FILE_TOO_LARGE"
+    FILE_TOO_SMALL = "FILE_TOO_SMALL"
+    POSSIBLE_DUPLICATE = "POSSIBLE_DUPLICATE"
+    UNKNOWN_QUALITY_ISSUE = "UNKNOWN_QUALITY_ISSUE"
+
+
+ALL_QUALITY_REASONS = {
+    QualityReason.BLURRY_IMAGE, QualityReason.LOW_LIGHT, QualityReason.OVEREXPOSED,
+    QualityReason.OBSTRUCTED_VIEW, QualityReason.LOW_RESOLUTION, QualityReason.INVALID_ANGLE,
+    QualityReason.VEHICLE_NOT_VISIBLE, QualityReason.UNSUPPORTED_FORMAT, QualityReason.FILE_TOO_LARGE,
+    QualityReason.FILE_TOO_SMALL, QualityReason.POSSIBLE_DUPLICATE, QualityReason.UNKNOWN_QUALITY_ISSUE,
+}
+
+
+class AIAnalysisStatus:
+    NOT_STARTED = "NOT_STARTED"
+    QUEUED = "QUEUED"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_WARNINGS = "COMPLETED_WITH_WARNINGS"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    TIMED_OUT = "TIMED_OUT"
+
+
+class AIFindingStatus:
+    AI_DETECTED = "AI_DETECTED"
+    PENDING_REVIEW = "PENDING_REVIEW"
+    AUTO_ACCEPTABLE = "AUTO_ACCEPTABLE"
+    LOW_CONFIDENCE = "LOW_CONFIDENCE"
+    UNCERTAIN = "UNCERTAIN"
+    DISCARDED_BY_SYSTEM = "DISCARDED_BY_SYSTEM"
+
+
+class DamageType:
+    SCRATCH = "SCRATCH"
+    DENT = "DENT"
+    CRACK = "CRACK"
+    BROKEN_PART = "BROKEN_PART"
+    PAINT_DAMAGE = "PAINT_DAMAGE"
+    RUST = "RUST"
+    MISSING_PART = "MISSING_PART"
+    OTHER = "OTHER"
+
+
+ALL_DAMAGE_TYPES = {DamageType.SCRATCH, DamageType.DENT, DamageType.CRACK, DamageType.BROKEN_PART,
+                    DamageType.PAINT_DAMAGE, DamageType.RUST, DamageType.MISSING_PART, DamageType.OTHER}
+
+
+class Severity:
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+ALL_SEVERITIES = {Severity.LOW, Severity.MEDIUM, Severity.HIGH}

@@ -82,3 +82,29 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
 
     # --- Sprint 01: Capture positions reference data ---
     await db.di_capture_positions.create_index("code", unique=True)
+
+    # --- Sprint 02: Image quality ---
+    await db.di_image_quality_results.create_index(
+        [("tenantId", 1), ("inspectionImageId", 1), ("createdAt", -1)]
+    )
+    await db.di_image_quality_results.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1)]
+    )
+
+    # --- Sprint 02: AI analyses ---
+    await db.di_ai_analyses.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("startedAt", -1)]
+    )
+    await db.di_ai_analyses.create_index([("tenantId", 1), ("status", 1)])
+
+    # --- Sprint 02: AI findings ---
+    await db.di_ai_findings.create_index(
+        [("tenantId", 1), ("aiAnalysisId", 1), ("confidence", -1)]
+    )
+    await db.di_ai_findings.create_index(
+        [("tenantId", 1), ("inspectionSessionId", 1), ("createdAt", -1)]
+    )
+    await db.di_ai_findings.create_index([("tenantId", 1), ("status", 1)])
+
+    # --- Sprint 02: AI configuration (per tenant) ---
+    await db.di_ai_configuration.create_index("tenantId", unique=True)

@@ -64,7 +64,19 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
-### 2026-06-28 — Sprint 01 (TASK-02) — **DONE**
+### 2026-06-28 — Sprint 02 (TASK-03) — **DONE**
+
+- **AI advisory damage detection wired to real Gemini multimodal vision** via Emergent LLM key (`gemini-3.5-flash` for image-quality, `gemini-3.1-pro-preview` for damage detection — both swappable via env without code change).
+- 9 endpoints: per-image and per-session quality check, per-session AI analysis, get analysis, list findings (analysis-scoped + session-scoped), retry, GET + PUT `/configuration/ai-thresholds`. All under `/api/v1/damage-intelligence`. All carry `isAdvisory: true`. Every persisted analysis/finding carries `modelVersion`, `confidenceThreshold`, `correlationId`, tenant scope.
+- 4 new MongoDB collections (`di_image_quality_results`, `di_ai_analyses`, `di_ai_findings`, `di_ai_configuration`) — tenant-scoped indexes.
+- Default confidence threshold `0.70`; per-tenant override via `di_ai_configuration` (DI_Admin only). Status mapping: <0.30 → `UNCERTAIN`, <threshold → `LOW_CONFIDENCE`, ≥threshold → `AUTO_ACCEPTABLE`.
+- Failure handling: Gemini timeout / `ChatError` → 1 retry + backoff → safe envelope with `qualityStatus=ERROR` or empty findings + `uncertaintyReason="model_unparseable"`. Cross-tenant returns 404 with audit row. No raw image bytes / secrets / tokens / unrestricted URLs in any log or audit.
+- Web: `InspectionDetail` extended with Quality-check + Run-AI buttons, AI advisory panel + per-finding cards.
+- Smoke tests: 15-step Sprint 02 + 16-step Sprint 01 + 12-step Sprint 00 — **all 43 assertions green** against the live Gemini API.
+- Feeder doc: `docs/07-Damage-Intelligence/DI-0037-Per-Vehicle-Evidence-Strip.md` drafted (will land in Sprint 03 alongside comparison).
+- Delivery record: `docs/07-Damage-Intelligence/implementation/SPRINT-02-DELIVERY-NOTES.md`.
+
+### 2026-06-28 — Sprint 01 (TASK-02) — DONE
 
 - All 12 acceptance criteria (AC-DI-S01-001 to AC-DI-S01-012) PASS
 - Two human-in-the-loop decisions captured: DECISION-Sprint01-a (seed `RIYADAH-DOH-001` alongside `TENANT-000001`), DECISION-Sprint01-b (opaque external string references, align in Sprint 04). Documented in `docs/07-Damage-Intelligence/implementation/SPRINT-01-DELIVERY-NOTES.md`.

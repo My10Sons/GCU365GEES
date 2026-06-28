@@ -6,9 +6,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ImagePlus, Send, Ban, Eye, ShieldCheck, AlertTriangle, RefreshCcw, Loader2,
+  ArrowLeft, ImagePlus, Send, Ban, Eye, ShieldCheck, AlertTriangle, RefreshCcw, Loader2, Sparkles, Activity,
 } from "lucide-react";
 import { inspectionsApi, evidenceApi, envelopeError, absoluteUrl } from "../lib/inspections-api";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import StatusBadge from "../components/inspection/StatusBadge";
 import UploadImageModal from "../components/inspection/UploadImageModal";
@@ -48,12 +49,48 @@ export default function InspectionDetail() {
       ]);
       setSession(s);
       setImages(imgs.items || []);
+      if (canAiRead) {
+        try {
+          const f = await api.get(`/inspection-sessions/${id}/ai-findings`);
+          setAiFindings(f.data.data.items || []);
+        } catch { /* swallow */ }
+      }
     } catch (err) {
       setError(envelopeError(err, "Could not load inspection."));
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, canAiRead]);
+
+  const runAi = async () => {
+    setAiBusy(true);
+    setAiError("");
+    setAiSummary(null);
+    try {
+      const r = await api.post(`/inspection-sessions/${id}/ai-analysis`);
+      setAiSummary(r.data.data);
+      const f = await api.get(`/inspection-sessions/${id}/ai-findings`);
+      setAiFindings(f.data.data.items || []);
+    } catch (err) {
+      setAiError(envelopeError(err, "AI analysis failed."));
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const runQualityCheck = async () => {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const r = await api.post(`/inspection-sessions/${id}/quality-check`);
+      setAiSummary({ ...r.data.data, kind: "quality" });
+      await load();
+    } catch (err) {
+      setAiError(envelopeError(err, "Quality check failed."));
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -154,6 +191,28 @@ export default function InspectionDetail() {
             >
               <ImagePlus className="size-3.5" /> Upload image
             </button>
+          )}
+          {canAi && images.length > 0 && (
+            <>
+              <button
+                onClick={runQualityCheck}
+                disabled={aiBusy}
+                className="px-3 py-1.5 rounded-md text-xs bg-ink-800 border border-ink-700 text-steel-100 hover:bg-ink-700/80 flex items-center gap-1.5 disabled:opacity-50"
+                data-testid="inspection-detail-quality"
+              >
+                {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Activity className="size-3.5" />}
+                Quality check
+              </button>
+              <button
+                onClick={runAi}
+                disabled={aiBusy}
+                className="px-3 py-1.5 rounded-md text-xs bg-amber400/20 border border-amber400/40 text-amber400 hover:bg-amber400/30 flex items-center gap-1.5 disabled:opacity-50"
+                data-testid="inspection-detail-ai"
+              >
+                {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                Run AI
+              </button>
+            </>
           )}
           {canSubmit && !isTerminal && (
             <button
@@ -274,6 +333,52 @@ export default function InspectionDetail() {
         inspectionId={id}
         onUploaded={() => load()}
       />
+
+      {(aiSummary || aiError || aiFindings.length > 0) && (
+        <section className="mt-8" data-testid="inspection-detail-ai-section">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-white flex items-center gap-2">
+              <Sparkles className="size-4 text-amber400" /> AI advisory output
+            </h2>
+            <span className="text-[11px] font-mono text-steel-400">advisory — not a liability decision</span>
+          </div>
+          {aiError && (
+            <div className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 mb-3">{aiError}</div>
+          )}
+          {aiSummary && (
+            <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4 mb-3 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[12px]">
+                <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">status</div><div className="text-white font-mono">{aiSummary.status}</div></div>
+                <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">images</div><div className="text-white font-mono">{aiSummary.totalImages ?? "—"}</div></div>
+                <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">findings</div><div className="text-white font-mono">{aiSummary.totalFindings ?? "—"}</div></div>
+                <div><div className="text-steel-400 uppercase tracking-wider text-[10px] mb-0.5">model</div><div className="text-white font-mono break-all">{aiSummary.modelVersion || "—"}</div></div>
+              </div>
+            </div>
+          )}
+          {aiFindings.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="ai-findings-grid">
+              {aiFindings.map((f) => (
+                <div key={f.id} data-testid={`ai-finding-card-${f.id}`} className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-mono text-steel-300">{f.damageType}</span>
+                    <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                      f.status === "AUTO_ACCEPTABLE" ? "bg-emerald-400/10 text-emerald-400 border-emerald-400/40"
+                      : f.status === "LOW_CONFIDENCE" ? "bg-amber400/15 text-amber400 border-amber400/40"
+                      : f.status === "UNCERTAIN" ? "bg-ink-800 text-steel-300 border-ink-600"
+                      : "bg-signal/15 text-signal-soft border-signal/40"
+                    }`}>{f.status}</span>
+                  </div>
+                  <div className="text-sm text-steel-100 mb-1">{f.area || "—"}</div>
+                  <div className="text-[11px] font-mono text-steel-400">
+                    confidence {(f.confidence * 100).toFixed(0)}% · severity {f.severity || "—"}
+                  </div>
+                  <div className="text-[10px] text-steel-500 mt-1 font-mono break-all">{f.modelVersion}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
