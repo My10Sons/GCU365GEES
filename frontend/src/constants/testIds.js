@@ -126,4 +126,5 @@ export const T = {
   caseStatusReason: "case-status-reason",
   caseStatusSubmit: "case-status-submit",
   caseStatusError: "case-status-error",
+  caseMaintenanceContext: "case-maintenance-context",
 };

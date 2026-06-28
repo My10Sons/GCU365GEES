@@ -1,0 +1,38 @@
+{
+  "summary": "Sprint 04 (CROMS + GCU365Maintenance integration) e2e validated against the public preview URL. Backend smoke (smoke_sprint04.py, 15 green steps) covers: CROMS check-out (DRAFT) + idempotent replay + IDEMPOTENCY_CONFLICT (409), CROMS check-in with baselineInspectionSessionId link, CROMS damage-summary returns finalCustomerChargeDecision==NOT_OWNED_BY_DAMAGE_INTELLIGENCE plus checkOut/checkIn ids, CROMS inspection status, Maintenance handoff SENT + idempotent replay + workOrderExecutionOwnedBy==GCU365Maintenance, work-order reference linked (not owned), repair-status with actualRepairCostOwnedBy==GCU365Maintenance and postRepairInspectionRecommended==true for REPAIR_COMPLETED, rejection-reason + additional-evidence (OPEN), handoff-status aggregation with no raw objectPath / /internal/storage leak, security (DI_Admin without integration perms blocked 403), tenant isolation (RIYADAH-DOH-001 service vs TENANT-000001 data -> 404), handoff on unknown damageCaseId -> 404. Frontend /cases/:id renders [data-testid=case-maintenance-context] with Handoffs (REJECTED), Work Orders (WO-1 WORK_ORDER_CREATED + REJECTION INSUFFICIENT_EVIDENCE), and Repair Status (REPAIR_COMPLETED cost ref: MNT-COST-1). Zero console/page errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_acceptance_criteria": [
+    "CROMS check-out creates inspectionType=CHECK_OUT, status=DRAFT (stores CROMS refs).",
+    "Idempotency replay: same X-Idempotency-Key + same payload returns same inspectionSessionId.",
+    "Idempotency conflict: same X-Idempotency-Key + different payload -> 409 IDEMPOTENCY_CONFLICT.",
+    "CROMS check-in creates CHECK_IN session and echoes baselineInspectionSessionId.",
+    "CROMS damage-summary returns checkOut/checkIn ids, damageSummaryStatus, damageCaseIds, comparisonStatus and finalCustomerChargeDecision==NOT_OWNED_BY_DAMAGE_INTELLIGENCE.",
+    "CROMS inspection status returns status==DRAFT for the check-out session.",
+    "Maintenance handoff for eligible case -> status SENT + workOrderExecutionOwnedBy==GCU365Maintenance; idempotent replay returns same maintenanceHandoffId; unknown damageCaseId -> 404.",
+    "Maintenance work-order-references stores reference (linked==true, not owned).",
+    "Maintenance repair-status-updates stores actualRepairCostReference as reference only; actualRepairCostOwnedBy==GCU365Maintenance; postRepairInspectionRecommended==true for REPAIR_COMPLETED.",
+    "Maintenance rejection-reasons + additional-evidence-requests (status OPEN) recorded.",
+    "Maintenance handoff-status aggregation returns handoffs[], references[], repairStatusUpdates[] with no raw objectPath / /internal/storage URLs.",
+    "Security: DI_Admin (no integration perms) hitting /integrations/croms is rejected with 403.",
+    "Tenant isolation: RIYADAH-DOH-001 integration service gets 404 on TENANT-000001 damage-summary, inspection status and handoff-status.",
+    "FRONTEND /cases/:id renders [data-testid=case-maintenance-context] with handoffs, work orders, rejection, and repair-status entries when maintenanceContext is non-empty; case-status-select + case-status-submit present."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/smoke_sprint04.py",
+    "/app/test_reports/assets/sprint04_case_maintenance.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "smoke_sprint04.py already covers all Sprint-04 invariants including idempotency replay/conflict, ownership-boundary fields, tenant isolation, security denial, no-URL-leak, and the Maintenance handoff 404 path; the implementation strictly preserves CROMS / Maintenance ownership (finalCustomerChargeDecision and actualRepairCostOwnedBy correctly returned as NOT_OWNED_BY_DAMAGE_INTELLIGENCE / GCU365Maintenance).",
+    "Outbound CROMS notify_damage_summary_ready and Maintenance submit_handoff are CLIENT STUBS by design (CromsClientStub / MaintenanceClientStub record intent only); this is expected for Sprint-04 and documented in the request — no real external call is made.",
+    "Frontend case-maintenance-context section is conditional on at least one of handoffs/workOrders/repairStatusUpdates being non-empty, which matches the intended UX (no empty placeholder when the case has no Maintenance interaction yet)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (15/15 smoke steps incl. idempotency, ownership-boundary, tenant isolation, security)", "frontend": "100% on the executed AC (maintenance integration section + status controls)"},
+  "test_credentials_used": "integration.service@riyadah.tech / Integration#2026 (TENANT-000001 DI_IntegrationService); doha.integration.service@riyadah.tech / DohaIntegration#2026 (RIYADAH-DOH-001 cross-tenant); admin@riyadah.tech / DamageAdmin#2026 (TENANT-000001 DI_Admin, for case setup and the negative permission check).",
+  "seed_data_creation": "Smoke run created: 1 CROMS CHECK_OUT + 1 CROMS CHECK_IN session, 1 comparison + 1 damage case (REPAIR_RELEVANT/HIGH), 1 Maintenance handoff (SENT then REJECTED), 1 work-order reference (WO-1), 1 repair-status update (REPAIR_COMPLETED with cost ref MNT-COST-1), 1 rejection-reason and 1 additional-evidence-request — all under TENANT-000001 and tagged RA-S04-{tag}/VEH-S04-{tag}.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sprint 04 is FULLY GREEN. Re-run via `cd /app/backend && set -a && . ./.env && set +a && DI_SMOKE_BASE_URL=$REACT_APP_BACKEND_URL /root/.venv/bin/python tests/smoke_sprint04.py`. To verify the Maintenance UI section after a fresh run, open /cases/<damageCaseId from smoke output> as admin@riyadah.tech — the section data-testid is case-maintenance-context."
+}

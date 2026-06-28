@@ -72,6 +72,13 @@ async def seed_baseline_principals() -> None:
         (secondary_tenant,
          os.environ.get("DI_SEED_INSPECTOR_EMAIL_2"), os.environ.get("DI_SEED_INSPECTOR_PASSWORD_2"),
          "Riyadah Doha Inspector", [Role.DI_INSPECTOR]),
+        # Integration service accounts (Sprint 04) — CROMS / Maintenance service-to-service callers
+        (primary_tenant,
+         os.environ.get("DI_SEED_INTEGRATION_EMAIL"), os.environ.get("DI_SEED_INTEGRATION_PASSWORD"),
+         "Integration Service", [Role.DI_INTEGRATION_SERVICE]),
+        (secondary_tenant,
+         os.environ.get("DI_SEED_INTEGRATION_EMAIL_2"), os.environ.get("DI_SEED_INTEGRATION_PASSWORD_2"),
+         "Riyadah Doha Integration Service", [Role.DI_INTEGRATION_SERVICE]),
     ]
     for tenant_id, email, password, display_name, roles in seeds:
         if not email or not password:

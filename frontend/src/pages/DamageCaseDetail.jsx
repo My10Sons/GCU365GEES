@@ -134,6 +134,38 @@ export default function DamageCaseDetail() {
         </section>
       )}
 
+      {item.maintenanceContext && (item.maintenanceContext.handoffs?.length > 0 || item.maintenanceContext.workOrders?.length > 0 || item.maintenanceContext.repairStatusUpdates?.length > 0) && (
+        <section className="mb-6" data-testid={T.caseMaintenanceContext}>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-white mb-3 flex items-center gap-2">
+            Maintenance integration
+            <span className="text-[11px] font-mono text-steel-400 normal-case tracking-normal">references only · owned by GCU365Maintenance</span>
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+              <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2">Handoffs</div>
+              {(item.maintenanceContext.handoffs || []).map((h, i) => (
+                <div key={i} className="text-[12px] font-mono text-steel-200">{h.status} · {fmt(h.createdAt)}</div>
+              ))}
+              {(item.maintenanceContext.handoffs || []).length === 0 && <div className="text-[12px] text-steel-400">None</div>}
+            </div>
+            <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+              <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2">Work orders</div>
+              {(item.maintenanceContext.workOrders || []).map((w, i) => (
+                <div key={i} className="text-[12px] font-mono text-steel-200">{w.workOrderId || w.refType} {w.status ? `· ${w.status}` : ""}{w.rejectionCode ? ` · ${w.rejectionCode}` : ""}</div>
+              ))}
+              {(item.maintenanceContext.workOrders || []).length === 0 && <div className="text-[12px] text-steel-400">None</div>}
+            </div>
+            <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+              <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2">Repair status</div>
+              {(item.maintenanceContext.repairStatusUpdates || []).map((s, i) => (
+                <div key={i} className="text-[12px] font-mono text-steel-200">{s.repairStatus}{s.actualRepairCostReference ? ` · cost ref: ${s.actualRepairCostReference.referenceId || "—"}` : ""}</div>
+              ))}
+              {(item.maintenanceContext.repairStatusUpdates || []).length === 0 && <div className="text-[12px] text-steel-400">None</div>}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="text-sm font-semibold uppercase tracking-wider text-white mb-3">Status history</h2>
         <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 divide-y divide-ink-700/60">

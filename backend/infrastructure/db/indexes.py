@@ -144,3 +144,10 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.di_damage_case_links.create_index(
         [("tenantId", 1), ("damageCaseId", 1), ("linkType", 1), ("linkedId", 1)], unique=True
     )
+
+    # --- Sprint 04: CROMS / Maintenance integration ---
+    await db.di_maintenance_handoffs.create_index([("tenantId", 1), ("damageCaseId", 1), ("createdAt", -1)])
+    await db.di_maintenance_handoffs.create_index([("tenantId", 1), ("status", 1)])
+    await db.di_maintenance_references.create_index([("tenantId", 1), ("damageCaseId", 1), ("createdAt", 1)])
+    await db.di_maintenance_references.create_index([("tenantId", 1), ("workOrderId", 1)])
+    await db.di_maintenance_status_updates.create_index([("tenantId", 1), ("damageCaseId", 1), ("createdAt", 1)])

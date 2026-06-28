@@ -1,0 +1,42 @@
+"""
+Repository Traceability:
+- Source Documents: DI-SPRINT-04 (Integration Statuses), DI-0017, DI-0018, DI-0031, DI-0034.
+- Purpose: Stable enums for the Sprint 04 CROMS / Maintenance integration domain.
+"""
+
+
+class IntegrationStatus:
+    NOT_STARTED = "NOT_STARTED"
+    PENDING = "PENDING"
+    SENT = "SENT"
+    RECEIVED = "RECEIVED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    RETRY_PENDING = "RETRY_PENDING"
+    DEAD_LETTERED = "DEAD_LETTERED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+
+
+ALL_INTEGRATION_STATUSES = [
+    IntegrationStatus.NOT_STARTED, IntegrationStatus.PENDING, IntegrationStatus.SENT,
+    IntegrationStatus.RECEIVED, IntegrationStatus.COMPLETED, IntegrationStatus.FAILED,
+    IntegrationStatus.RETRY_PENDING, IntegrationStatus.DEAD_LETTERED,
+    IntegrationStatus.REJECTED, IntegrationStatus.CANCELLED,
+]
+
+
+class SourceSystemRef:
+    CROMS = "GCU365-CROMS"
+    MAINTENANCE = "GCU365Maintenance"
+    DAMAGE_INTELLIGENCE = "DamageIntelligence"
+
+
+class IntegrationOperation:
+    CROMS_CHECK_OUT = "CROMS_CHECK_OUT_INSPECTION"
+    CROMS_CHECK_IN = "CROMS_CHECK_IN_INSPECTION"
+    MAINTENANCE_HANDOFF = "MAINTENANCE_HANDOFF"
+    MAINTENANCE_WORK_ORDER_REF = "MAINTENANCE_WORK_ORDER_REFERENCE"
+    MAINTENANCE_REPAIR_STATUS = "MAINTENANCE_REPAIR_STATUS"
+    MAINTENANCE_REJECTION = "MAINTENANCE_REJECTION"
+    MAINTENANCE_ADDITIONAL_EVIDENCE = "MAINTENANCE_ADDITIONAL_EVIDENCE"

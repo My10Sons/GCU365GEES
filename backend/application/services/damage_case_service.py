@@ -179,7 +179,30 @@ async def get_case(*, principal: dict, case_id: str, correlation_id: str, audit:
             action=AuditAction.DAMAGE_CASE_VIEWED, object_type=ObjectType.DAMAGE_CASE,
             object_id=str(doc["_id"]), correlation_id=correlation_id,
         )
-    return _case_to_response(doc, links, history)
+    payload = _case_to_response(doc, links, history)
+    payload["maintenanceContext"] = await _maintenance_context(principal["tenantId"], str(doc["_id"]))
+    return payload
+
+
+async def _maintenance_context(tenant_id: str, case_id: str) -> dict:
+    """Read-only Sprint 04 Maintenance integration context (references only — DI never owns repair execution/cost)."""
+    db = get_db()
+    handoffs = [h async for h in db.di_maintenance_handoffs.find(
+        {"tenantId": tenant_id, "damageCaseId": case_id}).sort("createdAt", -1)]
+    refs = [r async for r in db.di_maintenance_references.find(
+        {"tenantId": tenant_id, "damageCaseId": case_id}).sort("createdAt", 1)]
+    updates = [s async for s in db.di_maintenance_status_updates.find(
+        {"tenantId": tenant_id, "damageCaseId": case_id}).sort("createdAt", 1)]
+    return {
+        "handoffs": [{"status": h.get("status"),
+                      "createdAt": h["createdAt"].isoformat() if h.get("createdAt") else None} for h in handoffs],
+        "workOrders": [{"workOrderId": r.get("workOrderId"), "maintenanceRequestId": r.get("maintenanceRequestId"),
+                        "status": r.get("status"), "refType": r.get("refType"),
+                        "rejectionCode": r.get("rejectionCode")} for r in refs],
+        "repairStatusUpdates": [{"repairStatus": s.get("repairStatus"),
+                                 "actualRepairCostReference": s.get("actualRepairCostReference")} for s in updates],
+        "ownershipNote": "Work order execution and actual repair cost are owned by GCU365Maintenance.",
+    }
 
 
 async def list_cases(
