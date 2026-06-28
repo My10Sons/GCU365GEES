@@ -64,6 +64,17 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — Sprint 05 (TASK-06) — **DONE** (core scope)
+
+- **Reports + evidence packages**: POST `/reports` (7 types: inspection-summary, damage-detection, damage-comparison, damage-case, rental-damage-summary, maintenance-handoff, evidence-package), GET `/reports`, GET `/reports/{id}`, POST `/reports/{id}/access-link`. Content built from existing data, stored as JSON on disk, served via **HMAC-signed time-limited** links (`/internal/storage/access`) — no public URLs. AI labelled advisory; ownership boundaries in content (`finalCustomerChargeDecision: NOT_OWNED_BY_DAMAGE_INTELLIGENCE`, Maintenance owns work-order/cost).
+- **Monitoring**: GET `/monitoring/metrics` (tenant-scoped workflow/ai/review/cases/reports/integration/security counts) + `/monitoring/dependencies`.
+- **Dashboard**: metric tiles + **Integration Health widget** (CROMS check-outs/check-ins, handoffs sent/rejected, callbacks received, idempotency conflicts, tenant-scope violations, unauthorized attempts) with warn highlighting.
+- **Security hardening**: removed login pre-fill (empty fields); reports/evidence access controlled, tenant-scoped, authorized (di.reports.*), audited; signature tamper → 403; cross-tenant → 404.
+- New `di_reports` collection + audit-action index. Web Reports page (generate/list/access-link).
+- Tests: `backend/tests/smoke_sprint05.py` (13 steps green incl. signed-link serve, tamper-reject, authz, tenant isolation, ownership). Regression Sprint 00–04 green. Testing agent iteration_8 — backend 100%, frontend 100%, 0 issues.
+- Delivery record: `docs/07-Damage-Intelligence/implementation/SPRINT-05-DELIVERY-NOTES.md`.
+- **Deferred (governance/ops, not code)**: production object store swap, external alerting/dashboards (Grafana/Prometheus), runbooks, DR, rollback approvals, formal release-gate sign-offs.
+
 ### 2026-06-28 — Sprint 04 (TASK-05) — **DONE**
 
 - **CROMS integration** (service-to-service, JWT + DI_IntegrationService role): check-out / check-in inspection request APIs (store CROMS refs only, baseline link on check-in), rental damage-summary API (returns `finalCustomerChargeDecision: NOT_OWNED_BY_DAMAGE_INTELLIGENCE`), inspection-status API, damage-summary-ready notification (outbound stub).
@@ -116,14 +127,15 @@ actual repair cost, fleet master, or finance posting.
 
 ## Prioritized Backlog
 
-### P0 — Next sprint
+### P0 — Next
 
-- **TASK-06 / Sprint 05 — Reports, Monitoring, Security & Release.** Required reading: DI-0035 + `implementation/SPRINT-05-Production-Reports-Monitoring-Security-and-Release.md`. Deliverables: damage reports + evidence packages (referenced as null today in CROMS summary/handoff — to be implemented here), integration monitoring metrics + dashboards, security hardening (production object store, remove login pre-fill, X-Forwarded-For trust, rate limiting), release gates.
+- **TASK-07 — Full Regression & Production Readiness Validation.** Run all sprint smokes + testing agent across Sprint 01–05 scope; validate tenant isolation, evidence/report access control, audit completeness, safe errors, performance. Confirm production-readiness checklist (DI-SPRINT-05 release gate table).
+- **TASK-08 — Final Handover Report.** Consolidate delivery notes (Sprints 00–05), API surface, data model, ownership boundaries, test evidence, and known deferrals into a single handover document.
 
-### P1 — Subsequent
+### Deferred (ops/governance, tracked from Sprint 05)
 
-- TASK-07 — Full regression + production readiness validation.
-- TASK-08 — Final handover report.
+- Production object store (swap local-disk provider), external monitoring/alerting integration, operational runbooks, DR drills, rollback/release approval sign-offs.
+- Optionally populate `reportReference` / `evidencePackageReference` in CROMS damage-summary + Maintenance handoff responses (currently null) by linking generated reports.
 
 ### P2 — Backlog / hardening
 
