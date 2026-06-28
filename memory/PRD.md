@@ -64,6 +64,11 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — Deployment readiness + Ops alert banner — **DONE**
+
+- **deployment_agent: PASS** (no blockers) — env hygiene, CORS, ports, no hardcoded secrets/URLs, supervisor config valid, compilation clean.
+- **Integration/security alert banner**: app-wide dismissible banner (`IntegrationAlertBanner`) polling `/monitoring/metrics` every 60s; lights amber on idempotency conflicts, tenant-scope violations, unauthorized attempts, or rejected handoffs, linking to the Dashboard. Verified rendering live.
+
 ### 2026-06-28 — TASK-07 Full Regression + TASK-08 Handover — **DONE**
 
 - **Closing-the-loop feature**: CROMS damage-summary now auto-populates `reportReference` (latest RENTAL_DAMAGE_SUMMARY_REPORT) + `evidencePackageReference` (latest EVIDENCE_PACKAGE_REPORT); Maintenance handoff auto-links evidence-package + damage-case report references (caller-supplied preserved; idempotent). Verified in `smoke_sprint05.py`.

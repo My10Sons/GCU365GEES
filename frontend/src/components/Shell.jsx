@@ -16,6 +16,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+import { IntegrationAlertBanner } from "./IntegrationAlertBanner";
 import { T } from "../constants/testIds";
 
 const NAV = [
@@ -140,6 +141,7 @@ export default function Shell() {
         </header>
 
         <main className="flex-1 overflow-auto bg-grid">
+          <IntegrationAlertBanner />
           <Outlet />
         </main>
       </div>
