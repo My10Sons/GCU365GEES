@@ -16,6 +16,7 @@ import ReviewQueue from "./pages/ReviewQueue";
 import ReviewItemDetail from "./pages/ReviewItemDetail";
 import DamageCases from "./pages/DamageCases";
 import DamageCaseDetail from "./pages/DamageCaseDetail";
+import Reports from "./pages/Reports";
 
 function Protected({ children }) {
   const { status, principal } = useAuth();
@@ -72,14 +73,7 @@ function AppRoutes() {
         />
         <Route
           path="reports"
-          element={
-            <Placeholder
-              title="Reports & Evidence Packages"
-              sprint="Sprint 05 — TASK-06"
-              doc="DI-0016, DI-0034"
-              summary="Inspection Summary, Damage Detection, Damage Comparison, Damage Case, Rental Damage Summary, Maintenance Handoff, and Evidence Package reports with controlled access links."
-            />
-          }
+          element={<Reports />}
         />
         <Route
           path="admin"

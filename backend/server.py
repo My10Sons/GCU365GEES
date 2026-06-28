@@ -42,6 +42,8 @@ from api.routes import health as health_routes
 from api.routes import inspections as inspection_routes
 from api.routes import integration_stubs as integration_stub_routes
 from api.routes import integrations as integration_routes
+from api.routes import monitoring as monitoring_routes
+from api.routes import reports as report_routes
 from api.routes import reference as reference_routes
 from api.routes import storage_internal as storage_internal_routes
 from api.routes import version as version_routes
@@ -100,6 +102,8 @@ app.include_router(comparison_routes.router, prefix=API_BASE_PATH)
 app.include_router(review_routes.router, prefix=API_BASE_PATH)
 app.include_router(damage_case_routes.router, prefix=API_BASE_PATH)
 app.include_router(integration_routes.router, prefix=API_BASE_PATH)
+app.include_router(report_routes.router, prefix=API_BASE_PATH)
+app.include_router(monitoring_routes.router, prefix=API_BASE_PATH)
 
 
 @app.on_event("startup")
@@ -109,8 +113,8 @@ async def on_startup() -> None:
     await seed_baseline_principals()
     await seed_capture_positions()
     await db.di_schema_version.update_one(
-        {"version": "sprint-04"},
-        {"$setOnInsert": {"version": "sprint-04", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},
+        {"version": "sprint-05"},
+        {"$setOnInsert": {"version": "sprint-05", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},
         upsert=True,
     )
     log_event(logger, 20, "Damage Intelligence API ready", baseApiPath=API_BASE_PATH)

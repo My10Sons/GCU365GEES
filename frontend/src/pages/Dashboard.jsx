@@ -6,16 +6,16 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { T } from "../constants/testIds";
-import { Activity, Database, Cpu, HardDrive, Lock, GitBranch, CheckCircle2, XCircle } from "lucide-react";
+import { Activity, Database, Cpu, HardDrive, Lock, GitBranch, CheckCircle2, XCircle, Plug, AlertTriangle } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 
 const SPRINTS = [
-  { id: "SPRINT-00", label: "Engineering Setup", status: "in-progress" },
-  { id: "SPRINT-01", label: "Inspection & Evidence Foundation", status: "pending" },
-  { id: "SPRINT-02", label: "Image Quality & AI Detection", status: "pending" },
-  { id: "SPRINT-03", label: "Review, Comparison, Damage Cases", status: "pending" },
-  { id: "SPRINT-04", label: "CROMS & Maintenance Integration", status: "pending" },
-  { id: "SPRINT-05", label: "Reports, Monitoring, Security, Release", status: "pending" },
+  { id: "SPRINT-00", label: "Engineering Setup", status: "done" },
+  { id: "SPRINT-01", label: "Inspection & Evidence Foundation", status: "done" },
+  { id: "SPRINT-02", label: "Image Quality & AI Detection", status: "done" },
+  { id: "SPRINT-03", label: "Review, Comparison, Damage Cases", status: "done" },
+  { id: "SPRINT-04", label: "CROMS & Maintenance Integration", status: "done" },
+  { id: "SPRINT-05", label: "Reports, Monitoring, Security, Release", status: "in-progress" },
 ];
 
 function HealthCard({ testId, icon: Icon, label, healthy, hint }) {
@@ -52,25 +52,47 @@ function HealthCard({ testId, icon: Icon, label, healthy, hint }) {
   );
 }
 
+function MetricTile({ label, value, sub }) {
+  return (
+    <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+      <div className="text-[11px] uppercase tracking-wider text-steel-400">{label}</div>
+      <div className="text-2xl font-semibold text-white mt-1 tabular-nums">{value ?? "—"}</div>
+      {sub && <div className="text-[11px] text-steel-400 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function IntegStat({ label, value, warn }) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wider text-steel-400">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums mt-0.5 ${warn ? "text-amber400" : "text-white"}`}>{value ?? 0}</div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { principal } = useAuth();
   const [deps, setDeps] = useState(null);
   const [version, setVersion] = useState(null);
+  const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const [d, v] = await Promise.all([
+        const [d, v, m] = await Promise.all([
           api.get("/health/dependencies"),
           api.get("/version"),
+          api.get("/monitoring/metrics"),
         ]);
         if (!active) return;
         setDeps(d.data.data);
         setVersion(v.data.data);
+        setMetrics(m.data.data);
       } catch (err) {
-        if (active) setError(err?.message || "Failed to load health data.");
+        if (active) setError(err?.message || "Failed to load dashboard data.");
       }
     })();
     return () => {
@@ -88,10 +110,9 @@ export default function Dashboard() {
           Welcome back, {(principal?.displayName || principal?.email || "").split("@")[0]}
         </h1>
         <p className="text-sm text-steel-300 mt-2 max-w-2xl">
-          Sprint 00 engineering baseline is live. Inspection workflows,
-          AI-assisted damage detection, comparison, review, damage cases,
-          CROMS &amp; Maintenance integration, and reports are scheduled for
-          Sprints 01–05.
+          Inspection, AI damage detection, comparison, review, damage cases, and CROMS
+          &amp; Maintenance integration are live. Sprint 05 adds reports, monitoring, and
+          release hardening.
         </p>
       </div>
 
@@ -99,6 +120,40 @@ export default function Dashboard() {
         <div className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 mb-6">
           {error}
         </div>
+      )}
+
+      {metrics && (
+        <section data-testid={T.dashboardMetrics} className="mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+            <MetricTile label="Inspections" value={metrics.workflow?.inspectionsTotal} sub={`${metrics.workflow?.inspectionsSubmitted ?? 0} submitted`} />
+            <MetricTile label="Images" value={metrics.workflow?.imagesRegistered} />
+            <MetricTile label="AI analyses" value={metrics.ai?.analysesCompleted} sub={`${metrics.ai?.analysesFailed ?? 0} failed`} />
+            <MetricTile label="Review pending" value={metrics.review?.pending} />
+            <MetricTile label="Open cases" value={metrics.cases?.open} />
+            <MetricTile label="Reports" value={metrics.reports?.generated} />
+          </div>
+          <div data-testid={T.cardIntegrationHealth} className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
+            <div className="flex items-center gap-2.5 mb-4">
+              <Plug className="size-4 text-steel-300" />
+              <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Integration health (CROMS &amp; Maintenance)</h2>
+              {(metrics.integration?.idempotencyConflicts > 0 || metrics.security?.tenantScopeViolations > 0) && (
+                <AlertTriangle className="size-4 text-amber400" />
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <IntegStat label="CROMS check-outs" value={metrics.integration?.cromsCheckOuts} />
+              <IntegStat label="CROMS check-ins" value={metrics.integration?.cromsCheckIns} />
+              <IntegStat label="Handoffs sent" value={metrics.integration?.maintenanceHandoffsSent} />
+              <IntegStat label="Callbacks received" value={metrics.integration?.maintenanceCallbacksReceived} />
+              <IntegStat label="Handoffs rejected" value={metrics.integration?.maintenanceHandoffsRejected} warn={metrics.integration?.maintenanceHandoffsRejected > 0} />
+              <IntegStat label="Idempotency conflicts" value={metrics.integration?.idempotencyConflicts} warn={metrics.integration?.idempotencyConflicts > 0} />
+            </div>
+            <div className="mt-4 pt-3 border-t border-ink-700/60 flex flex-wrap gap-6">
+              <IntegStat label="Tenant-scope violations" value={metrics.security?.tenantScopeViolations} warn={metrics.security?.tenantScopeViolations > 0} />
+              <IntegStat label="Unauthorized attempts" value={metrics.security?.unauthorizedAttempts} warn={metrics.security?.unauthorizedAttempts > 0} />
+            </div>
+          </div>
+        </section>
       )}
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
@@ -191,6 +246,8 @@ export default function Dashboard() {
                   className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
                     s.status === "in-progress"
                       ? "bg-amber400/15 text-amber400 border border-amber400/30"
+                      : s.status === "done"
+                      ? "bg-emerald-400/10 text-emerald-400 border border-emerald-400/30"
                       : "bg-ink-800 text-steel-400 border border-ink-700"
                   }`}
                 >

@@ -1,0 +1,37 @@
+{
+  "summary": "Sprint 05 (production reports, evidence packages, monitoring, Dashboard integration-health widget, Reports web page, security hardening) e2e validated against the public preview URL. Backend smoke `tests/smoke_sprint05.py` ran 13/13 green: login admin+inspector+cross-tenant; health/monitoring metrics+dependencies; inspection+image prepared; INSPECTION_SUMMARY_REPORT generated (status=COMPLETED, reportId returned); EVIDENCE_PACKAGE_REPORT generated; GET /reports/{id} + paginated GET /reports list (no objectPath / http(s) leak in metadata); POST /reports/{id}/access-link returns signed `/api/v1/damage-intelligence/internal/storage/access?...sig=&exp=` URL that serves 200 with `INSPECTION_SUMMARY_REPORT` content; tampered signature -> 403; inspector role denied POST /reports -> 403; cross-tenant admin (RIYADAH-DOH-001) -> 404 on both GET /reports/{id} and POST /access-link; validation 400 VALIDATION_ERROR for DAMAGE_CASE_REPORT without damageCaseId; RENTAL_DAMAGE_SUMMARY_REPORT content contains `NOT_OWNED_BY_DAMAGE_INTELLIGENCE`; monitoring metrics reflect reports.generated>=3 after activity. Frontend: /login no longer pre-fills email/password (verified empty initial state); Dashboard `dashboard-metrics` tiles render Inspections/Images/AI analyses/Review pending/Open cases/Reports; `card-integration-health` widget shows CROMS check-outs (4), check-ins (4), Handoffs sent (4), Callbacks received (12), Handoffs rejected (4), Idempotency conflicts (4), Tenant-scope violations (0), Unauthorized attempts (0); /reports `reports-root` loads, generating with `report-type-select=INSPECTION_SUMMARY_REPORT` + `report-session-input=<sid>` + `report-generate` creates a new `report-row-<id>` at top of table (COMPLETED); clicking `report-access-link-<id>` produces the controlled, time-limited access link (UI message: 'Access link opened (expires in 900s).').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_acceptance_criteria": [
+    "POST /reports INSPECTION_SUMMARY_REPORT -> status COMPLETED + reportId.",
+    "POST /reports EVIDENCE_PACKAGE_REPORT (inspectionSessionId) -> COMPLETED.",
+    "POST /reports RENTAL_DAMAGE_SUMMARY_REPORT (rentalAgreementId) -> COMPLETED, content contains finalCustomerChargeDecision==NOT_OWNED_BY_DAMAGE_INTELLIGENCE.",
+    "POST /reports DAMAGE_CASE_REPORT without damageCaseId -> 400 VALIDATION_ERROR.",
+    "GET /reports/{id} + GET /reports (paginated) succeed and leak NO raw objectPath / http(s) URLs in metadata.",
+    "POST /reports/{id}/access-link returns accessUrl starting /api/v1/damage-intelligence/internal/storage/access? with sig= and exp= (expiresInSeconds>0); fetch served 200 with report content; tampered sig -> 403.",
+    "Authorization: inspector (no di.reports.generate) -> 403 on POST /reports; admin with di.reports.read can list/get.",
+    "Tenant isolation: RIYADAH-DOH-001 admin -> 404 on GET /reports/{id} and POST /reports/{id}/access-link for a TENANT-000001 report.",
+    "GET /monitoring/metrics returns workflow/ai/review/cases/reports/integration/security sections; reports.generated counter increments after generation.",
+    "GET /monitoring/dependencies returns mongo healthy=true (and ai_service / object_storage sections).",
+    "Frontend Dashboard renders dashboard-metrics tiles and card-integration-health widget with CROMS check-outs/check-ins, Handoffs sent, Callbacks received, Handoffs rejected, Idempotency conflicts, plus security counters (Tenant-scope violations + Unauthorized attempts).",
+    "Frontend Reports page (reports-root) generate flow: select type + session id + click Generate -> new report-row-<id> COMPLETED appears in table; Access link button emits time-limited signed link.",
+    "Login page no longer pre-fills email/password (login-email-input + login-password-input start empty)."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/smoke_sprint05.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Sprint-05 reports are correctly served via signature-gated /internal/storage/access (HMAC + exp) and the report metadata payloads strictly avoid raw objectPath and http(s) URLs — verified by smoke step 5 + step 7 (tampered sig -> 403).",
+    "Ownership boundary preserved in report content (NOT_OWNED_BY_DAMAGE_INTELLIGENCE for rental/damage-case summaries; GCU365Maintenance for maintenance handoff cost / execution fields) — verified in smoke step 11 and Sprint-04 history.",
+    "Login.jsx now uses useState('') for email/password (no defaults), matching the security-hardening AC; legacy doc text in memory/test_credentials.md still says 'form is pre-filled' (line 88) which is now stale — main agent may want to update that note for accuracy.",
+    "Dashboard integration-health widget renders the documented counters; the word 'security' itself doesn't appear in the widget label but the security counters (Tenant-scope violations, Unauthorized attempts) are present and rendered."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (13/13 smoke steps)", "frontend": "100% on the executed AC (login pre-fill, Dashboard metrics + integration health, Reports generate + access-link)"},
+  "test_credentials_used": "admin@riyadah.tech / DamageAdmin#2026 (TENANT-000001 DI_Admin), inspector@riyadah.tech / Inspector#2026 (negative perm), doha.admin@riyadah.tech / DohaAdmin#2026 (cross-tenant 404).",
+  "seed_data_creation": "Smoke run + UI run added: 2 inspection sessions (CHECK_OUT + CHECK_IN with RA-S05-{tag}), 1 image, and ~4 reports (INSPECTION_SUMMARY x2, EVIDENCE_PACKAGE, RENTAL_DAMAGE_SUMMARY) under TENANT-000001.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sprint 05 is FULLY GREEN. Re-run backend via `cd /app/backend && set -a && . ./.env && set +a && DI_SMOKE_BASE_URL=$REACT_APP_BACKEND_URL /root/.venv/bin/python tests/smoke_sprint05.py`. For frontend: login as admin@riyadah.tech, verify /reports (data-testid reports-root) Generate flow and /dashboard card-integration-health + dashboard-metrics. Stale note in /app/memory/test_credentials.md line 88 ('login form is pre-filled') should be updated to reflect that pre-fill was removed in Sprint-05 security hardening."
+}

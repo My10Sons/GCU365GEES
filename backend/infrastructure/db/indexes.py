@@ -151,3 +151,10 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.di_maintenance_references.create_index([("tenantId", 1), ("damageCaseId", 1), ("createdAt", 1)])
     await db.di_maintenance_references.create_index([("tenantId", 1), ("workOrderId", 1)])
     await db.di_maintenance_status_updates.create_index([("tenantId", 1), ("damageCaseId", 1), ("createdAt", 1)])
+
+    # --- Sprint 05: Reports + evidence packages ---
+    await db.di_reports.create_index([("tenantId", 1), ("createdAt", -1)])
+    await db.di_reports.create_index([("tenantId", 1), ("reportType", 1)])
+    await db.di_reports.create_index([("tenantId", 1), ("damageCaseId", 1)])
+    # Audit query support for monitoring metrics
+    await db.di_audit_records.create_index([("tenantId", 1), ("action", 1)])

@@ -127,4 +127,22 @@ export const T = {
   caseStatusSubmit: "case-status-submit",
   caseStatusError: "case-status-error",
   caseMaintenanceContext: "case-maintenance-context",
+
+  // Sprint 05 — Reports
+  reportsRoot: "reports-root",
+  reportsRefresh: "reports-refresh",
+  reportTypeSelect: "report-type-select",
+  reportSessionInput: "report-session-input",
+  reportCaseInput: "report-case-input",
+  reportRentalInput: "report-rental-input",
+  reportGenerate: "report-generate",
+  reportError: "report-error",
+  reportsTable: "reports-table",
+  reportRow: "report-row",
+  reportAccessLink: "report-access-link",
+  reportsEmpty: "reports-empty",
+
+  // Sprint 05 — Dashboard monitoring
+  dashboardMetrics: "dashboard-metrics",
+  cardIntegrationHealth: "card-integration-health",
 };

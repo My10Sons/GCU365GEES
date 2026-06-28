@@ -13,8 +13,8 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("admin@riyadah.tech");
-  const [password, setPassword] = useState("DamageAdmin#2026");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -72,7 +72,7 @@ export default function Login() {
           <div className="glass rounded-xl p-7 shadow-panel">
             <h2 className="text-lg font-medium text-white">Sign in</h2>
             <p className="text-sm text-steel-300 mt-1 mb-6">
-              Operator console — Sprint 00 engineering baseline.
+              Operator console — sign in to continue.
             </p>
 
             <form onSubmit={onSubmit} className="space-y-4" noValidate>
