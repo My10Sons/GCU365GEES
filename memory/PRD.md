@@ -123,3 +123,19 @@ actual repair cost, fleet master, or finance posting.
 | CI/CD pipeline (AC-DI-S00-008) | Documented but not wired in the Emergent preview |
 | Production object storage provider | Deferred to Sprint 05 — abstraction in place |
 | Submit-readiness rule (required capture positions present) | Deferred — current sprint accepts ≥1 image |
+
+## Locked-in Sprint 03 (TASK-04) decisions — for next session
+
+These decisions were confirmed by the product owner on 2026-06-28 and MUST NOT be
+re-asked when TASK-04 starts in a fresh session.
+
+| ID | Decision |
+|----|----------|
+| DECISION-Sprint03-a | **Damage comparison anchor**: API accepts BOTH explicit `baselineInspectionSessionId` AND auto-anchors to the most recent prior submitted inspection for the same `externalVehicleRef` within the tenant when no baseline is provided. |
+| DECISION-Sprint03-b | **Review-queue auto-routing**: Findings flagged `LOW_CONFIDENCE` or `UNCERTAIN` are auto-inserted into `di_review_queue` immediately on `Run AI`. Tenant-level switch `autoRouteLowConfidence: true` (default) in `di_ai_configuration` lets a DI_Admin opt-out per tenant. |
+| DECISION-Sprint03-c | **Comparison classification**: each AI advisory finding in a comparison is classified as one of `NEW_DAMAGE`, `PRE_EXISTING_DAMAGE`, `RESOLVED`, or `NOT_COMPARABLE`. |
+| DECISION-Sprint03-d | **DI-0037 (Per-Vehicle Evidence Strip)** is bundled INTO Sprint 03 (single sprint delivery alongside damage comparison). |
+
+Required reading at TASK-04 start (do not skip): DI-0006, DI-0009, DI-0011, DI-0012,
+DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
+`implementation/SPRINT-03-Production-Review-Comparison-and-Damage-Cases.md`.
