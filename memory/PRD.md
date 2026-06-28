@@ -64,6 +64,13 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-28 — TASK-07 Full Regression + TASK-08 Handover — **DONE**
+
+- **Closing-the-loop feature**: CROMS damage-summary now auto-populates `reportReference` (latest RENTAL_DAMAGE_SUMMARY_REPORT) + `evidencePackageReference` (latest EVIDENCE_PACKAGE_REPORT); Maintenance handoff auto-links evidence-package + damage-case report references (caller-supplied preserved; idempotent). Verified in `smoke_sprint05.py`.
+- **TASK-07 full regression**: all 6 sprint smokes green; testing agent iteration_9 — backend 100% (6/6 smokes + closing-the-loop), frontend 100% across the app, 0 issues. Cross-tenant isolation, signed-link-only access, advisory labelling, and ownership boundaries all verified.
+- **TASK-08 handover**: `docs/07-Damage-Intelligence/DI-0040-Final-Handover-Report.md` consolidates Sprints 00–05 (architecture, data model, capabilities, security, test evidence, deferrals, run instructions).
+- Remaining: ops/governance deferrals only (prod object store swap, external alerting, runbooks, DR, release sign-offs).
+
 ### 2026-06-28 — Sprint 05 (TASK-06) — **DONE** (core scope)
 
 - **Reports + evidence packages**: POST `/reports` (7 types: inspection-summary, damage-detection, damage-comparison, damage-case, rental-damage-summary, maintenance-handoff, evidence-package), GET `/reports`, GET `/reports/{id}`, POST `/reports/{id}/access-link`. Content built from existing data, stored as JSON on disk, served via **HMAC-signed time-limited** links (`/internal/storage/access`) — no public URLs. AI labelled advisory; ownership boundaries in content (`finalCustomerChargeDecision: NOT_OWNED_BY_DAMAGE_INTELLIGENCE`, Maintenance owns work-order/cost).
