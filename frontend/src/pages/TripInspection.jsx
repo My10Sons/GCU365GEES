@@ -38,7 +38,15 @@ async function prepareImage(file) {
   return { blob, preview: canvas.toDataURL("image/jpeg", 0.6) };
 }
 
-const CATEGORY_LABEL = { DENT: "Dents", SCRATCH: "Scratches", TIRE: "Tyre / tire issues" };
+const CATEGORY_LABEL = {
+  DENT: "Dents",
+  SCRATCH: "Scratches",
+  TIRE: "Tyres / wheels",
+  GLASS: "Glass",
+  LIGHT: "Lights",
+  PART: "Broken / missing parts",
+};
+const CATEGORY_ORDER = ["DENT", "SCRATCH", "TIRE", "GLASS", "LIGHT", "PART"];
 
 function StatusBadge({ status }) {
   const cls = status === "NEW"
@@ -175,7 +183,8 @@ export default function TripInspection() {
       <p className="text-sm text-steel-300 mt-2 max-w-2xl flex items-start gap-1.5">
         <ShieldCheck className="size-4 mt-0.5 text-emerald400" />
         Add a photo from before and after the rental trip, then analyze. We compare them and report
-        dents, scratches, and tyre issues. Advisory only — nothing is stored; your photos are deleted right after analysis.
+        dents, scratches, tyre/wheel issues, broken glass, broken lights, and broken or missing parts.
+        Advisory only — nothing is stored; your photos are deleted right after analysis.
       </p>
 
       <section className="mt-6 rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
@@ -248,8 +257,8 @@ export default function TripInspection() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {["DENT", "SCRATCH", "TIRE"].map((cat) => {
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {CATEGORY_ORDER.map((cat) => {
               const c = result.counts?.[cat] || { NEW: 0, total: 0 };
               return (
                 <div key={cat} className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
@@ -266,7 +275,7 @@ export default function TripInspection() {
               Findings ({result.items?.length || 0})
             </div>
             {(result.items || []).length === 0 ? (
-              <div className="px-4 py-8 text-center text-steel-400 text-sm">No dents, scratches, or tyre issues found.</div>
+              <div className="px-4 py-8 text-center text-steel-400 text-sm">No visible damage found.</div>
             ) : (
               <ul className="divide-y divide-ink-700/60">
                 {result.items.map((it, i) => (

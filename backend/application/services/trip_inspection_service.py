@@ -27,22 +27,32 @@ _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 SYSTEM_MESSAGE = (
     "You are the Damage Intelligence rental-trip inspector. Your output is ADVISORY ONLY and "
     "does not decide liability, charges, or repair cost. You receive a BEFORE photo (start of "
-    "rental) and an AFTER photo (end of rental) of the same vehicle. Compare them and report "
-    "ONLY: dents, scratches, and tyre/tire issues. Respond with STRICT JSON only — no prose."
+    "rental) and an AFTER photo (end of rental) of the same vehicle. Compare them and report ANY "
+    "visible exterior damage: dents, scratches, tyre/wheel issues, broken or cracked glass "
+    "(windscreen, rear window, side windows), broken or cracked lights (head, tail, brake lamps, "
+    "indicators), and broken or missing parts (bumpers, mirrors, trim, grille, badges). "
+    "Respond with STRICT JSON only — no prose."
 )
 
 USER_PROMPT = (
     "The FIRST image is BEFORE the trip. The SECOND image is AFTER the trip. Compare them.\n"
-    "Report dents, scratches, and tyre/tire issues. Be conservative; if unsure, say UNCERTAIN.\n\n"
+    "Report ALL visible exterior damage across these categories. Be conservative; if unsure, say UNCERTAIN.\n"
+    "Categories:\n"
+    "- DENT: dents or deformations in body panels\n"
+    "- SCRATCH: scratches, scuffs, or paint damage\n"
+    "- TIRE: tyre/tire or wheel/rim issues (flat, damage, missing)\n"
+    "- GLASS: broken, cracked, or shattered glass (windscreen, rear window, side/quarter windows)\n"
+    "- LIGHT: broken, cracked, or missing lights (headlight, tail light, brake lamp, indicator)\n"
+    "- PART: broken or missing parts (bumper, mirror, trim, grille, badge, door handle)\n\n"
     "Return JSON EXACTLY in this shape:\n"
     "{\n"
     '  "comparable": true or false,\n'
     '  "notComparableReason": string or null,\n'
     '  "items": [\n'
     "    {\n"
-    '      "category": one of ["DENT","SCRATCH","TIRE"],\n'
+    '      "category": one of ["DENT","SCRATCH","TIRE","GLASS","LIGHT","PART"],\n'
     '      "status": one of ["NEW","PRE_EXISTING","RESOLVED","UNCERTAIN"],\n'
-    '      "location": short string e.g. "front bumper, driver side" or "rear-left tyre",\n'
+    '      "location": short string e.g. "rear window" or "left brake lamp" or "front bumper, driver side",\n'
     '      "severity": one of ["LOW","MEDIUM","HIGH"] or null,\n'
     '      "confidence": number between 0 and 1,\n'
     '      "detail": short human-readable note,\n'
@@ -57,7 +67,16 @@ USER_PROMPT = (
     "RESOLVED = in BEFORE but gone in AFTER. Empty items list is valid (no issues found)."
 )
 
-_CATEGORIES = {"DENT", "SCRATCH", "TIRE"}
+_CATEGORIES = ["DENT", "SCRATCH", "TIRE", "GLASS", "LIGHT", "PART"]
+_CATEGORY_SYNONYMS = {
+    "TYRE": "TIRE", "TIRES": "TIRE", "TYRES": "TIRE", "WHEEL": "TIRE", "WHEELS": "TIRE", "RIM": "TIRE",
+    "WINDOW": "GLASS", "WINDOWS": "GLASS", "WINDSHIELD": "GLASS", "WINDSCREEN": "GLASS",
+    "WINDSHEILD": "GLASS", "MIRROR_GLASS": "GLASS",
+    "LAMP": "LIGHT", "LAMPS": "LIGHT", "LIGHTS": "LIGHT", "HEADLIGHT": "LIGHT", "HEADLAMP": "LIGHT",
+    "TAILLIGHT": "LIGHT", "TAILLAMP": "LIGHT", "BRAKELIGHT": "LIGHT", "BRAKELAMP": "LIGHT", "INDICATOR": "LIGHT",
+    "BUMPER": "PART", "MIRROR": "PART", "TRIM": "PART", "GRILLE": "PART", "BADGE": "PART",
+    "BROKEN_PART": "PART", "MISSING_PART": "PART", "PARTS": "PART", "PANEL": "PART",
+}
 _STATUSES = {"NEW", "PRE_EXISTING", "RESOLVED", "UNCERTAIN"}
 _SEVERITIES = {"LOW", "MEDIUM", "HIGH"}
 
@@ -133,8 +152,7 @@ def _normalize(parsed: dict | None) -> dict:
         if not isinstance(it, dict):
             continue
         cat = str(it.get("category") or "").upper()
-        if cat in ("TYRE", "TIRES", "TYRES", "WHEEL"):
-            cat = "TIRE"
+        cat = _CATEGORY_SYNONYMS.get(cat, cat)
         if cat not in _CATEGORIES:
             continue
         status = str(it.get("status") or "UNCERTAIN").upper()
@@ -192,7 +210,7 @@ async def analyze(*, principal: dict, token: str, correlation_id: str) -> dict:
     result["modelVersion"] = model_label
     result["isAdvisory"] = True
 
-    counts = {"DENT": {"NEW": 0, "total": 0}, "SCRATCH": {"NEW": 0, "total": 0}, "TIRE": {"NEW": 0, "total": 0}}
+    counts = {c: {"NEW": 0, "total": 0} for c in _CATEGORIES}
     for it in result["items"]:
         counts[it["category"]]["total"] += 1
         if it["status"] == "NEW":
