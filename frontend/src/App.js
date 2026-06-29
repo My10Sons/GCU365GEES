@@ -17,6 +17,7 @@ import ReviewItemDetail from "./pages/ReviewItemDetail";
 import DamageCases from "./pages/DamageCases";
 import DamageCaseDetail from "./pages/DamageCaseDetail";
 import Reports from "./pages/Reports";
+import TripInspection from "./pages/TripInspection";
 
 function Protected({ children }) {
   const { status, principal } = useAuth();
@@ -47,6 +48,10 @@ function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route
+          path="trip"
+          element={<TripInspection />}
+        />
         <Route
           path="inspections"
           element={<Inspections />}

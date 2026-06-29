@@ -64,6 +64,13 @@ actual repair cost, fleet master, or finance posting.
 
 ## Implementation Status
 
+### 2026-06-29 — Trip Inspection (anonymous quick before/after analysis) — **DONE**
+
+- New **Trip Inspection** page + nav item: upload a Before and After rental photo → real Gemini vision comparison → advisory verdict on **dents, scratches, and tyre issues**, each NEW vs PRE-EXISTING, with severity/confidence/location + plain-language summary.
+- **Anonymous & ephemeral** (per user choice): no reference fields, NOTHING persisted — images written to a temp dir and deleted immediately after analysis; only a lightweight audit row (`QUICK_TRIP_ANALYSIS_RUN`) is written.
+- Backend: `POST /trip-inspection/session|upload|analyze` (gated by `di.ai.request`); ephemeral temp storage; focused Gemini prompt; safe NOT_COMPARABLE handling (e.g. mismatched vehicles). Frontend downscales images client-side (≤1600px JPEG) to stay within proxy limits; analyze uses a 180s per-request timeout (Gemini Pro can take ~60-90s).
+- Verified: curl run correctly detected dent+scratch+flat tyre on a damaged "after" photo; UI verified for both NEW_DAMAGE_FOUND and NOT_COMPARABLE states; compile clean; works in light/dark.
+
 ### 2026-06-28 — Light mode — **DONE**
 
 - Converted the color palette (ink/steel/signal/amber/emerald + `white`) to CSS-variable tokens with Tailwind alpha support; `:root` = dark (default), `html.light` = light overrides. No component rewrites needed.

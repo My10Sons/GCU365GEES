@@ -145,4 +145,14 @@ export const T = {
   // Sprint 05 — Dashboard monitoring
   dashboardMetrics: "dashboard-metrics",
   cardIntegrationHealth: "card-integration-health",
+
+  // Trip Inspection (quick before/after analysis)
+  sidebarTrip: "sidebar-trip",
+  tripRoot: "trip-root",
+  tripBeforeInput: "trip-before-input",
+  tripAfterInput: "trip-after-input",
+  tripAnalyze: "trip-analyze",
+  tripReset: "trip-reset",
+  tripError: "trip-error",
+  tripResult: "trip-result",
 };

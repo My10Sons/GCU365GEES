@@ -16,6 +16,7 @@ import {
   ShieldAlert,
   Sun,
   Moon,
+  CarFront,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { IntegrationAlertBanner } from "./IntegrationAlertBanner";
@@ -24,6 +25,7 @@ import { T } from "../constants/testIds";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, testId: T.sidebarDashboard, perm: null, end: true },
+  { to: "/trip", label: "Trip Inspection", icon: CarFront, testId: T.sidebarTrip, perm: "di.ai.request" },
   { to: "/inspections", label: "Inspections", icon: ClipboardList, testId: T.sidebarInspections, perm: "di.inspections.read" },
   { to: "/review", label: "Review Queue", icon: ShieldCheck, testId: T.sidebarReview, perm: "di.review.read" },
   { to: "/cases", label: "Damage Cases", icon: FolderOpen, testId: T.sidebarCases, perm: "di.damagecases.read" },
