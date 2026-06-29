@@ -1,0 +1,15 @@
+# Damage Intelligence
+
+> Multi-tenant, AI-assisted vehicle damage detection and inspection platform for rental (GCU365 CROMS) and workshop (GCU365Maintenance) operations. It manages inspection evidence, AI advisory damage findings, before/after trip comparison, review queues, and damage cases. AI outputs are advisory only; final liability, customer charge, and repair cost remain with CROMS / Maintenance / Finance.
+
+## Core capabilities
+
+- [Trip Inspection](https://damage-cases.emergent.host/): Anonymous before/after walkaround analysis with bounding-box damage markers, severity, size and repair/replace advice, condition and cleanliness scores, and branded bilingual (English/Arabic) PDF reports.
+- [Inspections](https://damage-cases.emergent.host/inspections): Inspection sessions, evidence capture, and AI damage detection.
+- [Review Queue](https://damage-cases.emergent.host/review): Human-in-the-loop review of low-confidence AI findings.
+- [Damage Cases](https://damage-cases.emergent.host/cases): Persisted advisory damage cases linked to findings, with handoff to maintenance.
+
+## Notes
+
+- Authentication is required for all operational screens; the platform is a B2B operator console, not a public website.
+- Currency is Saudi Riyal (SAR). Pricing estimates are advisory.

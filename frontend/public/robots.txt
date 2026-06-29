@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /$
+Disallow: /inspections
+Disallow: /review
+Disallow: /cases
+Disallow: /reports
+Disallow: /settings
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://damage-cases.emergent.host/sitemap.xml
