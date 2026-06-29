@@ -254,3 +254,13 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   `backend/application/services/trip_inspection_service.py`, `backend/api/routes/trip_inspection.py`.
 - Verified via testing_agent on PREVIEW: 6/6 flows pass (exterior-only, interior-only, both,
   inline-hint gating, no-selection guard, 2 real PDF downloads). NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v3.1)
+
+- **Parallel area analysis:** `analyze_trip` now runs the exterior and interior Gemini calls
+  concurrently via `asyncio.gather` (was sequential). Both-area analysis ~15s instead of ~2x.
+- **PDF before + after:** the exported PDF now shows each section's Before photo and the
+  annotated After (issues marked) side by side, above the findings list.
+- Files: `backend/application/services/trip_inspection_service.py`, `frontend/src/pages/TripInspection.jsx`.
+- Verified on PREVIEW: direct API timing + both sections correct; PDF export download succeeds
+  cleanly (~437 KB, 4 embedded images). NOT yet redeployed to production.

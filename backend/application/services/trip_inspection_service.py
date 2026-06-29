@@ -12,6 +12,7 @@ Repository Traceability:
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import shutil
 import uuid
@@ -297,27 +298,26 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
     models: list[str] = []
     total_latency = 0
     try:
+        tasks = []
         if has_ext:
             eb_path, eb_mime = _validate_and_save(work, "exterior_before", ext_before)
             ea_path, ea_mime = _validate_and_save(work, "exterior_after", ext_after)
-            ext_section, ext_model, ext_lat = await _analyze_pair(
+            tasks.append(_analyze_pair(
                 before_path=eb_path, before_mime=eb_mime, after_path=ea_path, after_mime=ea_mime,
                 kind="EXTERIOR", correlation_id=correlation_id,
-            )
-            sections.append(ext_section)
-            models.append(ext_model)
-            total_latency += ext_lat
-
+            ))
         if has_int:
             ib_path, ib_mime = _validate_and_save(work, "interior_before", int_before)
             ia_path, ia_mime = _validate_and_save(work, "interior_after", int_after)
-            int_section, int_model, int_lat = await _analyze_pair(
+            tasks.append(_analyze_pair(
                 before_path=ib_path, before_mime=ib_mime, after_path=ia_path, after_mime=ia_mime,
                 kind="INTERIOR", correlation_id=correlation_id,
-            )
-            sections.append(int_section)
-            models.append(int_model)
-            total_latency += int_lat
+            ))
+        # Run exterior + interior analyses concurrently to minimize total latency.
+        for section, model, lat in await asyncio.gather(*tasks):
+            sections.append(section)
+            models.append(model)
+            total_latency += lat
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

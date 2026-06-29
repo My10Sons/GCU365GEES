@@ -355,15 +355,27 @@ export default function TripInspection() {
         write(`${s.label}${!s.comparable ? "  (not comparable)" : ""}`, 13, [17, 17, 17], 18, true);
         if (s.summary) write(s.summary, 10, [60, 60, 60], 14);
 
-        const preview = afterPreviewFor(s.kind);
-        if (preview) {
-          const annotated = await composeAnnotated(preview, s.items);
-          const dims = await loadImage(annotated);
-          const w = pageW - 2 * M;
-          const h = w * (dims.naturalHeight / dims.naturalWidth);
-          if (y + h > pageH - M) { doc.addPage(); y = M; }
-          doc.addImage(annotated, "JPEG", M, y, w, h);
-          y += h + 14;
+        const beforeP = s.kind === "INTERIOR" ? intBefore.preview : extBefore.preview;
+        const afterP = afterPreviewFor(s.kind);
+        if (afterP) {
+          const annotated = await composeAnnotated(afterP, s.items);
+          const gap = 12;
+          const colW = (pageW - 2 * M - gap) / 2;
+          const afterImg = await loadImage(annotated);
+          const beforeImg = beforeP ? await loadImage(beforeP) : null;
+          const hA = colW * (afterImg.naturalHeight / afterImg.naturalWidth);
+          const hB = beforeImg ? colW * (beforeImg.naturalHeight / beforeImg.naturalWidth) : 0;
+          const rowH = Math.max(hA, hB);
+          if (y + rowH + 16 > pageH - M) { doc.addPage(); y = M; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(90, 90, 90);
+          doc.text("Before", M, y);
+          doc.text("After (issues marked)", M + colW + gap, y);
+          const imgY = y + 5;
+          if (beforeImg) doc.addImage(beforeP, "JPEG", M, imgY, colW, hB);
+          doc.addImage(annotated, "JPEG", M + colW + gap, imgY, colW, hA);
+          y = imgY + rowH + 14;
         }
 
         if (y > pageH - 60) { doc.addPage(); y = M; }
