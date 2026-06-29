@@ -216,3 +216,25 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   - Frontend: `pages/TripInspection.jsx` (`CATEGORY_LABEL`, `CATEGORY_ORDER`, 6 count cards).
   - Verified via testing_agent on PREVIEW with real Gemini — 100% pass. NOT yet redeployed to production.
 - **Trip Inspection bounding-box markers:** verified working (iteration prior).
+
+## Changelog — 2026-06-29 (Trip Inspection v2 — verified, iteration_11.json)
+
+- **Expanded exterior categories** to 12: Dents, Scratches, Chips, Tyres, Wheels/rims,
+  Glass, Lights, Broken/missing parts, Rust/corrosion, Vandalism/graffiti, Dirt/staining,
+  Fluid leaks.
+- **Added optional INTERIOR inspection** (6 categories): Seats, Dashboard/console,
+  Trim/panels, Stains/dirt, Missing items, Screens/controls. Analyzed only when BOTH
+  interior before + after photos are provided; rendered as its own result section with its
+  own annotated after image + bounding-box markers.
+- **Single-request architecture:** removed the old `/trip-inspection/session` + `/upload`
+  endpoints. All images are now sent in ONE multipart `POST /trip-inspection/analyze`
+  (fields: exterior_before, exterior_after [required], interior_before, interior_after
+  [optional]). Backend writes to a per-request temp dir and deletes it immediately. This
+  fixes the production "Both a Before and an After image are required" error caused by
+  upload/analyze landing on different backend instances behind the load balancer.
+- Result shape changed to `{ sections:[{kind, label, comparable, overall, summary, items,
+  counts, newIssueCount}], overall, newIssueCount, modelVersion }`.
+- Files: `backend/application/services/trip_inspection_service.py`,
+  `backend/api/routes/trip_inspection.py`, `frontend/src/pages/TripInspection.jsx`,
+  `frontend/src/constants/testIds.js`.
+- Verified via testing_agent on PREVIEW (5/5 flows pass). NOT yet redeployed to production.
