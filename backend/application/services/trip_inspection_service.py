@@ -45,7 +45,10 @@ USER_PROMPT = (
     '      "location": short string e.g. "front bumper, driver side" or "rear-left tyre",\n'
     '      "severity": one of ["LOW","MEDIUM","HIGH"] or null,\n'
     '      "confidence": number between 0 and 1,\n'
-    '      "detail": short human-readable note\n'
+    '      "detail": short human-readable note,\n'
+    '      "box": { "x": 0..1, "y": 0..1, "w": 0..1, "h": 0..1 } normalized bounding box of the\n'
+    '              issue on the AFTER image (x,y = top-left corner as fractions of width/height),\n'
+    '              or null if you cannot localize it\n'
     "    }\n"
     "  ],\n"
     '  "summary": one or two sentence plain-language summary\n'
@@ -100,6 +103,27 @@ def _find_slot(d: Path, slot: str) -> Optional[Path]:
     return None
 
 
+def _normalize_box(box) -> Optional[dict]:
+    if not isinstance(box, dict):
+        return None
+    try:
+        x = float(box.get("x"))
+        y = float(box.get("y"))
+        w = float(box.get("w"))
+        h = float(box.get("h"))
+    except (TypeError, ValueError):
+        return None
+    # Accept only sane normalized boxes.
+    if not (0 <= x <= 1 and 0 <= y <= 1 and 0 < w <= 1 and 0 < h <= 1):
+        return None
+    # Clamp so the box stays inside the image.
+    w = min(w, 1 - x)
+    h = min(h, 1 - y)
+    if w <= 0 or h <= 0:
+        return None
+    return {"x": round(x, 4), "y": round(y, 4), "w": round(w, 4), "h": round(h, 4)}
+
+
 def _normalize(parsed: dict | None) -> dict:
     if not isinstance(parsed, dict):
         return {"comparable": False, "notComparableReason": "model_unparseable", "items": [],
@@ -127,6 +151,7 @@ def _normalize(parsed: dict | None) -> dict:
             "location": (it.get("location") if isinstance(it.get("location"), str) else "")[:160],
             "severity": sev, "confidence": conf,
             "detail": (it.get("detail") if isinstance(it.get("detail"), str) else "")[:300],
+            "box": _normalize_box(it.get("box")),
         })
     return {
         "comparable": bool(parsed.get("comparable", True)),

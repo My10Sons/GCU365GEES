@@ -209,6 +209,45 @@ export default function TripInspection() {
       {result && (
         <section data-testid={T.tripResult} className="mt-6 space-y-4">
           {overallCard()}
+
+          {after.preview && (
+            <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-3">
+              <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2 px-1">
+                After photo — detected issues marked
+              </div>
+              <div className="relative inline-block max-w-full">
+                <img src={after.preview} alt="After, annotated" className="block max-w-full rounded-md" />
+                {(result.items || []).map((it, i) =>
+                  it.box ? (
+                    <div
+                      key={i}
+                      className={`absolute border-2 rounded-sm ${it.status === "NEW" ? "border-signal" : "border-amber400"}`}
+                      style={{
+                        left: `${it.box.x * 100}%`,
+                        top: `${it.box.y * 100}%`,
+                        width: `${it.box.w * 100}%`,
+                        height: `${it.box.h * 100}%`,
+                      }}
+                    >
+                      <span
+                        className={`absolute -top-2 -left-2 size-5 grid place-items-center rounded-full text-[10px] font-bold text-white ${
+                          it.status === "NEW" ? "bg-signal" : "bg-amber400"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                    </div>
+                  ) : null
+                )}
+              </div>
+              {(result.items || []).some((it) => !it.box) && (
+                <p className="text-[11px] text-steel-400 mt-2 px-1">
+                  Some findings could not be precisely located and are listed below without a marker.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {["DENT", "SCRATCH", "TIRE"].map((cat) => {
               const c = result.counts?.[cat] || { NEW: 0, total: 0 };
@@ -232,6 +271,7 @@ export default function TripInspection() {
               <ul className="divide-y divide-ink-700/60">
                 {result.items.map((it, i) => (
                   <li key={i} className="px-4 py-3 flex items-start gap-3">
+                    <span className={`size-5 mt-0.5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold text-white ${it.status === "NEW" ? "bg-signal" : it.box ? "bg-amber400" : "bg-ink-600"}`}>{i + 1}</span>
                     <span className="text-[11px] font-mono text-steel-300 w-20 shrink-0 mt-0.5">{CATEGORY_LABEL[it.category]?.split(" ")[0]}</span>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
