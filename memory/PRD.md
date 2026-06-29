@@ -302,3 +302,26 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 - Files: `backend/application/services/trip_inspection_service.py`,
   `frontend/src/pages/TripInspection.jsx`.
 - Verified on PREVIEW (curl payloads + rendered PDF + UI). NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v6 — walkaround, size/replace, integrity, bilingual PDF)
+
+- **F · Guided multi-angle walkaround:** exterior is now angle-based — user selects any of
+  Front/Rear/Left/Right/Roof chips; each selected angle gets its own Before/After pair, analyzed
+  in parallel as its own section ("Exterior — Front" etc.), plus optional Interior. Result has a
+  `coverage` summary (captured/missing angles, interior flag) shown as a chip. Backend route
+  fields: ext_{angle}_before/after + interior_*; at least one complete pair required.
+- **C · Size + repair/replace:** each finding has `sizeCm` (AI estimate via reference scale) and
+  `recommendation` (REPAIR/REPLACE/ASSESS). Shown in UI findings + PDF.
+- **E · Integrity / tamper check (advisory):** per-section `integrity` {beforeSuspicious,
+  afterSuspicious, aiGeneratedLikelihood, signals}; result `hasIntegrityWarnings`. Amber
+  "Integrity check" panel in UI + PDF. NOTE: advisory/heuristic, can false-positive (EXIF is
+  stripped by client downscale; detection is content-based).
+- **G · Bilingual PDF:** Export in English / Arabic / EN+AR via a language dropdown. PDF rebuilt
+  as an HTML report rendered with html2canvas -> jsPDF (multipage), so Arabic shapes/RTL render
+  natively. Amiri webfont added to index.html. Branding header, reference fields, per-section
+  before+after annotated images, findings table (size/action/cost), warnings, coverage, and
+  signature blocks — all localised.
+- Files: backend `trip_inspection_service.py`, `api/routes/trip_inspection.py`; frontend
+  `pages/TripInspection.jsx`, `constants/testIds.js`, `public/index.html`. Dep: html2canvas (already present).
+- Verified via testing_agent (iteration_13.json): 100% (10/10), 5 real PDF downloads, 0 console errors.
+  NOT yet redeployed to production.
