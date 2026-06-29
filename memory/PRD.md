@@ -364,3 +364,27 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 - No backend changes (reuses existing /tenant/branding + /tenant/policy endpoints).
 - Verified on PREVIEW: settings load (logo/company/branch), branding + policy save with
   confirmation, sidebar link present (screenshot). Demo tenant policy left OFF (default).
+
+## Changelog — 2026-06-29 (Trip auto-route to Damage Case + PDF preview)
+
+- **Auto-route NEW high-value Trip damage → persisted Damage Case (P0, verified iteration_14.json).**
+  When an anonymous Trip Inspection finds NEW damage whose summed estimated repair (high end)
+  reaches `DI_TRIP_AUTO_CASE_COST_THRESHOLD` (default 1000 QAR), the backend now persists a minimal
+  inspection session (SPOT_CHECK / DI-Web) + `di_ai_analyses` + one `di_ai_finding` per NEW item,
+  then opens a `REPAIR_RELEVANT` Damage Case (severity = highest NEW finding) linked to those
+  findings — bridging the ephemeral trip tool into the main review/case queue.
+  - Decisions: 1A=B (build session+findings then normal case), 1B=C (cost-threshold trigger),
+    1C=A (report-detail fields → case: vehiclePlate→externalVehicleRef, rentalId→session ref,
+    customer/model/inspector into case description; synthetic `TRIP-XXXX` ref when no plate),
+    1D=A (UI banner with "View case" link to `/cases/:id`).
+  - Auto-routing is best-effort (try/except) and never breaks the advisory analyze response.
+  - Files: backend `application/services/trip_inspection_service.py` (`_maybe_auto_create_case`,
+    `_AUTO_CASE_COST_THRESHOLD`, category→DamageType map), `api/routes/trip_inspection.py`
+    (optional Form fields customer_name/vehicle_plate/vehicle_model/rental_id/inspector_name);
+    frontend `pages/TripInspection.jsx` (append report fields to analyze; `trip-autocase-banner`).
+  - Verified via testing_agent (iteration_14.json): 5/5 backend scenarios PASS with real Gemini —
+    threshold gating, persistence, report-field mapping, synthetic ref fallback, additive shape.
+- **PDF preview thumbnail on Tenant Settings (P0).** Live white-background mock of the branded
+  PDF header (logo + company + branch + sample report title/refs/verdict) that updates as the
+  admin edits branding. Frontend-only (`pages/TenantSettings.jsx`, `tenant-pdf-preview`).
+  Verified via screenshot on PREVIEW. NOT yet redeployed to production.
