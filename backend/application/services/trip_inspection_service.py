@@ -276,14 +276,20 @@ def _validate_and_save(work: Path, slot: str, payload: tuple[bytes, Optional[str
 
 
 async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> dict:
-    """`files` maps slot -> (bytes, content_type). exterior_before/after required;
-    interior_before/after optional (analyzed only when BOTH are present)."""
+    """`files` maps slot -> (bytes, content_type). At least one complete pair is required:
+    exterior_before+exterior_after and/or interior_before+interior_after. Each provided area
+    is analyzed independently."""
     tenant_id = principal["tenantId"]
     ext_before = files.get("exterior_before")
     ext_after = files.get("exterior_after")
-    if not ext_before or not ext_after:
+    int_before = files.get("interior_before")
+    int_after = files.get("interior_after")
+    has_ext = bool(ext_before and ext_after)
+    has_int = bool(int_before and int_after)
+    if not has_ext and not has_int:
         raise DomainError(ErrorCode.VALIDATION_ERROR,
-                          "Exterior Before and After photos are required.", 400, "images")
+                          "Provide a Before and After photo for at least one area (exterior or interior).",
+                          400, "images")
 
     work = _TMP_ROOT / uuid.uuid4().hex
     work.mkdir(parents=True, exist_ok=True)
@@ -291,19 +297,18 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
     models: list[str] = []
     total_latency = 0
     try:
-        eb_path, eb_mime = _validate_and_save(work, "exterior_before", ext_before)
-        ea_path, ea_mime = _validate_and_save(work, "exterior_after", ext_after)
-        ext_section, ext_model, ext_lat = await _analyze_pair(
-            before_path=eb_path, before_mime=eb_mime, after_path=ea_path, after_mime=ea_mime,
-            kind="EXTERIOR", correlation_id=correlation_id,
-        )
-        sections.append(ext_section)
-        models.append(ext_model)
-        total_latency += ext_lat
+        if has_ext:
+            eb_path, eb_mime = _validate_and_save(work, "exterior_before", ext_before)
+            ea_path, ea_mime = _validate_and_save(work, "exterior_after", ext_after)
+            ext_section, ext_model, ext_lat = await _analyze_pair(
+                before_path=eb_path, before_mime=eb_mime, after_path=ea_path, after_mime=ea_mime,
+                kind="EXTERIOR", correlation_id=correlation_id,
+            )
+            sections.append(ext_section)
+            models.append(ext_model)
+            total_latency += ext_lat
 
-        int_before = files.get("interior_before")
-        int_after = files.get("interior_after")
-        if int_before and int_after:
+        if has_int:
             ib_path, ib_mime = _validate_and_save(work, "interior_before", int_before)
             ia_path, ia_mime = _validate_and_save(work, "interior_after", int_after)
             int_section, int_model, int_lat = await _analyze_pair(

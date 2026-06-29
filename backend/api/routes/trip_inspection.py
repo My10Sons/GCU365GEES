@@ -22,16 +22,17 @@ router = APIRouter(prefix="/trip-inspection", tags=["trip-inspection"])
 @router.post("/analyze")
 async def analyze(
     request: Request,
-    exterior_before: UploadFile = File(...),
-    exterior_after: UploadFile = File(...),
+    exterior_before: Optional[UploadFile] = File(None),
+    exterior_after: Optional[UploadFile] = File(None),
     interior_before: Optional[UploadFile] = File(None),
     interior_after: Optional[UploadFile] = File(None),
     principal: dict = Depends(require_permission("di.ai.request")),
 ):
-    files: dict = {
-        "exterior_before": (await exterior_before.read(), exterior_before.content_type),
-        "exterior_after": (await exterior_after.read(), exterior_after.content_type),
-    }
+    files: dict = {}
+    if exterior_before is not None:
+        files["exterior_before"] = (await exterior_before.read(), exterior_before.content_type)
+    if exterior_after is not None:
+        files["exterior_after"] = (await exterior_after.read(), exterior_after.content_type)
     if interior_before is not None:
         files["interior_before"] = (await interior_before.read(), interior_before.content_type)
     if interior_after is not None:
