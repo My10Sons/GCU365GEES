@@ -10,7 +10,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye } from "lucide-react";
+import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye, FolderPlus, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api, envelopeError } from "../lib/api";
 import { T } from "../constants/testIds";
 
@@ -295,6 +296,11 @@ export default function TripInspection() {
         fd.append("interior_before", intBefore.blob, "interior_before.jpg");
         fd.append("interior_after", intAfter.blob, "interior_after.jpg");
       }
+      Object.entries({
+        customer_name: reportFields.customerName, vehicle_plate: reportFields.vehiclePlate,
+        vehicle_model: reportFields.vehicleModel, rental_id: reportFields.rentalId,
+        inspector_name: reportFields.inspectorName,
+      }).forEach(([k, v]) => { if (v && v.trim()) fd.append(k, v.trim()); });
       const { data } = await api.post("/trip-inspection/analyze", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 });
       setResult(data.data);
     } catch (err) { setError(envelopeError(err, "Analysis failed. Please retry.")); }
@@ -580,6 +586,23 @@ export default function TripInspection() {
       {result && (
         <section data-testid={T.tripResult} className="mt-6 space-y-4">
           {overallCard()}
+          {result.autoCase?.created && (
+            <div data-testid="trip-autocase-banner" className="rounded-lg border border-signal/40 bg-signal/10 px-4 py-3 flex items-start gap-3">
+              <FolderPlus className="size-5 mt-0.5 text-signal-soft shrink-0" />
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-white">Damage case opened automatically</div>
+                <p className="text-xs text-steel-300 mt-0.5">
+                  High-value new damage{result.autoCase.severityCode ? ` (${result.autoCase.severityCode} severity)` : ""} was detected
+                  {result.autoCase.costHigh ? ` — estimated repair up to ${result.autoCase.costHigh} ${result.autoCase.currency || ""}` : ""}.
+                  A damage case with {result.autoCase.findings} linked finding{result.autoCase.findings > 1 ? "s" : ""} was created in the review queue.
+                </p>
+              </div>
+              <Link data-testid="trip-autocase-link" to={`/cases/${result.autoCase.damageCaseId}`}
+                className="shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-signal hover:bg-signal/90 text-white flex items-center gap-1.5">
+                View case <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+          )}
           {(result.sections || []).map((s) => <SectionResult key={s.label} section={s} afterPreview={afterPreviewFor(s)} />)}
           <p className="text-[11px] text-steel-400">Advisory AI result ({result.modelVersion}). Final liability, customer charge, and repair decisions are not made here.</p>
         </section>

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
@@ -40,6 +40,11 @@ async def analyze(
     ext_roof_after: Optional[UploadFile] = File(None),
     interior_before: Optional[UploadFile] = File(None),
     interior_after: Optional[UploadFile] = File(None),
+    customer_name: Optional[str] = Form(None),
+    vehicle_plate: Optional[str] = Form(None),
+    vehicle_model: Optional[str] = Form(None),
+    rental_id: Optional[str] = Form(None),
+    inspector_name: Optional[str] = Form(None),
     principal: dict = Depends(require_permission("di.ai.request")),
 ):
     raw = {
@@ -56,7 +61,12 @@ async def analyze(
         if payload is not None:
             files[slot] = payload
 
+    report_fields = {
+        "customerName": customer_name, "vehiclePlate": vehicle_plate,
+        "vehicleModel": vehicle_model, "rentalId": rental_id, "inspectorName": inspector_name,
+    }
     data = await trip_inspection_service.analyze_trip(
-        principal=principal, files=files, correlation_id=request.state.correlation_id,
+        principal=principal, files=files, report_fields=report_fields,
+        correlation_id=request.state.correlation_id,
     )
     return ok(data, request.state.correlation_id)

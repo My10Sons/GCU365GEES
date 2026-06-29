@@ -16,15 +16,21 @@ import asyncio
 import os
 import shutil
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from api.middleware.safe_errors import DomainError
 from application.ai.gemini_client import call_vision_model_multi
+from application.services import damage_case_service, inspection_service
 from application.services.audit_service import write_audit
 from application.services.tenant_branding_service import get_branding
+from domain.enums.ai_codes import AIFindingStatus, DamageType
 from domain.enums.audit_actions import ActorType, AuditAction, ObjectType
+from domain.enums.case_codes import CaseType
 from domain.enums.error_codes import ErrorCode
+from domain.enums.inspection_type import InspectionType, SourceSystem
+from infrastructure.db.mongo import get_db
 
 _TMP_ROOT = Path(os.environ.get("DI_TRIP_TMP_DIR", "/tmp/di-trip"))
 _MAX_BYTES = 12 * 1024 * 1024  # 12 MB per image safety cap
@@ -46,6 +52,20 @@ _COST_BASE = {
     "MISSING": (100, 600), "ELECTRONICS": (300, 1500),
 }
 _SEVERITY_FACTOR = {"LOW": 0.5, "MEDIUM": 1.0, "HIGH": 1.7, None: 1.0}
+
+# Auto-route: when a trip finds NEW damage whose total estimated repair cost (high end)
+# reaches this threshold, a persisted Damage Case is auto-created (anonymous trip -> review queue).
+_AUTO_CASE_COST_THRESHOLD = float(os.environ.get("DI_TRIP_AUTO_CASE_COST_THRESHOLD", "1000"))
+_SEVERITY_RANK = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+# Map ephemeral trip categories onto the persisted AI finding DamageType enum.
+_CATEGORY_TO_DAMAGE_TYPE = {
+    "DENT": DamageType.DENT, "SCRATCH": DamageType.SCRATCH, "CHIP": DamageType.PAINT_DAMAGE,
+    "TIRE": DamageType.OTHER, "WHEEL": DamageType.OTHER, "GLASS": DamageType.CRACK,
+    "LIGHT": DamageType.BROKEN_PART, "PART": DamageType.BROKEN_PART, "RUST": DamageType.RUST,
+    "VANDALISM": DamageType.PAINT_DAMAGE, "DIRT": DamageType.OTHER, "LEAK": DamageType.OTHER,
+    "SEAT": DamageType.OTHER, "DASHBOARD": DamageType.OTHER, "TRIM": DamageType.OTHER,
+    "STAIN": DamageType.OTHER, "MISSING": DamageType.MISSING_PART, "ELECTRONICS": DamageType.BROKEN_PART,
+}
 
 
 def _estimate_cost(category: str, severity: Optional[str]) -> dict:
@@ -401,7 +421,105 @@ def _validate_and_save(work: Path, slot: str, payload: tuple[bytes, Optional[str
     return str(path), ct
 
 
-async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> dict:
+async def _maybe_auto_create_case(
+    *, principal: dict, result: dict, report_fields: dict, correlation_id: str,
+) -> dict:
+    """Decision 1A=B / 1B=C / 1C=A: when NEW damage's estimated repair cost (high end) reaches
+    the configured threshold, persist a minimal inspection session + AI findings and open a
+    Damage Case so the anonymous trip lands in the main review/case queue."""
+    rf = report_fields or {}
+    cost_high = (result.get("costSummary") or {}).get("high", 0) or 0
+    if result.get("overall") != "NEW_DAMAGE_FOUND" or cost_high < _AUTO_CASE_COST_THRESHOLD:
+        return {"created": False, "reason": "below_threshold",
+                "thresholdHigh": _AUTO_CASE_COST_THRESHOLD, "currency": _COST_CURRENCY}
+
+    # Collect NEW findings across all sections.
+    new_items: list[tuple[dict, dict]] = []  # (section, item)
+    for section in result.get("sections", []):
+        for it in section.get("items", []):
+            if it.get("status") == "NEW":
+                new_items.append((section, it))
+    if not new_items:
+        return {"created": False, "reason": "no_new_findings"}
+
+    db = get_db()
+    tenant_id = principal["tenantId"]
+    try:
+        # 1) Persist a minimal inspection session (anonymous trip → SPOT_CHECK / DI-Web).
+        plate = (rf.get("vehiclePlate") or "").strip()
+        refs = {"externalVehicleRef": plate or f"TRIP-{uuid.uuid4().hex[:10].upper()}"}
+        if (rf.get("rentalId") or "").strip():
+            refs["externalRentalAgreementRef"] = rf["rentalId"].strip()
+        session = await inspection_service.create_inspection_session(
+            principal=principal,
+            payload={"inspectionType": InspectionType.SPOT_CHECK,
+                     "sourceSystem": SourceSystem.DI_WEB, "references": refs},
+            correlation_id=correlation_id,
+        )
+        session_id = session["id"]
+
+        # 2) Persist a minimal AI analysis + one finding per NEW item.
+        ts = datetime.now(timezone.utc)
+        analysis = await db.di_ai_analyses.insert_one({
+            "tenantId": tenant_id, "inspectionSessionId": session_id,
+            "status": "COMPLETED", "source": "TRIP_INSPECTION",
+            "modelVersion": result.get("modelVersion"), "totalFindings": len(new_items),
+            "isAdvisory": True, "createdAt": ts, "completedAt": ts, "correlationId": correlation_id,
+        })
+        analysis_id = str(analysis.inserted_id)
+        finding_ids: list[str] = []
+        max_sev = None
+        for section, it in new_items:
+            sev = it.get("severity")
+            if sev and (max_sev is None or _SEVERITY_RANK.get(sev, 0) > _SEVERITY_RANK.get(max_sev, 0)):
+                max_sev = sev
+            doc = {
+                "tenantId": tenant_id, "aiAnalysisId": analysis_id, "inspectionSessionId": session_id,
+                "inspectionImageId": None, "capturePosition": section.get("angle") or section.get("kind"),
+                "damageType": _CATEGORY_TO_DAMAGE_TYPE.get(it.get("category"), DamageType.OTHER),
+                "area": (it.get("location") or section.get("label") or "")[:160],
+                "confidence": it.get("confidence", 0.0), "severity": sev,
+                "approximateBoundingBox": it.get("box"), "status": AIFindingStatus.AI_DETECTED,
+                "confidenceThreshold": None, "modelVersion": result.get("modelVersion"),
+                "uncertaintyReason": None, "isAdvisory": True, "source": "TRIP_INSPECTION",
+                "createdAt": ts, "correlationId": correlation_id,
+            }
+            res = await db.di_ai_findings.insert_one(doc)
+            finding_ids.append(str(res.inserted_id))
+
+        # 3) Open the Damage Case linked to the findings.
+        descriptor_bits = []
+        for k, label in (("customerName", "Customer"), ("vehiclePlate", "Plate"),
+                         ("vehicleModel", "Vehicle"), ("rentalId", "Rental"), ("inspectorName", "Inspector")):
+            v = (rf.get(k) or "").strip()
+            if v:
+                descriptor_bits.append(f"{label}: {v}")
+        summaries = [s.get("summary") for s in result.get("sections", []) if s.get("summary")]
+        description = (
+            f"Auto-created from a Trip Inspection — {len(new_items)} new damage finding(s), "
+            f"estimated repair up to {cost_high} {_COST_CURRENCY}. "
+            + (" | ".join(descriptor_bits) + ". " if descriptor_bits else "")
+            + (" ".join(summaries))
+        ).strip()[:2000]
+        case = await damage_case_service.create_case(
+            principal=principal, inspection_session_id=session_id,
+            damage_finding_ids=finding_ids, comparison_result_ids=[],
+            case_type=CaseType.REPAIR_RELEVANT, severity_code=max_sev,
+            description=description, correlation_id=correlation_id,
+        )
+        return {
+            "created": True, "damageCaseId": case.get("damageCaseId"),
+            "inspectionSessionId": session_id, "severityCode": max_sev,
+            "caseType": CaseType.REPAIR_RELEVANT, "findings": len(finding_ids),
+            "costHigh": cost_high, "currency": _COST_CURRENCY,
+        }
+    except Exception:
+        # Auto-routing is best-effort and must never break the advisory analysis response.
+        return {"created": False, "reason": "error"}
+
+
+async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[dict] = None,
+                       correlation_id: str) -> dict:
     """`files` maps slot -> (bytes, content_type). Supported slots:
     ext_{angle}_before / ext_{angle}_after for angle in front|rear|left|right|roof, and
     interior_before / interior_after. At least one complete pair is required; each provided
@@ -494,12 +612,18 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         "coverage": coverage,
     }
 
+    result["autoCase"] = await _maybe_auto_create_case(
+        principal=principal, result=result, report_fields=report_fields or {},
+        correlation_id=correlation_id,
+    )
+
     await write_audit(
         tenant_id=tenant_id, actor_id=principal["id"], actor_type=ActorType.USER,
         action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,
         object_id="trip-quick", correlation_id=correlation_id,
         safe_metadata={"overall": overall, "newIssues": new_total,
                        "sections": [s["label"] for s in sections],
+                       "autoCaseCreated": bool(result["autoCase"].get("created")),
                        "model": result["modelVersion"], "latencyMs": total_latency},
     )
     return result

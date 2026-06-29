@@ -6,7 +6,7 @@
  *   Backed by GET/PUT /tenant/branding and GET/PUT /tenant/policy (di.configuration.manage).
  */
 import React, { useEffect, useState } from "react";
-import { Building2, ImagePlus, Loader2, Check, ShieldCheck, Settings2, Trash2 } from "lucide-react";
+import { Building2, ImagePlus, Loader2, Check, ShieldCheck, Settings2, Trash2, FileText } from "lucide-react";
 import { api, envelopeError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { T } from "../constants/testIds";
@@ -129,6 +129,32 @@ export default function TenantSettings() {
                   className="px-4 py-2 rounded-md text-sm font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-2">
                   {savingBranding ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save branding
                 </button>
+              </div>
+            </div>
+
+            {/* Live PDF header preview */}
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-2"><FileText className="size-3.5 text-steel-400" /><span className="text-[11px] uppercase tracking-wider text-steel-400">PDF preview</span><span className="text-[11px] text-steel-500">how exported reports will look</span></div>
+              <div data-testid="tenant-pdf-preview" className="rounded-md overflow-hidden border border-ink-700 bg-white shadow-lg max-w-md">
+                <div className="px-5 pt-5 pb-4" style={{ fontFamily: "Helvetica, Arial, sans-serif", color: "#222" }}>
+                  <div className="flex items-center gap-3 pb-3" style={{ borderBottom: "2px solid #e0e0e0" }}>
+                    {logoDataUrl ? <img src={logoDataUrl} alt="Logo" data-testid="tenant-pdf-preview-logo" style={{ height: 40, width: "auto" }} />
+                      : <div className="grid place-items-center text-[9px] text-[#bbb] border border-dashed border-[#ddd]" style={{ height: 40, width: 64 }}>logo</div>}
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#111" }} data-testid="tenant-pdf-preview-company">{companyName || "Your company name"}</div>
+                      {(branchName || true) && <div style={{ fontSize: 10, color: "#777" }} data-testid="tenant-pdf-preview-branch">{branchName || "Your branch name"}</div>}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginTop: 12 }}>Trip Inspection Report</div>
+                  <div style={{ fontSize: 8, color: "#999", marginTop: 2 }}>{new Date().toLocaleDateString()} · advisory only</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 18px", marginTop: 8, fontSize: 9 }}>
+                    <div><span style={{ color: "#777", fontWeight: 700 }}>Customer:</span> <span style={{ color: "#222" }}>Sample Customer</span></div>
+                    <div><span style={{ color: "#777", fontWeight: 700 }}>Vehicle plate:</span> <span style={{ color: "#222" }}>ABC-1234</span></div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#b45309", marginTop: 10 }}>New damage found · 2 issues</div>
+                  <div style={{ height: 1, background: "#eee", marginTop: 10 }} />
+                  <div style={{ fontSize: 9, color: "#aaa", marginTop: 8 }}>Sample preview — actual report content is generated per inspection.</div>
+                </div>
               </div>
             </div>
           </section>

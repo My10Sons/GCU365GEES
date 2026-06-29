@@ -1,0 +1,35 @@
+{
+  "summary": "Backend verification of the new Trip Inspection -> Auto-route Damage Case feature (DECISION-Sprint05 1A=B / 1B=C / 1C=A / 1D=A). 5/5 pytest scenarios PASSED against the live preview using admin@riyadah.tech on TENANT-000001 with real Gemini analyses.",
+  "test_scope": "Backend only. Trip Inspection autoCase behaviour: threshold gating, persistence of inspection session + AI findings + damage case, report-field mapping (plate->externalVehicleRef, rentalId+others in description), synthetic TRIP-XXXX fallback, and additive response shape.",
+  "feature_verification": {
+    "T1_damaged_with_report_fields": "PASS - overall=NEW_DAMAGE_FOUND, costSummary.high >= 1000 QAR, autoCase.created=true with damageCaseId, inspectionSessionId, findings>0, severityCode in {LOW,MEDIUM,HIGH}, costHigh==top-level high.",
+    "T2_case_listed_and_detail_matches": "PASS - new damageCaseId present in GET /damage-cases; GET /damage-cases/{id} returns caseType=REPAIR_RELEVANT, externalVehicleRef==<plate>, description contains 'trip' + Customer + Plate + Rental + Inspector strings; links[] contains FINDING entries (persisted di_ai_findings).",
+    "T3_no_damage_no_case": "PASS - identical undamaged before/after produced overall != NEW_DAMAGE_FOUND, autoCase.created=false reason in {below_threshold, no_new_findings}; cases list count unchanged (no new id appeared).",
+    "T4_no_report_fields_synthetic_ref": "PASS - analyze with empty form fields still creates a case (autoCase.created=true) and the case detail shows externalVehicleRef starting with 'TRIP-' (synthetic uuid suffix).",
+    "T5_response_shape_intact": "PASS - response retains sections, overall, newIssueCount, modelVersion, isAdvisory, branding, costSummary, conditionScore, cleanliness, hasPhotoWarnings, hasIntegrityWarnings, coverage and now also autoCase. Per-section keys (kind, items, newIssueCount, estimatedCost, photoCheck, integrity, comparable) preserved."
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_trip_inspection_auto_case.py",
+    "/app/test_reports/pytest/auto_case_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Best-effort auto-routing (try/except returning reason='error') correctly never breaks the advisory analyze response - none of the 4 damaged-image runs hit the error branch; reason='error' was never observed.",
+    "_AUTO_CASE_COST_THRESHOLD reads DI_TRIP_AUTO_CASE_COST_THRESHOLD env (default 1000 QAR) - good. Currency comes from DI_TRIP_CURRENCY (default QAR) and is echoed back in the autoCase block.",
+    "externalRentalAgreementRef is persisted only on the inspection session (references.externalRentalAgreementRef) - the case itself surfaces only externalVehicleRef. The rentalId is still discoverable via the case description ('Rental: <rentalId>') and via the linked inspectionSessionId; this matches DI's data ownership boundary. No change needed but consider exposing the underlying session refs in case detail if downstream UI needs them.",
+    "Description is truncated to 2000 chars (matches CreateCaseIn schema). Construction includes 'trip' marker + descriptor bits + section summaries, satisfying the contract.",
+    "dedupeKey is built from session id + sorted finding ids, so each trip creates a unique case (fresh session per trip) - confirmed by the two damaged-image runs producing two distinct damageCaseIds.",
+    "Damage case API response correctly excludes Mongo _id (uses str(doc['_id']) as damageCaseId)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_trip_inspection_auto_case.py"
+  ],
+  "success_rate": {"backend": "100% (5/5 tests, ~70s)", "frontend": "n/a (out of scope)"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026 (TENANT-000001)",
+  "seed_data_creation": "Two real damage cases were created under TENANT-000001 during the runs (test 1 and tests 4/5 each produce a fresh case). They use TEST_ prefixed customer/inspector names where applicable; vehicle plates use TEST-XXXXXX. They have status=OPEN and can be left as historical advisory cases or cleaned by the main agent if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auto-case behaviour verified at /api/v1/damage-intelligence/trip-inspection/analyze (multipart). Key fixtures in /tmp/trip/{ext_before.png, ext_after.png} from iteration_13 reliably trigger NEW_DAMAGE_FOUND with high-end cost >> 1000 QAR. Login envelope key is 'success' (not 'ok') and token field is 'accessToken'. List/Detail damage-case responses: list uses {items: [...]} with damageCaseId, detail surfaces externalVehicleRef on the case directly (sourced from session.references.externalVehicleRef) and links[] (linkType=FINDING) for persisted findings. autoCase block shape: {created, damageCaseId, inspectionSessionId, severityCode, caseType, findings, costHigh, currency} on success or {created:false, reason in [below_threshold|no_new_findings|error], thresholdHigh, currency} on skip."
+}
