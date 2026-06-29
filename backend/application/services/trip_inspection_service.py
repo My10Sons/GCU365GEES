@@ -476,6 +476,7 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         "totalAngles": len(_EXTERIOR_ANGLES),
         "capturedCount": len(captured_angles),
         "interiorCaptured": any(s["kind"] == "INTERIOR" for s in sections),
+        "fullWalkaround": len(captured_angles) == len(_EXTERIOR_ANGLES),
     }
 
     result = {

@@ -36,6 +36,9 @@ const ANGLES = [
   { key: "ROOF", en: "Roof", ar: "السقف" },
 ];
 
+const ALL_ANGLE_KEYS = ANGLES.map((a) => a.key);
+const angleLabel = (k) => ANGLES.find((a) => a.key === k)?.en || k;
+
 const CATEGORY_LABEL = {
   DENT: "Dents", SCRATCH: "Scratches", CHIP: "Chips", TIRE: "Tyres", WHEEL: "Wheels / rims",
   GLASS: "Glass", LIGHT: "Lights", PART: "Broken / missing parts", RUST: "Rust / corrosion",
@@ -204,6 +207,7 @@ export default function TripInspection() {
   const [angles, setAngles] = useState(() => ({ FRONT: { before: EMPTY, after: EMPTY } }));
   const [selectedAngles, setSelectedAngles] = useState(["FRONT"]);
   const [interiorOn, setInteriorOn] = useState(false);
+  const [requireFull, setRequireFull] = useState(false);
   const [intBefore, setIntBefore] = useState(EMPTY);
   const [intAfter, setIntAfter] = useState(EMPTY);
   const [reportFields, setReportFields] = useState({ customerName: "", vehiclePlate: "", vehicleModel: "", rentalId: "", inspectorName: "" });
@@ -226,6 +230,13 @@ export default function TripInspection() {
     });
   };
   const toggleInterior = () => { clear(); setInteriorOn((v) => { if (v) { setIntBefore(EMPTY); setIntAfter(EMPTY); } return !v; }); };
+  const toggleRequireFull = (e) => {
+    const on = e.target.checked; setRequireFull(on); clear();
+    if (on) {
+      setSelectedAngles(ALL_ANGLE_KEYS);
+      setAngles((a) => { const n = { ...a }; ALL_ANGLE_KEYS.forEach((k) => { if (!n[k]) n[k] = { before: EMPTY, after: EMPTY }; }); return n; });
+    }
+  };
 
   const pickAngle = useCallback(async (key, slot, file) => {
     clear();
@@ -246,7 +257,10 @@ export default function TripInspection() {
   const intIncomplete = interiorOn && !intComplete;
   const anyComplete = selectedAngles.some(angleComplete) || (interiorOn && intComplete);
   const anySelected = selectedAngles.length > 0 || interiorOn;
-  const canAnalyze = !busy && anySelected && incompleteAngles.length === 0 && !intIncomplete && anyComplete;
+  const missingForFull = ALL_ANGLE_KEYS.filter((k) => !angleComplete(k));
+  const isFullWalkaround = missingForFull.length === 0;
+  const capturedExtCount = ALL_ANGLE_KEYS.filter(angleComplete).length;
+  const canAnalyze = !busy && anySelected && incompleteAngles.length === 0 && !intIncomplete && anyComplete && (!requireFull || isFullWalkaround);
 
   const analyze = async () => {
     setBusy(true); setError(""); setResult(null);
@@ -284,6 +298,7 @@ export default function TripInspection() {
       rentalId: { en: "Rental ID", ar: "رقم الإيجار" }, inspector: { en: "Inspector", ar: "الفاحص" },
       condition: { en: "Overall condition", ar: "الحالة العامة" }, clean: { en: "Cleanliness", ar: "النظافة" }, estCost: { en: "Estimated new-damage repair", ar: "تكلفة الإصلاح المقدّرة" },
       coverage: { en: "Walkaround coverage", ar: "تغطية الفحص" }, before: { en: "Before", ar: "قبل" }, after: { en: "After (issues marked)", ar: "بعد (محددة)" },
+      fullWalk: { en: "Full 5-angle walkaround", ar: "فحص محيطي كامل (٥ زوايا)" }, partialWalk: { en: "Incomplete walkaround", ar: "فحص محيطي غير مكتمل" },
       findings: { en: "Findings", ar: "النتائج" }, noIssues: { en: "No issues found.", ar: "لا توجد مشاكل." },
       photoW: { en: "Photo check — results may be less reliable", ar: "فحص الصور — قد تقل الدقة" }, igW: { en: "Integrity check — possible image manipulation", ar: "فحص الأصالة — احتمال تلاعب" },
       custSig: { en: "Customer signature", ar: "توقيع العميل" }, staffSig: { en: "Staff signature", ar: "توقيع الموظف" }, date: { en: "Date", ar: "التاريخ" },
@@ -311,6 +326,9 @@ export default function TripInspection() {
     if (cs) metrics.push(`${tt(L.estCost, lang)}: ${cs}`);
     const cov = result.coverage || {};
     const covLine = `${tt(L.coverage, lang)}: ${cov.capturedCount || 0}/${cov.totalAngles || 5}${cov.interiorCaptured ? " + Interior" : ""}`;
+    const walkBadge = cov.fullWalkaround
+      ? `<span style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:bold;background:#e6f4ea;color:#1b7d3f;border:1px solid #1b7d3f;">✓ ${tt(L.fullWalk, lang)}</span>`
+      : `<span style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:bold;background:#fff4e5;color:#b26a00;border:1px solid #b26a00;">${tt(L.partialWalk, lang)} (${cov.capturedCount || 0}/${cov.totalAngles || 5})</span>`;
 
     const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
@@ -372,6 +390,7 @@ export default function TripInspection() {
         <div style="font-size:15px;font-weight:bold;color:${verdictColor};margin-top:14px;">${verdict}</div>
         ${metrics.length ? `<div style="font-size:11px;color:#222;font-weight:bold;margin-top:4px;">${metrics.join("&nbsp;&nbsp;·&nbsp;&nbsp;")}</div>` : ""}
         <div style="font-size:10px;color:#555;margin-top:3px;">${covLine}</div>
+        <div>${walkBadge}</div>
         ${sectionsHtml}
         ${sigHtml}
       </div>`;
@@ -430,6 +449,9 @@ export default function TripInspection() {
             {result.cleanliness && <span className="text-steel-300">Cleanliness <span className="text-white font-semibold">{CLEANLINESS_LABEL[result.cleanliness]}</span></span>}
             {fmtCost(result.costSummary) && <span className="text-steel-300" data-testid="trip-cost-summary">Est. new-damage repair <span className="text-signal-soft font-semibold">{fmtCost(result.costSummary)}</span></span>}
             <span className="text-steel-300" data-testid="trip-coverage">Coverage <span className="text-white font-semibold">{cov.capturedCount || 0}/{cov.totalAngles || 5}{cov.interiorCaptured ? " + Interior" : ""}</span></span>
+            <span data-testid="trip-walkaround-badge" className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${cov.fullWalkaround ? "border-emerald400/50 bg-emerald-400/10 text-emerald400" : "border-amber400/50 bg-amber400/10 text-amber400"}`}>
+              {cov.fullWalkaround ? "✓ Full 5-angle walkaround" : `Partial walkaround ${cov.capturedCount || 0}/5`}
+            </span>
           </div>
           {result.hasPhotoWarnings && <p className="text-[11px] text-amber400 mt-1.5 flex items-center gap-1"><AlertTriangle className="size-3" /> Photo-quality / vehicle-match warnings — see sections below.</p>}
           {result.hasIntegrityWarnings && <p className="text-[11px] text-amber400 mt-1 flex items-center gap-1"><ScanEye className="size-3" /> Image-integrity warnings — see sections below.</p>}
@@ -468,6 +490,16 @@ export default function TripInspection() {
           <div className="text-[11px] uppercase tracking-wider text-steel-400 mt-4 mb-2">Interior</div>
           <ScopeChip label="Interior" active={interiorOn} onClick={toggleInterior} testId={T.tripScopeInterior} />
           {!anySelected && <p className="text-xs text-amber400 mt-2">Select at least one area to inspect.</p>}
+          <label className="mt-4 flex items-center gap-2 text-sm text-steel-300 cursor-pointer w-fit" data-testid="trip-require-full">
+            <input type="checkbox" checked={requireFull} onChange={toggleRequireFull} className="size-4 accent-signal" />
+            Require a full 5-angle walkaround (enforce before analysis)
+          </label>
+          {requireFull && !isFullWalkaround && (
+            <p className="text-xs text-amber400 mt-2" data-testid="trip-walkaround-gate">Full walkaround required — add both photos for: {missingForFull.map(angleLabel).join(", ")}.</p>
+          )}
+          {!requireFull && capturedExtCount > 0 && !isFullWalkaround && (
+            <p className="text-xs text-amber400/90 mt-2" data-testid="trip-walkaround-advisory">Partial walkaround ({capturedExtCount}/5 exterior angles). For a complete handover record, capture all 5 angles. Missing: {missingForFull.map(angleLabel).join(", ")}.</p>
+          )}
         </div>
 
         {selectedAngles.map((k) => {

@@ -325,3 +325,16 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   `pages/TripInspection.jsx`, `constants/testIds.js`, `public/index.html`. Dep: html2canvas (already present).
 - Verified via testing_agent (iteration_13.json): 100% (10/10), 5 real PDF downloads, 0 console errors.
   NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v7 — walkaround completeness gate)
+
+- **Completeness gate:** new "Require a full 5-angle walkaround (enforce before analysis)"
+  toggle — when on, auto-selects all 5 exterior angles and disables Analyze until every angle
+  has both photos (gate hint lists missing angles). When off, a non-blocking amber advisory
+  shows for a partial walkaround ("Partial walkaround X/5 … Missing: …").
+- **Badge:** result `coverage.fullWalkaround` flag drives a green "✓ Full 5-angle walkaround"
+  badge (or amber "Partial walkaround X/5") in the overall card and on the PDF (all languages).
+- Files: backend `trip_inspection_service.py` (coverage.fullWalkaround), frontend
+  `pages/TripInspection.jsx`.
+- Self-verified: gate auto-selects all angles + blocks Analyze when incomplete (screenshot);
+  backend coverage flag confirmed. NOT yet redeployed to production.
