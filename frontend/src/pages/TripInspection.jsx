@@ -382,7 +382,8 @@ export default function TripInspection() {
       }
 
       doc.save(`trip-inspection-report-${Date.now()}.pdf`);
-    } catch {
+    } catch (e) {
+      console.error("PDF export failed", e);
       setError("Could not generate the PDF. Please try again.");
     } finally {
       setExporting(false);

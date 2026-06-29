@@ -238,3 +238,19 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   `backend/api/routes/trip_inspection.py`, `frontend/src/pages/TripInspection.jsx`,
   `frontend/src/constants/testIds.js`.
 - Verified via testing_agent on PREVIEW (5/5 flows pass). NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v3 — verified, iteration_12.json)
+
+- **Selectable inspection scope:** user picks which areas to inspect via 'Exterior' /
+  'Interior' toggle chips (default Exterior on). Each selected area requires both before+after
+  photos; partial areas show an inline amber hint and Analyze stays disabled (no click-time
+  error). At least one selected area must be complete. Backend `analyze_trip` now requires at
+  least one complete pair and analyzes any combination; route fields all optional.
+- **One-click annotated PDF export:** 'Export PDF' on the result builds a client-side report
+  (jsPDF) — overall verdict + each section's canvas-composed annotated after-image (numbered
+  boxes) + findings list. No server storage, fully ephemeral. Uses a custom `composeAnnotated`
+  canvas helper (no html2canvas) for robustness. Added dep: jspdf.
+- Files: `frontend/src/pages/TripInspection.jsx`, `frontend/src/constants/testIds.js`,
+  `backend/application/services/trip_inspection_service.py`, `backend/api/routes/trip_inspection.py`.
+- Verified via testing_agent on PREVIEW: 6/6 flows pass (exterior-only, interior-only, both,
+  inline-hint gating, no-selection guard, 2 real PDF downloads). NOT yet redeployed to production.
