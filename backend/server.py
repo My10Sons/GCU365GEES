@@ -46,6 +46,7 @@ from api.routes import monitoring as monitoring_routes
 from api.routes import reports as report_routes
 from api.routes import demo as demo_routes
 from api.routes import trip_inspection as trip_routes
+from api.routes import tenant as tenant_routes
 from api.routes import reference as reference_routes
 from api.routes import storage_internal as storage_internal_routes
 from api.routes import version as version_routes
@@ -54,6 +55,7 @@ from infrastructure.db.mongo import close as close_db, get_db
 from infrastructure.observability.logging import configure_logging, get_logger, log_event
 from infrastructure.seed.admin_seed import seed_baseline_principals
 from infrastructure.seed.capture_positions_seed import seed_capture_positions
+from infrastructure.seed.tenant_branding_seed import seed_tenant_branding
 
 configure_logging()
 logger = get_logger("di.api")
@@ -108,6 +110,7 @@ app.include_router(report_routes.router, prefix=API_BASE_PATH)
 app.include_router(monitoring_routes.router, prefix=API_BASE_PATH)
 app.include_router(demo_routes.router, prefix=API_BASE_PATH)
 app.include_router(trip_routes.router, prefix=API_BASE_PATH)
+app.include_router(tenant_routes.router, prefix=API_BASE_PATH)
 
 
 @app.on_event("startup")
@@ -116,6 +119,7 @@ async def on_startup() -> None:
     await ensure_indexes(db)
     await seed_baseline_principals()
     await seed_capture_positions()
+    await seed_tenant_branding()
     await db.di_schema_version.update_one(
         {"version": "sprint-05"},
         {"$setOnInsert": {"version": "sprint-05", "appliedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc)}},

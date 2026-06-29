@@ -264,3 +264,24 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 - Files: `backend/application/services/trip_inspection_service.py`, `frontend/src/pages/TripInspection.jsx`.
 - Verified on PREVIEW: direct API timing + both sections correct; PDF export download succeeds
   cleanly (~437 KB, 4 embedded images). NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v4 — branded signable PDF)
+
+- **Per-tenant branding:** new `di_tenant_branding` collection {tenantId, companyName,
+  branchName, logoDataUrl}. New routes `GET /tenant/branding` (di.ai.request) and
+  `PUT /tenant/branding` (di.configuration.manage — the path CROMS/Maintenance uses to
+  provision branding when creating a tenant). Demo branding (Riyadah Technology + logo)
+  seeded idempotently for both tenants at startup (`tenant_branding_seed.py`,
+  asset `infrastructure/seed/assets/demo_logo_b64.txt`). Branding is returned inside the
+  trip analyze result (`result.branding`), filtered by tenantId.
+- **Branded, signable PDF export:** PDF now has a header (tenant logo + company + branch),
+  an optional reference block (Customer, Vehicle plate, Make/model, Rental ID, Inspector —
+  entered in a new 'Report details' panel on the page), Before + After (issues marked)
+  images per section, findings, and optional Customer/Staff signature blocks with date lines.
+- **Parallel analysis** (v3.1) retained.
+- Files: backend `application/services/tenant_branding_service.py`, `api/routes/tenant.py`,
+  `infrastructure/seed/tenant_branding_seed.py`, `server.py`, `trip_inspection_service.py`;
+  frontend `pages/TripInspection.jsx`. Dep: jspdf.
+- Verified on PREVIEW: rendered the actual PDF (logo + company + refs + before/after + findings
+  + signatures all present); backend checks — inspector PUT 403, admin PUT ok, DOH tenant
+  isolation, invalid logo 400. NOT yet redeployed to production.

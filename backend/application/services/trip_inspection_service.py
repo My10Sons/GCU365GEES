@@ -22,6 +22,7 @@ from typing import Optional
 from api.middleware.safe_errors import DomainError
 from application.ai.gemini_client import call_vision_model_multi
 from application.services.audit_service import write_audit
+from application.services.tenant_branding_service import get_branding
 from domain.enums.audit_actions import ActorType, AuditAction, ObjectType
 from domain.enums.error_codes import ErrorCode
 
@@ -333,6 +334,7 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         "newIssueCount": new_total,
         "modelVersion": models[0] if models else f"{_provider()}:{_model()}",
         "isAdvisory": True,
+        "branding": await get_branding(tenant_id),
     }
 
     await write_audit(

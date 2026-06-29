@@ -241,6 +241,10 @@ function SectionResult({ section, afterPreview }) {
 
 export default function TripInspection() {
   const [scope, setScope] = useState({ exterior: true, interior: false });
+  const [reportFields, setReportFields] = useState({
+    customerName: "", vehiclePlate: "", vehicleModel: "", rentalId: "", inspectorName: "",
+  });
+  const [includeSignatures, setIncludeSignatures] = useState(true);
   const [extBefore, setExtBefore] = useState(EMPTY);
   const [extAfter, setExtAfter] = useState(EMPTY);
   const [intBefore, setIntBefore] = useState(EMPTY);
@@ -340,10 +344,63 @@ export default function TripInspection() {
         });
       };
 
+      // --- Branded header (tenant logo + company / branch) ---
+      const b = result.branding || {};
+      let headerBottom = y;
+      let textX = M;
+      if (b.logoDataUrl) {
+        try {
+          const li = await loadImage(b.logoDataUrl);
+          const lw = 56;
+          const lh = lw * (li.naturalHeight / li.naturalWidth);
+          const fmt = /^data:image\/(jpeg|jpg)/i.test(b.logoDataUrl) ? "JPEG" : /^data:image\/webp/i.test(b.logoDataUrl) ? "WEBP" : "PNG";
+          doc.addImage(b.logoDataUrl, fmt, M, y, lw, lh);
+          textX = M + lw + 14;
+          headerBottom = y + lh;
+        } catch { /* ignore bad logo */ }
+      }
+      let ty = y + 4;
+      if (b.companyName) {
+        doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(17, 17, 17);
+        doc.text(b.companyName, textX, ty + 10); ty += 20;
+      }
+      if (b.branchName) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(110, 110, 110);
+        doc.text(b.branchName, textX, ty + 6); ty += 14;
+      }
+      y = Math.max(headerBottom, ty) + 14;
+      doc.setDrawColor(220, 220, 220); doc.line(M, y, pageW - M, y); y += 20;
+
+      // --- Title + meta ---
       write("Trip Inspection Report", 18, [17, 17, 17], 22, true);
       write(`Generated ${new Date().toLocaleString()}  ·  ${result.modelVersion}`, 9, [120, 120, 120], 12);
       write("Advisory AI result. Final liability, customer charge, and repair decisions are not made here.", 8, [150, 150, 150], 16);
 
+      // --- Reference fields ---
+      const f = reportFields;
+      const refs = [];
+      if (f.customerName) refs.push(["Customer", f.customerName]);
+      if (f.vehiclePlate) refs.push(["Vehicle plate", f.vehiclePlate]);
+      if (f.vehicleModel) refs.push(["Make / model", f.vehicleModel]);
+      if (f.rentalId) refs.push(["Rental ID", f.rentalId]);
+      if (f.inspectorName) refs.push(["Inspector", f.inspectorName]);
+      if (refs.length > 0) {
+        y += 4;
+        const colW = (pageW - 2 * M) / 2;
+        for (let i = 0; i < refs.length; i += 2) {
+          if (y > pageH - M) { doc.addPage(); y = M; }
+          [refs[i], refs[i + 1]].forEach((r, c) => {
+            if (!r) return;
+            const x = M + c * colW;
+            doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
+            doc.text(`${r[0]}:`, x, y);
+            doc.setFont("helvetica", "normal"); doc.setTextColor(30, 30, 30);
+            doc.text(String(r[1]), x + 78, y);
+          });
+          y += 15;
+        }
+      }
+      y += 6;
       const verdict = result.overall === "NEW_DAMAGE_FOUND" ? "New damage detected this trip"
         : result.overall === "NO_NEW_DAMAGE" ? "No new damage detected" : "Could not compare the photos";
       write(verdict, 14, result.overall === "NEW_DAMAGE_FOUND" ? [200, 40, 40] : [20, 120, 60], 18, true);
@@ -391,6 +448,22 @@ export default function TripInspection() {
           });
         }
         y += 10;
+      }
+
+      if (includeSignatures) {
+        const blockTop = pageH - 96;
+        if (y > blockTop - 10) { doc.addPage(); y = M; }
+        const sy = Math.max(y + 10, blockTop);
+        const gap = 30;
+        const colW = (pageW - 2 * M - gap) / 2;
+        doc.setDrawColor(120, 120, 120);
+        doc.line(M, sy, M + colW, sy);
+        doc.line(M + colW + gap, sy, pageW - M, sy);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(90, 90, 90);
+        doc.text("Customer signature", M, sy + 13);
+        doc.text("Staff signature", M + colW + gap, sy + 13);
+        doc.text("Date: ____________________", M, sy + 30);
+        doc.text("Date: ____________________", M + colW + gap, sy + 30);
       }
 
       doc.save(`trip-inspection-report-${Date.now()}.pdf`);
@@ -484,6 +557,43 @@ export default function TripInspection() {
             {intIncomplete && <p className="text-xs text-amber400 mt-2">Add both a Before and After interior photo to include this area.</p>}
           </div>
         )}
+
+        <div className="border-t border-ink-700/60 pt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <FileDown className="size-4 text-steel-300" />
+            <span className="text-sm font-medium text-white">Report details</span>
+            <span className="text-[11px] text-steel-500">optional — printed on the exported PDF</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              ["customerName", "Customer name", "trip-field-customer"],
+              ["vehiclePlate", "Vehicle plate", "trip-field-plate"],
+              ["vehicleModel", "Make / model", "trip-field-model"],
+              ["rentalId", "Rental ID", "trip-field-rental"],
+              ["inspectorName", "Inspector name", "trip-field-inspector"],
+            ].map(([key, label, tid]) => (
+              <div key={key}>
+                <label className="text-[11px] uppercase tracking-wider text-steel-400">{label}</label>
+                <input
+                  data-testid={tid}
+                  value={reportFields[key]}
+                  onChange={(e) => setReportFields((s) => ({ ...s, [key]: e.target.value }))}
+                  className="mt-1 w-full rounded-md bg-ink-900/70 border border-ink-700 px-3 py-2 text-sm text-steel-100 placeholder:text-steel-500 focus:outline-none focus:border-signal/50"
+                  placeholder={label}
+                />
+              </div>
+            ))}
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-sm text-steel-300 cursor-pointer w-fit" data-testid="trip-field-signatures">
+            <input
+              type="checkbox"
+              checked={includeSignatures}
+              onChange={(e) => setIncludeSignatures(e.target.checked)}
+              className="size-4 accent-signal"
+            />
+            Include customer &amp; staff signature blocks in the PDF
+          </label>
+        </div>
 
         <div className="flex items-center gap-3 flex-wrap border-t border-ink-700/60 pt-5">
           <button
