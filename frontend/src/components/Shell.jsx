@@ -30,7 +30,8 @@ const NAV = [
   { to: "/review", label: "Review Queue", icon: ShieldCheck, testId: T.sidebarReview, perm: "di.review.read" },
   { to: "/cases", label: "Damage Cases", icon: FolderOpen, testId: T.sidebarCases, perm: "di.damagecases.read" },
   { to: "/reports", label: "Reports", icon: FileBarChart2, testId: T.sidebarReports, perm: "di.reports.read" },
-  { to: "/admin", label: "Admin", icon: Settings2, testId: T.sidebarAdmin, perm: "di.configuration.manage" },
+  { to: "/settings", label: "Tenant Settings", icon: Settings2, testId: T.sidebarSettings, perm: "di.configuration.manage" },
+  { to: "/admin", label: "Admin", icon: ShieldAlert, testId: T.sidebarAdmin, perm: "di.configuration.manage" },
 ];
 
 export default function Shell() {

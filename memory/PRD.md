@@ -351,3 +351,16 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   frontend `pages/TripInspection.jsx`.
 - Verified on PREVIEW: GET default false, inspector PUT 403, admin PUT persists; UI shows admin
   panel + locked gate + all 5 angles (screenshot). Demo tenant reset to false. Not redeployed.
+
+## Changelog — 2026-06-29 (Tenant Settings admin screen)
+
+- **New admin-only "Tenant Settings" page** (`/settings`, nav item gated by di.configuration.manage,
+  `pages/TenantSettings.jsx`) consolidating per-tenant config in one place:
+  - **Report branding:** logo upload (downscaled to PNG data URL), company name, branch name
+    → PUT /tenant/branding.
+  - **Trip Inspection policy:** require-full-walkaround toggle → PUT /tenant/policy.
+- Removed the inline admin policy panel from the Trip page (it now only reads + enforces the
+  policy). Admin (ShieldAlert) and Tenant Settings (Settings2) are separate nav items.
+- No backend changes (reuses existing /tenant/branding + /tenant/policy endpoints).
+- Verified on PREVIEW: settings load (logo/company/branch), branding + policy save with
+  confirmation, sidebar link present (screenshot). Demo tenant policy left OFF (default).

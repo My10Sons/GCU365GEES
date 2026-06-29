@@ -18,6 +18,7 @@ import DamageCases from "./pages/DamageCases";
 import DamageCaseDetail from "./pages/DamageCaseDetail";
 import Reports from "./pages/Reports";
 import TripInspection from "./pages/TripInspection";
+import TenantSettings from "./pages/TenantSettings";
 
 function Protected({ children }) {
   const { status, principal } = useAuth();
@@ -80,6 +81,7 @@ function AppRoutes() {
           path="reports"
           element={<Reports />}
         />
+        <Route path="settings" element={<TenantSettings />} />
         <Route
           path="admin"
           element={
