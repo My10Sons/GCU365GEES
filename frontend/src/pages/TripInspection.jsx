@@ -63,7 +63,7 @@ function DropZone({ label, slot, state, onPick, testId }) {
         className="w-full aspect-[4/3] rounded-lg border-2 border-dashed border-ink-700 hover:border-signal/50 bg-ink-900/60 overflow-hidden grid place-items-center transition-colors"
       >
         {state.preview ? (
-          <img src={state.preview} alt={label} className="w-full h-full object-cover" />
+          <img src={state.preview} alt={label} className="w-full h-full object-contain bg-ink-950" />
         ) : (
           <span className="flex flex-col items-center gap-2 text-steel-400 text-xs">
             <ImagePlus className="size-7" />
