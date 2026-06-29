@@ -54,6 +54,30 @@ const CATEGORY_LABEL = {
 };
 
 const STATUS_TEXT = { NEW: "New (this trip)", PRE_EXISTING: "Pre-existing", RESOLVED: "Resolved", UNCERTAIN: "Uncertain" };
+const CLEANLINESS_LABEL = { CLEAN: "Clean", LIGHT_DIRT: "Light dirt", DIRTY: "Dirty", VERY_DIRTY: "Very dirty" };
+
+const fmtCost = (c) => (c && (c.low || c.high) ? `${c.currency} ${Number(c.low).toLocaleString()}–${Number(c.high).toLocaleString()}` : null);
+const scoreColor = (s) => (s == null ? "text-steel-400" : s >= 80 ? "text-emerald400" : s >= 50 ? "text-amber400" : "text-signal-soft");
+
+function PhotoCheckPanel({ photoCheck }) {
+  if (!photoCheck) return null;
+  const probs = [...(photoCheck.issues || [])];
+  if (!photoCheck.beforeUsable) probs.push("Before photo may be unusable for inspection");
+  if (!photoCheck.afterUsable) probs.push("After photo may be unusable for inspection");
+  if (!photoCheck.sameVehicle) probs.push(photoCheck.vehicleMismatchReason || "Before and After may show different vehicles");
+  if (probs.length === 0) return null;
+  return (
+    <div data-testid="trip-photo-warning" className="rounded-md border border-amber400/40 bg-amber400/10 px-3 py-2.5 flex items-start gap-2">
+      <AlertTriangle className="size-4 text-amber400 mt-0.5 shrink-0" />
+      <div className="text-xs text-amber400">
+        <span className="font-semibold">Photo check:</span> results may be less reliable.
+        <ul className="list-disc ml-4 mt-1 space-y-0.5 text-amber400/90">
+          {probs.slice(0, 6).map((p, i) => <li key={i}>{p}</li>)}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 // Compose an annotated JPEG (image + numbered boxes) on a canvas — robust, no html2canvas.
 async function composeAnnotated(previewUrl, items) {
@@ -173,6 +197,26 @@ function SectionResult({ section, afterPreview }) {
           <p className="text-xs text-amber400">Reason: {section.notComparableReason}</p>
         )}
 
+        <PhotoCheckPanel photoCheck={section.photoCheck} />
+
+        <div className="flex flex-wrap gap-2">
+          {section.conditionScore != null && (
+            <span className="text-[11px] rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-steel-300">
+              Condition: <span className={`font-semibold ${scoreColor(section.conditionScore)}`}>{section.conditionScore}/100</span>
+            </span>
+          )}
+          {section.cleanliness && (
+            <span className="text-[11px] rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-steel-300">
+              Cleanliness: <span className="text-white font-semibold">{CLEANLINESS_LABEL[section.cleanliness]}</span>
+            </span>
+          )}
+          {fmtCost(section.estimatedCost) && (
+            <span className="text-[11px] rounded-full border border-signal/30 bg-signal/10 px-2.5 py-1 text-signal-soft">
+              Est. new-damage repair: <span className="font-semibold">{fmtCost(section.estimatedCost)}</span>
+            </span>
+          )}
+        </div>
+
         {afterPreview && (
           <div className="rounded-md border border-ink-700/70 bg-ink-950/40 p-2">
             <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2 px-1">
@@ -225,6 +269,9 @@ function SectionResult({ section, afterPreview }) {
                       <StatusBadge status={it.status} />
                       {it.severity && <span className="text-[10px] uppercase tracking-wider text-steel-400">{it.severity}</span>}
                       <span className="text-[11px] font-mono text-steel-400">{(it.confidence * 100).toFixed(0)}%</span>
+                      {fmtCost(it.estimatedCost) && (
+                        <span className="text-[10px] font-mono text-signal-soft ml-auto">~{fmtCost(it.estimatedCost)}</span>
+                      )}
                     </div>
                     <div className="text-sm text-steel-100 mt-1">{it.location || "—"}</div>
                     {it.detail && <div className="text-[12px] text-steel-400 mt-0.5">{it.detail}</div>}
@@ -405,6 +452,28 @@ export default function TripInspection() {
         : result.overall === "NO_NEW_DAMAGE" ? "No new damage detected" : "Could not compare the photos";
       write(verdict, 14, result.overall === "NEW_DAMAGE_FOUND" ? [200, 40, 40] : [20, 120, 60], 18, true);
       if (result.newIssueCount > 0) write(`${result.newIssueCount} new issue(s) found across the inspected areas.`, 10, [60, 60, 60], 16);
+
+      const summaryBits = [];
+      if (result.conditionScore != null) summaryBits.push(`Overall condition: ${result.conditionScore}/100`);
+      if (result.cleanliness) summaryBits.push(`Cleanliness: ${CLEANLINESS_LABEL[result.cleanliness] || result.cleanliness}`);
+      const cs = fmtCost(result.costSummary);
+      if (cs) summaryBits.push(`Estimated new-damage repair: ${cs}`);
+      if (summaryBits.length) write(summaryBits.join("    ·    "), 10, [40, 40, 40], 15, true);
+      if (cs) write("Repair-cost estimate is advisory and indicative only.", 8, [150, 150, 150], 13);
+      if (result.hasPhotoWarnings) {
+        const probs = [];
+        (result.sections || []).forEach((s) => {
+          const pc = s.photoCheck || {};
+          (pc.issues || []).forEach((p) => probs.push(`${s.label}: ${p}`));
+          if (!pc.beforeUsable) probs.push(`${s.label}: before photo may be unusable`);
+          if (!pc.afterUsable) probs.push(`${s.label}: after photo may be unusable`);
+          if (!pc.sameVehicle) probs.push(`${s.label}: before/after may be different vehicles`);
+        });
+        if (probs.length) {
+          write("Photo check — results may be less reliable:", 9, [180, 90, 0], 13, true);
+          probs.slice(0, 8).forEach((p) => write(`• ${p}`, 8, [150, 100, 30], 12));
+        }
+      }
       y += 6;
 
       for (const s of result.sections || []) {
@@ -443,7 +512,8 @@ export default function TripInspection() {
           s.items.forEach((it, i) => {
             if (y > pageH - 40) { doc.addPage(); y = M; }
             const sev = it.severity ? `  ·  ${it.severity}` : "";
-            write(`${i + 1}.  ${CATEGORY_LABEL[it.category] || it.category}  ·  ${STATUS_TEXT[it.status]}${sev}  ·  ${(it.confidence * 100).toFixed(0)}%`, 10, [30, 30, 30], 13, true);
+            const cost = fmtCost(it.estimatedCost) ? `  ·  ~${fmtCost(it.estimatedCost)}` : "";
+            write(`${i + 1}.  ${CATEGORY_LABEL[it.category] || it.category}  ·  ${STATUS_TEXT[it.status]}${sev}  ·  ${(it.confidence * 100).toFixed(0)}%${cost}`, 10, [30, 30, 30], 13, true);
             write(`${it.location || "—"}${it.detail ? `  —  ${it.detail}` : ""}`, 9, [90, 90, 90], 13);
           });
         }
@@ -491,6 +561,20 @@ export default function TripInspection() {
           <div className="text-base font-semibold">{o.title}</div>
           {result.newIssueCount > 0 && (
             <p className="text-sm text-steel-300 mt-1">{result.newIssueCount} new issue{result.newIssueCount > 1 ? "s" : ""} found across the inspected areas.</p>
+          )}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
+            {result.conditionScore != null && (
+              <span className="text-steel-300">Condition <span className={`font-semibold ${scoreColor(result.conditionScore)}`}>{result.conditionScore}/100</span></span>
+            )}
+            {result.cleanliness && (
+              <span className="text-steel-300">Cleanliness <span className="text-white font-semibold">{CLEANLINESS_LABEL[result.cleanliness]}</span></span>
+            )}
+            {fmtCost(result.costSummary) && (
+              <span className="text-steel-300" data-testid="trip-cost-summary">Est. new-damage repair <span className="text-signal-soft font-semibold">{fmtCost(result.costSummary)}</span></span>
+            )}
+          </div>
+          {result.hasPhotoWarnings && (
+            <p className="text-[11px] text-amber400 mt-1.5 flex items-center gap-1"><AlertTriangle className="size-3" /> Photo-quality / vehicle-match warnings — see sections below.</p>
           )}
         </div>
         <button

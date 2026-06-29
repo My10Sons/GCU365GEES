@@ -33,6 +33,36 @@ _EXT_OF = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 _STATUSES = {"NEW", "PRE_EXISTING", "RESOLVED", "UNCERTAIN"}
 _SEVERITIES = {"LOW", "MEDIUM", "HIGH"}
+_CLEANLINESS = ["CLEAN", "LIGHT_DIRT", "DIRTY", "VERY_DIRTY"]
+
+# Deterministic, advisory repair-cost ranges (MEDIUM-severity baseline) per category.
+# Kept rule-based (not model-generated) so estimates are consistent and defensible.
+_COST_CURRENCY = os.environ.get("DI_TRIP_CURRENCY", "QAR")
+_COST_BASE = {
+    "DENT": (300, 800), "SCRATCH": (150, 500), "CHIP": (80, 250), "TIRE": (200, 600),
+    "WHEEL": (250, 900), "GLASS": (400, 1500), "LIGHT": (200, 900), "PART": (300, 1200),
+    "RUST": (200, 700), "VANDALISM": (200, 900), "DIRT": (50, 200), "LEAK": (150, 700),
+    "SEAT": (200, 1000), "DASHBOARD": (300, 1200), "TRIM": (150, 700), "STAIN": (80, 300),
+    "MISSING": (100, 600), "ELECTRONICS": (300, 1500),
+}
+_SEVERITY_FACTOR = {"LOW": 0.5, "MEDIUM": 1.0, "HIGH": 1.7, None: 1.0}
+
+
+def _estimate_cost(category: str, severity: Optional[str]) -> dict:
+    low, high = _COST_BASE.get(category, (150, 600))
+    factor = _SEVERITY_FACTOR.get(severity, 1.0)
+    return {
+        "low": int(round(low * factor / 10.0)) * 10,
+        "high": int(round(high * factor / 10.0)) * 10,
+        "currency": _COST_CURRENCY,
+    }
+
+
+def _worst_cleanliness(values: list[str]) -> Optional[str]:
+    ranked = [v for v in values if v in _CLEANLINESS]
+    if not ranked:
+        return None
+    return max(ranked, key=lambda v: _CLEANLINESS.index(v))
 
 EXTERIOR_CATEGORIES = {
     "DENT": "Dents",
@@ -141,6 +171,15 @@ def _user_prompt(kind: str, lines: str, enum_list: str) -> str:
         "{\n"
         '  "comparable": true or false,\n'
         '  "notComparableReason": string or null,\n'
+        '  "photoCheck": {\n'
+        '     "beforeUsable": true or false (is the BEFORE photo clear enough to inspect),\n'
+        '     "afterUsable": true or false (is the AFTER photo clear enough to inspect),\n'
+        '     "issues": [ short strings for any photo problems e.g. "after photo is blurry", "before photo too dark", "view partly obstructed" ],\n'
+        '     "sameVehicle": true or false (do BEFORE and AFTER show the SAME vehicle),\n'
+        '     "vehicleMismatchReason": string or null\n'
+        "  },\n"
+        '  "conditionScore": integer 0-100 (overall condition of the vehicle in the AFTER photo; 100 = pristine, 0 = severely damaged),\n'
+        '  "cleanliness": one of ["CLEAN","LIGHT_DIRT","DIRTY","VERY_DIRTY"] for the AFTER photo,\n'
         '  "items": [\n'
         "    {\n"
         f'      "category": one of [{enum_list}],\n'
@@ -180,6 +219,19 @@ def _normalize_box(box) -> Optional[dict]:
     return {"x": round(x, 4), "y": round(y, 4), "w": round(w, 4), "h": round(h, 4)}
 
 
+def _normalize_photo_check(parsed: dict, comparable: bool) -> dict:
+    pc = parsed.get("photoCheck") if isinstance(parsed.get("photoCheck"), dict) else {}
+    issues = pc.get("issues")
+    issues = [str(s)[:140] for s in issues if isinstance(s, str)][:6] if isinstance(issues, list) else []
+    return {
+        "beforeUsable": bool(pc.get("beforeUsable", True)),
+        "afterUsable": bool(pc.get("afterUsable", True)),
+        "issues": issues,
+        "sameVehicle": bool(pc.get("sameVehicle", comparable)),
+        "vehicleMismatchReason": pc.get("vehicleMismatchReason") if isinstance(pc.get("vehicleMismatchReason"), str) else None,
+    }
+
+
 def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) -> dict:
     if not isinstance(parsed, dict):
         return {
@@ -190,6 +242,10 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             "counts": {c: {"NEW": 0, "total": 0} for c in categories},
             "newIssueCount": 0,
             "overall": "NOT_COMPARABLE",
+            "photoCheck": {"beforeUsable": False, "afterUsable": False, "issues": ["analysis could not be completed"], "sameVehicle": False, "vehicleMismatchReason": None},
+            "conditionScore": None,
+            "cleanliness": None,
+            "estimatedCost": {"low": 0, "high": 0, "currency": _COST_CURRENCY},
         }
     items = []
     for it in (parsed.get("items") or [])[:80]:
@@ -216,6 +272,7 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             "confidence": conf,
             "detail": (it.get("detail") if isinstance(it.get("detail"), str) else "")[:300],
             "box": _normalize_box(it.get("box")),
+            "estimatedCost": _estimate_cost(cat, sev),
         })
     counts = {c: {"NEW": 0, "total": 0} for c in categories}
     for it in items:
@@ -227,6 +284,15 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
     overall = ("NOT_COMPARABLE" if not comparable
                else "NEW_DAMAGE_FOUND" if new_issues > 0
                else "NO_NEW_DAMAGE")
+    new_low = sum(it["estimatedCost"]["low"] for it in items if it["status"] == "NEW")
+    new_high = sum(it["estimatedCost"]["high"] for it in items if it["status"] == "NEW")
+    score = parsed.get("conditionScore")
+    try:
+        score = max(0, min(100, int(score))) if score is not None else None
+    except (TypeError, ValueError):
+        score = None
+    cleanliness = parsed.get("cleanliness")
+    cleanliness = cleanliness.upper() if isinstance(cleanliness, str) and cleanliness.upper() in _CLEANLINESS else None
     return {
         "comparable": comparable,
         "notComparableReason": parsed.get("notComparableReason") if isinstance(parsed.get("notComparableReason"), str) else None,
@@ -235,6 +301,10 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
         "counts": counts,
         "newIssueCount": new_issues,
         "overall": overall,
+        "photoCheck": _normalize_photo_check(parsed, comparable),
+        "conditionScore": score,
+        "cleanliness": cleanliness,
+        "estimatedCost": {"low": new_low, "high": new_high, "currency": _COST_CURRENCY},
     }
 
 
@@ -328,6 +398,17 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
                else "NO_NEW_DAMAGE" if any_comparable
                else "NOT_COMPARABLE")
 
+    cost_low = sum(s["estimatedCost"]["low"] for s in sections)
+    cost_high = sum(s["estimatedCost"]["high"] for s in sections)
+    scores = [s["conditionScore"] for s in sections if s.get("conditionScore") is not None]
+    condition_score = min(scores) if scores else None
+    cleanliness = _worst_cleanliness([s.get("cleanliness") for s in sections])
+    photo_warnings = any(
+        (not s["photoCheck"]["beforeUsable"]) or (not s["photoCheck"]["afterUsable"])
+        or (not s["photoCheck"]["sameVehicle"]) or bool(s["photoCheck"]["issues"])
+        for s in sections
+    )
+
     result = {
         "sections": sections,
         "overall": overall,
@@ -335,6 +416,10 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         "modelVersion": models[0] if models else f"{_provider()}:{_model()}",
         "isAdvisory": True,
         "branding": await get_branding(tenant_id),
+        "costSummary": {"low": cost_low, "high": cost_high, "currency": _COST_CURRENCY},
+        "conditionScore": condition_score,
+        "cleanliness": cleanliness,
+        "hasPhotoWarnings": photo_warnings,
     }
 
     await write_audit(

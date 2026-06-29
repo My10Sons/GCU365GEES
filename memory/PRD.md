@@ -285,3 +285,20 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 - Verified on PREVIEW: rendered the actual PDF (logo + company + refs + before/after + findings
   + signatures all present); backend checks — inspector PUT 403, admin PUT ok, DOH tenant
   isolation, invalid logo 400. NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v5 — cost, photo-guard, condition)
+
+- **A · Severity + repair-cost estimate:** each finding gets a deterministic, advisory repair
+  cost range (rule-based table per category × severity factor, currency `DI_TRIP_CURRENCY`,
+  default QAR). Result includes `costSummary` (sum of NEW findings). Shown per-finding and as
+  a summary in UI + PDF.
+- **D · Photo-quality + same-vehicle guard:** each section returns `photoCheck`
+  {beforeUsable, afterUsable, issues[], sameVehicle, vehicleMismatchReason}; result has
+  `hasPhotoWarnings`. UI shows an amber "Photo check" panel; PDF lists the warnings. Verified
+  a different-vehicle pair → sameVehicle=false + warning.
+- **E · Condition score + cleanliness:** each section returns `conditionScore` (0-100) and
+  `cleanliness` (CLEAN/LIGHT_DIRT/DIRTY/VERY_DIRTY); result aggregates worst score/cleanliness.
+  Shown as chips in UI and a summary line in the PDF.
+- Files: `backend/application/services/trip_inspection_service.py`,
+  `frontend/src/pages/TripInspection.jsx`.
+- Verified on PREVIEW (curl payloads + rendered PDF + UI). NOT yet redeployed to production.
