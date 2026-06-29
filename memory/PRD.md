@@ -201,3 +201,18 @@ re-asked when TASK-04 starts in a fresh session.
 Required reading at TASK-04 start (do not skip): DI-0006, DI-0009, DI-0011, DI-0012,
 DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 `implementation/SPRINT-03-Production-Review-Comparison-and-Damage-Cases.md`.
+
+## Changelog — 2026-06-29
+
+- **Trip Inspection bug fix (verified, iteration_10.json):** Expanded the anonymous Trip
+  Inspection damage categories from `DENT/SCRATCH/TIRE` to
+  `DENT/SCRATCH/TIRE/GLASS/LIGHT/PART`. Previously broken glass and broken lamps were
+  explicitly ignored ("outside requested reporting categories"). Now broken/cracked glass
+  (windscreen, rear/side windows), broken/cracked/missing lights (head/tail/brake/indicator),
+  and broken/missing parts (bumper, mirror, trim, grille, badge) are detected and surfaced
+  as NEW damage with bounding-box markers.
+  - Backend: `application/services/trip_inspection_service.py` (SYSTEM_MESSAGE, USER_PROMPT,
+    `_CATEGORIES`, `_CATEGORY_SYNONYMS`, dynamic counts).
+  - Frontend: `pages/TripInspection.jsx` (`CATEGORY_LABEL`, `CATEGORY_ORDER`, 6 count cards).
+  - Verified via testing_agent on PREVIEW with real Gemini — 100% pass. NOT yet redeployed to production.
+- **Trip Inspection bounding-box markers:** verified working (iteration prior).
