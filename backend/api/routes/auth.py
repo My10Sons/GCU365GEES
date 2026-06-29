@@ -17,7 +17,7 @@ from api.middleware.safe_errors import DomainError
 from api.schemas.envelope import ok
 from application.security.dependencies import get_current_principal
 from application.security.jwt_tokens import create_access_token, create_refresh_token, decode_token
-from application.security.password import verify_password
+from application.security.password import verify_password_async
 from application.security.permissions_map import permissions_for_roles
 from domain.enums.error_codes import ErrorCode
 from infrastructure.db.mongo import get_db
@@ -105,7 +105,10 @@ async def login(request: Request, payload: LoginRequest):
     if payload.tenantId:
         query["tenantId"] = payload.tenantId
     user = await db.di_users.find_one(query)
-    if user is None or not verify_password(payload.password, user.get("passwordHash", "")):
+    password_ok = False
+    if user is not None:
+        password_ok = await verify_password_async(payload.password, user.get("passwordHash", ""))
+    if user is None or not password_ok:
         await _record_attempt(identifier, success=False)
         await _audit(request, "AUTH_LOGIN_FAILED", None, False, email, payload.tenantId)
         raise DomainError(ErrorCode.UNAUTHORIZED, "Invalid email or password.", 401)

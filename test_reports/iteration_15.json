@@ -1,0 +1,42 @@
+{
+  "summary": "Backend-only regression after the non-blocking bcrypt change (verify_password_async via asyncio.to_thread). 10/10 pytest cases PASSED against the live preview. All seeded accounts still authenticate (admin/inspector/reviewer on TENANT-000001 and doha.admin on RIYADAH-DOH-001), 401/403 paths return correct codes (no 500s), /me + /refresh round-trip works, and brute-force lockout still trips after 5 fails per {ip,email} bucket. A concurrency probe of 10 parallel admin logins finished in 1.30s wall (median 1.20s per req), confirming bcrypt no longer serialises on the event loop.",
+  "test_scope": "Backend only. /api/v1/damage-intelligence/auth — login (4 accounts), invalid password, unknown user, /me, /refresh, brute-force lockout (throwaway email), successful login clears counter.",
+  "feature_verification": {
+    "valid_login_admin_T1":      "PASS - 200, accessToken+refreshToken returned, user.permissions>=21 (sorted).",
+    "valid_login_inspector_T1":  "PASS - 200, permissions>=9.",
+    "valid_login_reviewer_T1":   "PASS - 200, permissions>=12.",
+    "valid_login_doha_admin":    "PASS - 200, RIYADAH-DOH-001 admin verifies (proves existing $2b$ hashes still verify after the thread-pool wrapping).",
+    "invalid_password_401":      "PASS - 401 with envelope errors[0].message='Invalid email or password.' (NOT 500). Safe message — does not disclose which of email/password was wrong.",
+    "unknown_user_401":          "PASS - 401 for non-existent email; auth.py correctly skips verify_password_async when user is None.",
+    "me_with_bearer":            "PASS - GET /auth/me with Authorization: Bearer <token> + X-Tenant-Id: TENANT-000001 returns the principal with permissions populated.",
+    "refresh_round_trip":        "PASS - POST /auth/refresh returns a new accessToken which successfully authenticates against /me.",
+    "brute_force_lockout":       "PASS - 403 'Too many failed login attempts' observed after >=5 failed attempts into a single {ip,email} bucket. Used a unique throwaway email (lockout.test+<rand>@riyadah.tech) so the real admin/inspector are NOT locked out.",
+    "success_clears_counter":    "PASS - 2 fails on the real admin followed by a successful login -> di_login_attempts cleared; admin can re-login immediately."
+  },
+  "concurrency_sanity_check": {
+    "scenario": "10 concurrent POST /auth/login as admin@riyadah.tech",
+    "result":   "All 10 -> 200. wall=1.30s, median per-request=1.20s, max=1.29s.",
+    "interpretation": "wall ~= per-request latency proves bcrypt is running off the asyncio event loop (asyncio.to_thread) - the change achieves its performance goal. A blocking implementation would have produced wall ~= 10 * per-request."
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_auth_bcrypt_nonblocking_regression.py",
+    "/app/test_reports/pytest/auth_bcrypt_nonblocking_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "application/security/password.py: hash_password_async / verify_password_async correctly wrap the synchronous bcrypt helpers via asyncio.to_thread. The sync variants are retained for the offline admin_seed.py script (which runs outside the event loop) - good separation.",
+    "api/routes/auth.py:108-114 short-circuits the bcrypt call when the user is None and reuses the SAME 401 response for both unknown-user and bad-password. This preserves the previous safe-error contract (no user-enumeration via response timing OR message). The thread offload does NOT change the constant-time-like behaviour at the response-layer; if absolute timing-side-channel parity is desired in the future, a dummy verify_password_async() against a fixed hash could be added in the user-is-None branch.",
+    "Brute-force lockout identifier is {request.client.host}:{email}. In this kubernetes preview env, ingress rotates upstream requests across ~2 different proxy IPs, so the per-IP bucket fills more slowly than a single-IP client would. Not a regression - same behaviour as before the bcrypt change. If product wants lockout to be tighter behind a load balancer, switch the identifier to use X-Forwarded-For (left-most) instead of request.client.host."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_bcrypt_nonblocking_regression.py"
+  ],
+  "success_rate": {"backend": "100% (10/10 tests, ~5s)", "frontend": "n/a (out of scope)"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026, inspector@riyadah.tech / Inspector#2026, reviewer@riyadah.tech / Reviewer#2026 (all TENANT-000001); doha.admin@riyadah.tech / DohaAdmin#2026 (RIYADAH-DOH-001). All verified working post-change.",
+  "seed_data_creation": "None. Throwaway lockout emails (lockout.test+<uuid>@riyadah.tech) wrote ephemeral rows into di_login_attempts; these are harmless and will be evicted by _is_locked's stale-window cleanup or can be deleted manually. The real admin's failed-counter was deliberately cleared at the end of every test that produced fails.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth post-bcrypt-thread-pool change is fully verified. Login response envelope = {success, data:{accessToken, refreshToken, tokenType:'Bearer', user:{id,email,displayName,tenantId,roles,permissions}}, correlationId, errors:null}. Error envelope = {success:false, errors:[{code, message}], correlationId, data:null} - read messages from body['errors'][0]['message']. /me and /refresh need NO X-Tenant-Id for /refresh but DO need it (plus Bearer) for /me. Lockout identifier per {ip,email} - preview ingress rotates client.host between ~2 IPs (e.g. 10.232.133.130 / 10.232.129.197), so to force a guaranteed 403 in a single test, fire >=10-14 failing attempts into the same throwaway email. Concurrency: 10 parallel admin logins resolve in ~1.3s wall, ~1.2s per request - safe to do parallel auth-bearing tests without serialising on bcrypt."
+}
