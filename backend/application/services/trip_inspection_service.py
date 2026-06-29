@@ -43,7 +43,7 @@ _CLEANLINESS = ["CLEAN", "LIGHT_DIRT", "DIRTY", "VERY_DIRTY"]
 
 # Deterministic, advisory repair-cost ranges (MEDIUM-severity baseline) per category.
 # Kept rule-based (not model-generated) so estimates are consistent and defensible.
-_COST_CURRENCY = os.environ.get("DI_TRIP_CURRENCY", "QAR")
+_COST_CURRENCY = os.environ.get("DI_TRIP_CURRENCY", "SAR")
 _COST_BASE = {
     "DENT": (300, 800), "SCRATCH": (150, 500), "CHIP": (80, 250), "TIRE": (200, 600),
     "WHEEL": (250, 900), "GLASS": (400, 1500), "LIGHT": (200, 900), "PART": (300, 1200),

@@ -4,7 +4,7 @@ a persisted Damage Case (DECISION-Sprint05: 1A=B / 1B=C / 1C=A / 1D=A).
 
 What this verifies:
   1. Trip analyze with CLEARLY damaged after photo + undamaged before photo + report fields
-     -> overall=NEW_DAMAGE_FOUND, costSummary.high >= 1000 QAR, autoCase.created=true with
+     -> overall=NEW_DAMAGE_FOUND, costSummary.high >= 1000 SAR, autoCase.created=true with
         damageCaseId, inspectionSessionId, findings>0, severityCode and costHigh.
   2. The created damage case is listed via GET /damage-cases and its detail shows
      caseType=REPAIR_RELEVANT, externalVehicleRef=<plate>, description mentions the trip

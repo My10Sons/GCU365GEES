@@ -36,7 +36,7 @@ charges from it. Final liability and customer charge remain with CROMS/Finance.
 ## 2. Why this split (rationale)
 
 - **Single source of truth for money.** Pricing already exists in Maintenance (supplier
-  catalogues, refurbished/aftermarket options, technician labour rates, KSA/QAR/SAR currency).
+  catalogues, refurbished/aftermarket options, technician labour rates, KSA SAR currency).
   Duplicating it in DI would create drift and disputes.
 - **Local accuracy.** GCC repair pricing is relationship- and shop-driven; Maintenance has the
   real rate cards. DI's current rule-based table is a placeholder only.
@@ -77,7 +77,7 @@ controls when a case is "ready for estimation".
     "expiresAt": "2026-06-30T12:00:00Z"
   },
   "advisoryEstimateReference": {            // DI's OWN rough estimate, advisory only
-    "currency": "QAR",
+    "currency": "SAR",
     "low": 800, "high": 1360,
     "method": "DI_RULE_BASED_PLACEHOLDER"
   },
@@ -128,7 +128,7 @@ DI stores it as **reference only**.
   "estimate": {
     "estimateId": "MNT-EST-99821",         // Maintenance system of record id
     "status": "ESTIMATED",                 // ESTIMATED | NEEDS_MORE_EVIDENCE | DECLINED
-    "currency": "QAR",
+    "currency": "SAR",
     "totals": { "parts": 1450, "labour": 600, "paint": 300, "total": 2350 },
     "validUntil": "2026-07-15",
     "lineItems": [

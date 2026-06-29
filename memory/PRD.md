@@ -290,7 +290,7 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 
 - **A · Severity + repair-cost estimate:** each finding gets a deterministic, advisory repair
   cost range (rule-based table per category × severity factor, currency `DI_TRIP_CURRENCY`,
-  default QAR). Result includes `costSummary` (sum of NEW findings). Shown per-finding and as
+  default SAR). Result includes `costSummary` (sum of NEW findings). Shown per-finding and as
   a summary in UI + PDF.
 - **D · Photo-quality + same-vehicle guard:** each section returns `photoCheck`
   {beforeUsable, afterUsable, issues[], sameVehicle, vehicleMismatchReason}; result has
@@ -369,7 +369,7 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
 
 - **Auto-route NEW high-value Trip damage → persisted Damage Case (P0, verified iteration_14.json).**
   When an anonymous Trip Inspection finds NEW damage whose summed estimated repair (high end)
-  reaches `DI_TRIP_AUTO_CASE_COST_THRESHOLD` (default 1000 QAR), the backend now persists a minimal
+  reaches `DI_TRIP_AUTO_CASE_COST_THRESHOLD` (default 1000 SAR), the backend now persists a minimal
   inspection session (SPOT_CHECK / DI-Web) + `di_ai_analyses` + one `di_ai_finding` per NEW item,
   then opens a `REPAIR_RELEVANT` Damage Case (severity = highest NEW finding) linked to those
   findings — bridging the ephemeral trip tool into the main review/case queue.
