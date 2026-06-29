@@ -1,11 +1,13 @@
 /*
  * Repository Traceability:
- * - Anonymous "Trip Inspection": upload a Before + After photo, analyze with the real Gemini
- *   vision engine, and get an advisory dents / scratches / tyre report. Nothing is stored —
- *   images are deleted on the server right after analysis. Bridges the gap until CROMS is wired.
+ * - Anonymous "Trip Inspection": upload exterior Before + After photos (and optionally interior
+ *   Before + After), analyze with the real Gemini vision engine, and get an advisory
+ *   exterior + interior damage/condition report with numbered bounding-box markers.
+ *   All images are sent in ONE request and deleted on the server right after analysis —
+ *   nothing is stored. Bridges the gap until CROMS is wired.
  */
 import React, { useCallback, useRef, useState } from "react";
-import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
+import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Car, Armchair } from "lucide-react";
 import { api, envelopeError } from "../lib/api";
 import { T } from "../constants/testIds";
 
@@ -39,14 +41,14 @@ async function prepareImage(file) {
 }
 
 const CATEGORY_LABEL = {
-  DENT: "Dents",
-  SCRATCH: "Scratches",
-  TIRE: "Tyres / wheels",
-  GLASS: "Glass",
-  LIGHT: "Lights",
-  PART: "Broken / missing parts",
+  // Exterior
+  DENT: "Dents", SCRATCH: "Scratches", CHIP: "Chips", TIRE: "Tyres", WHEEL: "Wheels / rims",
+  GLASS: "Glass", LIGHT: "Lights", PART: "Broken / missing parts", RUST: "Rust / corrosion",
+  VANDALISM: "Vandalism / graffiti", DIRT: "Dirt / staining", LEAK: "Fluid leaks",
+  // Interior
+  SEAT: "Seats", DASHBOARD: "Dashboard / console", TRIM: "Trim / panels", STAIN: "Stains / dirt",
+  MISSING: "Missing items", ELECTRONICS: "Screens / controls",
 };
-const CATEGORY_ORDER = ["DENT", "SCRATCH", "TIRE", "GLASS", "LIGHT", "PART"];
 
 function StatusBadge({ status }) {
   const cls = status === "NEW"
@@ -60,11 +62,13 @@ function StatusBadge({ status }) {
   return <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${cls}`}>{label}</span>;
 }
 
-function DropZone({ label, slot, state, onPick, testId }) {
+function DropZone({ label, hint, slot, state, onPick, testId }) {
   const ref = useRef(null);
   return (
-    <div className="flex-1">
-      <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2">{label}</div>
+    <div className="flex-1 min-w-0">
+      <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2">
+        {label}{hint && <span className="text-steel-500 normal-case tracking-normal"> · {hint}</span>}
+      </div>
       <button
         type="button"
         onClick={() => ref.current?.click()}
@@ -91,59 +95,153 @@ function DropZone({ label, slot, state, onPick, testId }) {
   );
 }
 
+const EMPTY = { blob: null, preview: null };
+
+function SectionResult({ section, afterPreview }) {
+  const items = section.items || [];
+  const nonZero = Object.entries(section.counts || {}).filter(([, c]) => c.total > 0);
+  const Icon = section.kind === "INTERIOR" ? Armchair : Car;
+  return (
+    <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 overflow-hidden" data-testid={`trip-section-${section.kind?.toLowerCase()}`}>
+      <div className="px-4 py-3 border-b border-ink-700/60 flex items-center gap-2">
+        <Icon className="size-4 text-steel-300" />
+        <span className="text-sm font-semibold text-white">{section.label}</span>
+        {!section.comparable && (
+          <span className="text-[10px] uppercase tracking-wider text-amber400 ml-auto">Not comparable</span>
+        )}
+      </div>
+
+      <div className="p-4 space-y-4">
+        {section.summary && <p className="text-sm text-steel-300">{section.summary}</p>}
+        {!section.comparable && section.notComparableReason && (
+          <p className="text-xs text-amber400">Reason: {section.notComparableReason}</p>
+        )}
+
+        {afterPreview && (
+          <div className="rounded-md border border-ink-700/70 bg-ink-950/40 p-2">
+            <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2 px-1">
+              {section.label} after — detected issues marked
+            </div>
+            <div className="relative inline-block max-w-full">
+              <img src={afterPreview} alt={`${section.label} after, annotated`} className="block max-w-full rounded-md" />
+              {items.map((it, i) =>
+                it.box ? (
+                  <div
+                    key={i}
+                    className={`absolute border-2 rounded-sm ${it.status === "NEW" ? "border-signal" : "border-amber400"}`}
+                    style={{
+                      left: `${it.box.x * 100}%`, top: `${it.box.y * 100}%`,
+                      width: `${it.box.w * 100}%`, height: `${it.box.h * 100}%`,
+                    }}
+                  >
+                    <span className={`absolute -top-2 -left-2 size-5 grid place-items-center rounded-full text-[10px] font-bold text-white ${it.status === "NEW" ? "bg-signal" : "bg-amber400"}`}>
+                      {i + 1}
+                    </span>
+                  </div>
+                ) : null
+              )}
+            </div>
+          </div>
+        )}
+
+        {nonZero.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {nonZero.map(([cat, c]) => (
+              <span key={cat} className="text-[11px] rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-steel-200">
+                {CATEGORY_LABEL[cat] || cat}: <span className="text-white font-semibold">{c.total}</span>
+                {c.NEW > 0 && <span className="text-signal-soft"> · {c.NEW} new</span>}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="rounded-md border border-ink-700/70 overflow-hidden">
+          <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-steel-400 bg-ink-900 border-b border-ink-700/60">
+            Findings ({items.length})
+          </div>
+          {items.length === 0 ? (
+            <div className="px-4 py-6 text-center text-steel-400 text-sm">No {section.label.toLowerCase()} issues found.</div>
+          ) : (
+            <ul className="divide-y divide-ink-700/60">
+              {items.map((it, i) => (
+                <li key={i} className="px-4 py-3 flex items-start gap-3">
+                  <span className={`size-5 mt-0.5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold text-white ${it.status === "NEW" ? "bg-signal" : it.box ? "bg-amber400" : "bg-ink-600"}`}>{i + 1}</span>
+                  <span className="text-[11px] font-mono text-steel-300 w-28 shrink-0 mt-0.5">{CATEGORY_LABEL[it.category] || it.category}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StatusBadge status={it.status} />
+                      {it.severity && <span className="text-[10px] uppercase tracking-wider text-steel-400">{it.severity}</span>}
+                      <span className="text-[11px] font-mono text-steel-400">{(it.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="text-sm text-steel-100 mt-1">{it.location || "—"}</div>
+                    {it.detail && <div className="text-[12px] text-steel-400 mt-0.5">{it.detail}</div>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TripInspection() {
-  const [before, setBefore] = useState({ blob: null, preview: null });
-  const [after, setAfter] = useState({ blob: null, preview: null });
+  const [extBefore, setExtBefore] = useState(EMPTY);
+  const [extAfter, setExtAfter] = useState(EMPTY);
+  const [intBefore, setIntBefore] = useState(EMPTY);
+  const [intAfter, setIntAfter] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+
+  const setters = { extBefore: setExtBefore, extAfter: setExtAfter, intBefore: setIntBefore, intAfter: setIntAfter };
 
   const pick = useCallback(async (slot, file) => {
     setError("");
     setResult(null);
     try {
       const prepared = await prepareImage(file);
-      (slot === "before" ? setBefore : setAfter)(prepared);
+      setters[slot](prepared);
     } catch {
       setError("Could not read that image. Please try a different photo.");
     }
   }, []);
 
   const reset = () => {
-    setBefore({ blob: null, preview: null });
-    setAfter({ blob: null, preview: null });
-    setResult(null);
-    setError("");
-    setStage("");
+    setExtBefore(EMPTY); setExtAfter(EMPTY); setIntBefore(EMPTY); setIntAfter(EMPTY);
+    setResult(null); setError(""); setStage("");
   };
 
+  const interiorStarted = !!(intBefore.blob || intAfter.blob);
+  const interiorIncomplete = interiorStarted && !(intBefore.blob && intAfter.blob);
+
   const analyze = async () => {
-    if (!before.blob || !after.blob) {
-      setError("Please add both a Before and an After photo.");
+    if (!extBefore.blob || !extAfter.blob) {
+      setError("Please add both an exterior Before and After photo.");
+      return;
+    }
+    if (interiorIncomplete) {
+      setError("For interior analysis, please add BOTH an interior Before and After photo (or remove the one you added).");
       return;
     }
     setBusy(true);
     setError("");
     setResult(null);
     try {
-      setStage("Securing session…");
-      const { data: sess } = await api.post("/trip-inspection/session", {});
-      const token = sess.data.token;
-
-      const upload = async (slot, blob) => {
-        const fd = new FormData();
-        fd.append("token", token);
-        fd.append("slot", slot);
-        fd.append("file", blob, `${slot}.jpg`);
-        await api.post("/trip-inspection/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      };
-      setStage("Uploading photos…");
-      await upload("before", before.blob);
-      await upload("after", after.blob);
-
       setStage("Analyzing with AI (this can take up to a minute)…");
-      const { data } = await api.post("/trip-inspection/analyze", { token }, { timeout: 180000 });
+      const fd = new FormData();
+      fd.append("exterior_before", extBefore.blob, "exterior_before.jpg");
+      fd.append("exterior_after", extAfter.blob, "exterior_after.jpg");
+      if (intBefore.blob && intAfter.blob) {
+        fd.append("interior_before", intBefore.blob, "interior_before.jpg");
+        fd.append("interior_after", intAfter.blob, "interior_after.jpg");
+      }
+      const { data } = await api.post("/trip-inspection/analyze", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 240000,
+      });
       setResult(data.data);
     } catch (err) {
       setError(envelopeError(err, "Analysis failed. Please retry."));
@@ -167,12 +265,15 @@ export default function TripInspection() {
         <Icon className="size-6 mt-0.5 shrink-0" />
         <div>
           <div className="text-base font-semibold">{o.title}</div>
-          {result.summary && <p className="text-sm text-steel-300 mt-1">{result.summary}</p>}
-          {result.notComparableReason && <p className="text-xs mt-1">Reason: {result.notComparableReason}</p>}
+          {result.newIssueCount > 0 && (
+            <p className="text-sm text-steel-300 mt-1">{result.newIssueCount} new issue{result.newIssueCount > 1 ? "s" : ""} found across the inspected areas.</p>
+          )}
         </div>
       </div>
     );
   };
+
+  const afterPreviewFor = (kind) => (kind === "INTERIOR" ? intAfter.preview : extAfter.preview);
 
   return (
     <div data-testid={T.tripRoot} className="px-8 py-8 max-w-5xl">
@@ -182,21 +283,42 @@ export default function TripInspection() {
       </h1>
       <p className="text-sm text-steel-300 mt-2 max-w-2xl flex items-start gap-1.5">
         <ShieldCheck className="size-4 mt-0.5 text-emerald400" />
-        Add a photo from before and after the rental trip, then analyze. We compare them and report
-        dents, scratches, tyre/wheel issues, broken glass, broken lights, and broken or missing parts.
+        Add before/after photos of the vehicle, then analyze. Exterior covers dents, scratches, chips,
+        tyres, wheels, glass, lights, broken/missing parts, rust, vandalism, dirt and fluid leaks.
+        Interior (optional) covers seats, dashboard, trim, stains, missing items and electronics.
         Advisory only — nothing is stored; your photos are deleted right after analysis.
       </p>
 
-      <section className="mt-6 rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
-        <div className="flex flex-col sm:flex-row gap-5">
-          <DropZone label="Before the trip" slot="before" state={before} onPick={pick} testId={T.tripBeforeInput} />
-          <DropZone label="After the trip" slot="after" state={after} onPick={pick} testId={T.tripAfterInput} />
+      <section className="mt-6 rounded-lg border border-ink-700/70 bg-ink-900/60 p-5 space-y-6">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Car className="size-4 text-steel-300" />
+            <span className="text-sm font-medium text-white">Exterior</span>
+            <span className="text-[11px] text-steel-500">required</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-5">
+            <DropZone label="Before the trip" slot="extBefore" state={extBefore} onPick={pick} testId={T.tripBeforeInput} />
+            <DropZone label="After the trip" slot="extAfter" state={extAfter} onPick={pick} testId={T.tripAfterInput} />
+          </div>
         </div>
-        <div className="flex items-center gap-3 mt-5">
+
+        <div className="border-t border-ink-700/60 pt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Armchair className="size-4 text-steel-300" />
+            <span className="text-sm font-medium text-white">Interior</span>
+            <span className="text-[11px] text-steel-500">optional — add both photos to analyze</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-5">
+            <DropZone label="Before the trip" hint="interior" slot="intBefore" state={intBefore} onPick={pick} testId={T.tripIntBeforeInput} />
+            <DropZone label="After the trip" hint="interior" slot="intAfter" state={intAfter} onPick={pick} testId={T.tripIntAfterInput} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             data-testid={T.tripAnalyze}
             onClick={analyze}
-            disabled={busy || !before.blob || !after.blob}
+            disabled={busy || !extBefore.blob || !extAfter.blob}
             className="px-4 py-2 rounded-md text-sm font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-2"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
@@ -212,90 +334,15 @@ export default function TripInspection() {
           </button>
           {stage && <span className="text-xs text-steel-400">{stage}</span>}
         </div>
-        {error && <div data-testid={T.tripError} className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2 mt-3">{error}</div>}
+        {error && <div data-testid={T.tripError} className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2">{error}</div>}
       </section>
 
       {result && (
         <section data-testid={T.tripResult} className="mt-6 space-y-4">
           {overallCard()}
-
-          {after.preview && (
-            <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-3">
-              <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2 px-1">
-                After photo — detected issues marked
-              </div>
-              <div className="relative inline-block max-w-full">
-                <img src={after.preview} alt="After, annotated" className="block max-w-full rounded-md" />
-                {(result.items || []).map((it, i) =>
-                  it.box ? (
-                    <div
-                      key={i}
-                      className={`absolute border-2 rounded-sm ${it.status === "NEW" ? "border-signal" : "border-amber400"}`}
-                      style={{
-                        left: `${it.box.x * 100}%`,
-                        top: `${it.box.y * 100}%`,
-                        width: `${it.box.w * 100}%`,
-                        height: `${it.box.h * 100}%`,
-                      }}
-                    >
-                      <span
-                        className={`absolute -top-2 -left-2 size-5 grid place-items-center rounded-full text-[10px] font-bold text-white ${
-                          it.status === "NEW" ? "bg-signal" : "bg-amber400"
-                        }`}
-                      >
-                        {i + 1}
-                      </span>
-                    </div>
-                  ) : null
-                )}
-              </div>
-              {(result.items || []).some((it) => !it.box) && (
-                <p className="text-[11px] text-steel-400 mt-2 px-1">
-                  Some findings could not be precisely located and are listed below without a marker.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {CATEGORY_ORDER.map((cat) => {
-              const c = result.counts?.[cat] || { NEW: 0, total: 0 };
-              return (
-                <div key={cat} className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
-                  <div className="text-[11px] uppercase tracking-wider text-steel-400">{CATEGORY_LABEL[cat]}</div>
-                  <div className="text-2xl font-semibold text-white mt-1">{c.total}</div>
-                  <div className={`text-[11px] mt-0.5 ${c.NEW > 0 ? "text-signal-soft" : "text-steel-400"}`}>{c.NEW} new this trip</div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 overflow-hidden">
-            <div className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-steel-400 bg-ink-900 border-b border-ink-700/60">
-              Findings ({result.items?.length || 0})
-            </div>
-            {(result.items || []).length === 0 ? (
-              <div className="px-4 py-8 text-center text-steel-400 text-sm">No visible damage found.</div>
-            ) : (
-              <ul className="divide-y divide-ink-700/60">
-                {result.items.map((it, i) => (
-                  <li key={i} className="px-4 py-3 flex items-start gap-3">
-                    <span className={`size-5 mt-0.5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold text-white ${it.status === "NEW" ? "bg-signal" : it.box ? "bg-amber400" : "bg-ink-600"}`}>{i + 1}</span>
-                    <span className="text-[11px] font-mono text-steel-300 w-20 shrink-0 mt-0.5">{CATEGORY_LABEL[it.category]?.split(" ")[0]}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <StatusBadge status={it.status} />
-                        {it.severity && <span className="text-[10px] uppercase tracking-wider text-steel-400">{it.severity}</span>}
-                        <span className="text-[11px] font-mono text-steel-400">{(it.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                      <div className="text-sm text-steel-100 mt-1">{it.location || "—"}</div>
-                      {it.detail && <div className="text-[12px] text-steel-400 mt-0.5">{it.detail}</div>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {(result.sections || []).map((s) => (
+            <SectionResult key={s.kind} section={s} afterPreview={afterPreviewFor(s.kind)} />
+          ))}
           <p className="text-[11px] text-steel-400">
             Advisory AI result ({result.modelVersion}). Final liability, customer charge, and repair decisions are not made here.
           </p>

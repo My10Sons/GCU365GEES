@@ -151,6 +151,8 @@ export const T = {
   tripRoot: "trip-root",
   tripBeforeInput: "trip-before-input",
   tripAfterInput: "trip-after-input",
+  tripIntBeforeInput: "trip-interior-before-input",
+  tripIntAfterInput: "trip-interior-after-input",
   tripAnalyze: "trip-analyze",
   tripReset: "trip-reset",
   tripError: "trip-error",
