@@ -13,9 +13,33 @@ from fastapi import APIRouter, Depends, Request
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
 from application.services import tenant_branding_service
+from application.services import tenant_policy_service
 from domain.enums.permissions import Permission
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
+
+
+@router.get("/policy")
+async def get_policy(
+    request: Request,
+    principal: dict = Depends(require_permission(Permission.AI_REQUEST)),
+):
+    data = await tenant_policy_service.get_policy(principal["tenantId"])
+    return ok(data, request.state.correlation_id)
+
+
+@router.put("/policy")
+async def put_policy(
+    request: Request,
+    payload: dict,
+    principal: dict = Depends(require_permission(Permission.CONFIGURATION_MANAGE)),
+):
+    p = payload or {}
+    data = await tenant_policy_service.set_policy(
+        tenant_id=principal["tenantId"],
+        require_full_walkaround=bool(p.get("requireFullWalkaround", False)),
+    )
+    return ok(data, request.state.correlation_id)
 
 
 @router.get("/branding")

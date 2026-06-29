@@ -7,11 +7,12 @@
  *   image-integrity checks, condition score, cleanliness, and walkaround coverage. Nothing is
  *   stored. Exports a branded, signable PDF in English / Arabic / bilingual.
  */
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye } from "lucide-react";
+import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye, Building2 } from "lucide-react";
 import { api, envelopeError } from "../lib/api";
+import { useAuth } from "../lib/auth-context";
 import { T } from "../constants/testIds";
 
 async function prepareImage(file) {
@@ -204,10 +205,15 @@ function SectionResult({ section, afterPreview }) {
 const EMPTY = { blob: null, preview: null };
 
 export default function TripInspection() {
+  const { has } = useAuth();
+  const isAdmin = has("di.configuration.manage");
   const [angles, setAngles] = useState(() => ({ FRONT: { before: EMPTY, after: EMPTY } }));
   const [selectedAngles, setSelectedAngles] = useState(["FRONT"]);
   const [interiorOn, setInteriorOn] = useState(false);
   const [requireFull, setRequireFull] = useState(false);
+  const [policyEnforced, setPolicyEnforced] = useState(false);
+  const [policyDraft, setPolicyDraft] = useState(false);
+  const [savingPolicy, setSavingPolicy] = useState(false);
   const [intBefore, setIntBefore] = useState(EMPTY);
   const [intAfter, setIntAfter] = useState(EMPTY);
   const [reportFields, setReportFields] = useState({ customerName: "", vehiclePlate: "", vehicleModel: "", rentalId: "", inspectorName: "" });
@@ -220,6 +226,34 @@ export default function TripInspection() {
   const [result, setResult] = useState(null);
 
   const clear = () => { setResult(null); setError(""); };
+
+  const enforceFullSelection = () => {
+    setSelectedAngles(ALL_ANGLE_KEYS);
+    setAngles((a) => { const n = { ...a }; ALL_ANGLE_KEYS.forEach((k) => { if (!n[k]) n[k] = { before: EMPTY, after: EMPTY }; }); return n; });
+  };
+
+  useEffect(() => {
+    let active = true;
+    api.get("/tenant/policy").then(({ data }) => {
+      if (!active) return;
+      const enforced = !!data?.data?.requireFullWalkaround;
+      setPolicyEnforced(enforced);
+      setPolicyDraft(enforced);
+      if (enforced) { setRequireFull(true); enforceFullSelection(); }
+    }).catch(() => { /* default: no policy */ });
+    return () => { active = false; };
+  }, []);
+
+  const savePolicy = async () => {
+    setSavingPolicy(true); setError("");
+    try {
+      const { data } = await api.put("/tenant/policy", { requireFullWalkaround: policyDraft });
+      const enforced = !!data?.data?.requireFullWalkaround;
+      setPolicyEnforced(enforced);
+      if (enforced) { setRequireFull(true); enforceFullSelection(); }
+    } catch (err) { setError(envelopeError(err, "Could not save the branch policy.")); }
+    finally { setSavingPolicy(false); }
+  };
 
   const toggleAngle = (key) => {
     clear();
@@ -481,6 +515,22 @@ export default function TripInspection() {
         (English / Arabic). Advisory only — nothing is stored.
       </p>
 
+      {isAdmin && (
+        <section data-testid="trip-admin-policy" className="mt-5 rounded-lg border border-ink-700/70 bg-ink-900/40 p-4">
+          <div className="flex items-center gap-2 mb-2"><Building2 className="size-4 text-steel-300" /><span className="text-sm font-medium text-white">Branch policy</span><span className="text-[11px] text-steel-500">admin — applies to all staff in this tenant</span></div>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <label className="flex items-center gap-2 text-sm text-steel-300 cursor-pointer" data-testid="trip-policy-toggle">
+              <input type="checkbox" checked={policyDraft} onChange={(e) => setPolicyDraft(e.target.checked)} className="size-4 accent-signal" />
+              Require a full 5-angle walkaround for every inspection
+            </label>
+            <button data-testid="trip-policy-save" onClick={savePolicy} disabled={savingPolicy || policyDraft === policyEnforced}
+              className="px-3 py-2 rounded-md text-xs font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-1.5">
+              {savingPolicy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Save policy
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="mt-6 rounded-lg border border-ink-700/70 bg-ink-900/60 p-5 space-y-6">
         <div>
           <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-2">Exterior walkaround — choose angles</div>
@@ -491,8 +541,9 @@ export default function TripInspection() {
           <ScopeChip label="Interior" active={interiorOn} onClick={toggleInterior} testId={T.tripScopeInterior} />
           {!anySelected && <p className="text-xs text-amber400 mt-2">Select at least one area to inspect.</p>}
           <label className="mt-4 flex items-center gap-2 text-sm text-steel-300 cursor-pointer w-fit" data-testid="trip-require-full">
-            <input type="checkbox" checked={requireFull} onChange={toggleRequireFull} className="size-4 accent-signal" />
+            <input type="checkbox" checked={requireFull} disabled={policyEnforced} onChange={toggleRequireFull} className="size-4 accent-signal disabled:opacity-60" />
             Require a full 5-angle walkaround (enforce before analysis)
+            {policyEnforced && <span className="text-[10px] uppercase tracking-wider text-emerald400 border border-emerald400/40 rounded px-1.5 py-0.5">Branch policy</span>}
           </label>
           {requireFull && !isFullWalkaround && (
             <p className="text-xs text-amber400 mt-2" data-testid="trip-walkaround-gate">Full walkaround required — add both photos for: {missingForFull.map(angleLabel).join(", ")}.</p>

@@ -338,3 +338,16 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   `pages/TripInspection.jsx`.
 - Self-verified: gate auto-selects all angles + blocks Analyze when incomplete (screenshot);
   backend coverage flag confirmed. NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Trip Inspection v8 — branch walkaround policy)
+
+- **Per-tenant policy:** new `di_tenant_policy` {tenantId, requireFullWalkaround}. Routes
+  `GET /tenant/policy` (di.ai.request) and `PUT /tenant/policy` (di.configuration.manage).
+- **Admin control:** admins (di.configuration.manage) see a "Branch policy" panel on the Trip
+  page to toggle "Require a full 5-angle walkaround for every inspection" and Save.
+- **Enforcement:** on page load the policy is fetched; when enforced, the walkaround gate is
+  pre-enabled and LOCKED for all staff (green "Branch policy" badge), all 5 angles auto-selected.
+- Files: backend `application/services/tenant_policy_service.py`, `api/routes/tenant.py`;
+  frontend `pages/TripInspection.jsx`.
+- Verified on PREVIEW: GET default false, inspector PUT 403, admin PUT persists; UI shows admin
+  panel + locked gate + all 5 angles (screenshot). Demo tenant reset to false. Not redeployed.
