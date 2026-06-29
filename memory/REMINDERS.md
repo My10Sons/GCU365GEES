@@ -10,6 +10,13 @@
   - Caveats: (1) US-market pricing in USD — needs FX + local adjustment for Qatar/KSA;
     (2) needs VIN or Year/Make/Model input (pairs with the deferred plate/VIN OCR feature).
   - ACTION when user is ready: route via integration flow; user must supply an API key.
+  - **US -> GCC localisation factors** (researched 2026-06-29, for converting US-based API
+    estimates to local prices; broad averages, vary by brand/model):
+    - OEM parts: KSA ~10-20% cheaper than US -> apply **~0.85x** to parts (KSA), similar for QAR.
+    - Labour: US is ~2-2.5x more expensive -> apply **~0.45-0.50x** to labour (KSA/GCC).
+    - Blended: a $1,000 US job ~= $600-700 in KSA (GCC totals ~30-40% lower overall).
+    - Then convert currency USD -> SAR (~3.75) / QAR (~3.64).
+    - Note: local dealer rates remain most accurate; treat these as fallback multipliers.
 - Current estimator is a deterministic rule-based QAR table in
   `backend/application/services/trip_inspection_service.py` (`_COST_BASE`, `_SEVERITY_FACTOR`).
 
