@@ -1,10 +1,10 @@
 """
 Repository Traceability:
-- Purpose: Anonymous "Trip Inspection" quick-analysis route. Upload exterior Before + After
-  photos (and optionally interior Before + After) in a SINGLE multipart request, analyze with
-  the real Gemini vision engine, and return an advisory damage/condition report. Nothing is
-  persisted (images are deleted right after analysis). Single-request design keeps it correct
-  behind multi-instance load balancers.
+- Purpose: Anonymous "Trip Inspection" quick-analysis route. Upload exterior walkaround photos
+  by angle (front/rear/left/right/roof) and optionally interior — each as a Before + After pair
+  in a SINGLE multipart request. Analyzed with the real Gemini vision engine; returns an
+  advisory damage/condition report (with size, repair/replace, cost, photo + integrity checks,
+  condition score, cleanliness, and walkaround coverage). Nothing is persisted.
 """
 from __future__ import annotations
 
@@ -19,24 +19,42 @@ from application.services import trip_inspection_service
 router = APIRouter(prefix="/trip-inspection", tags=["trip-inspection"])
 
 
+async def _read(upload: Optional[UploadFile]):
+    if upload is None:
+        return None
+    return (await upload.read(), upload.content_type)
+
+
 @router.post("/analyze")
 async def analyze(
     request: Request,
-    exterior_before: Optional[UploadFile] = File(None),
-    exterior_after: Optional[UploadFile] = File(None),
+    ext_front_before: Optional[UploadFile] = File(None),
+    ext_front_after: Optional[UploadFile] = File(None),
+    ext_rear_before: Optional[UploadFile] = File(None),
+    ext_rear_after: Optional[UploadFile] = File(None),
+    ext_left_before: Optional[UploadFile] = File(None),
+    ext_left_after: Optional[UploadFile] = File(None),
+    ext_right_before: Optional[UploadFile] = File(None),
+    ext_right_after: Optional[UploadFile] = File(None),
+    ext_roof_before: Optional[UploadFile] = File(None),
+    ext_roof_after: Optional[UploadFile] = File(None),
     interior_before: Optional[UploadFile] = File(None),
     interior_after: Optional[UploadFile] = File(None),
     principal: dict = Depends(require_permission("di.ai.request")),
 ):
+    raw = {
+        "ext_front_before": ext_front_before, "ext_front_after": ext_front_after,
+        "ext_rear_before": ext_rear_before, "ext_rear_after": ext_rear_after,
+        "ext_left_before": ext_left_before, "ext_left_after": ext_left_after,
+        "ext_right_before": ext_right_before, "ext_right_after": ext_right_after,
+        "ext_roof_before": ext_roof_before, "ext_roof_after": ext_roof_after,
+        "interior_before": interior_before, "interior_after": interior_after,
+    }
     files: dict = {}
-    if exterior_before is not None:
-        files["exterior_before"] = (await exterior_before.read(), exterior_before.content_type)
-    if exterior_after is not None:
-        files["exterior_after"] = (await exterior_after.read(), exterior_after.content_type)
-    if interior_before is not None:
-        files["interior_before"] = (await interior_before.read(), interior_before.content_type)
-    if interior_after is not None:
-        files["interior_after"] = (await interior_after.read(), interior_after.content_type)
+    for slot, upload in raw.items():
+        payload = await _read(upload)
+        if payload is not None:
+            files[slot] = payload
 
     data = await trip_inspection_service.analyze_trip(
         principal=principal, files=files, correlation_id=request.state.correlation_id,

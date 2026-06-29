@@ -159,11 +159,20 @@ def _model() -> str:
     return os.environ.get("DI_AI_MODEL_DAMAGE_NAME", "gemini-3.1-pro-preview")
 
 
-def _user_prompt(kind: str, lines: str, enum_list: str) -> str:
+_RECOMMENDATIONS = {"REPAIR", "REPLACE", "ASSESS"}
+_AI_LIKELIHOOD = {"LOW", "MEDIUM", "HIGH"}
+_EXTERIOR_ANGLES = ["FRONT", "REAR", "LEFT", "RIGHT", "ROOF"]
+_ANGLE_LABEL = {"FRONT": "Front", "REAR": "Rear", "LEFT": "Left side", "RIGHT": "Right side", "ROOF": "Roof"}
+
+
+def _user_prompt(kind: str, lines: str, enum_list: str, angle: Optional[str]) -> str:
     where = "exterior" if kind == "EXTERIOR" else "interior"
+    angle_ctx = ""
+    if kind == "EXTERIOR" and angle:
+        angle_ctx = f"Both photos show the {_ANGLE_LABEL.get(angle, angle)} view of the vehicle. "
     return (
         f"The FIRST image is the {where} BEFORE the trip. The SECOND image is the {where} AFTER "
-        "the trip. Compare them.\n"
+        f"the trip. {angle_ctx}Compare them.\n"
         f"Report ALL visible {where} damage and condition issues across these categories. Be "
         "conservative; if unsure, set status UNCERTAIN.\n"
         "Categories:\n" + lines + "\n"
@@ -178,6 +187,12 @@ def _user_prompt(kind: str, lines: str, enum_list: str) -> str:
         '     "sameVehicle": true or false (do BEFORE and AFTER show the SAME vehicle),\n'
         '     "vehicleMismatchReason": string or null\n'
         "  },\n"
+        '  "integrity": {\n'
+        '     "beforeSuspicious": true or false (does the BEFORE photo show signs of digital editing, AI generation, or being a photo-of-a-screen),\n'
+        '     "afterSuspicious": true or false (same for the AFTER photo),\n'
+        '     "aiGeneratedLikelihood": one of ["LOW","MEDIUM","HIGH"] (likelihood either photo is AI-generated or manipulated),\n'
+        '     "signals": [ short strings describing any tampering/AI signals e.g. "cloned region", "inconsistent shadows", "screen moire pattern", "warped edges" ]\n'
+        "  },\n"
         '  "conditionScore": integer 0-100 (overall condition of the vehicle in the AFTER photo; 100 = pristine, 0 = severely damaged),\n'
         '  "cleanliness": one of ["CLEAN","LIGHT_DIRT","DIRTY","VERY_DIRTY"] for the AFTER photo,\n'
         '  "items": [\n'
@@ -188,6 +203,12 @@ def _user_prompt(kind: str, lines: str, enum_list: str) -> str:
         '      "severity": one of ["LOW","MEDIUM","HIGH"] or null,\n'
         '      "confidence": number between 0 and 1,\n'
         '      "detail": short human-readable note,\n'
+        '      "sizeCm": approximate longest dimension of the damage in centimetres as a number,\n'
+        '              estimated using a visible reference for scale (a license plate is ~52 cm\n'
+        '              wide, a door handle ~12 cm, a wheel ~45-65 cm). Use null if not estimable.\n'
+        '      "sizeNote": short string naming the reference used for scale, or null,\n'
+        '      "recommendation": one of ["REPAIR","REPLACE","ASSESS"] (REPLACE for shattered glass,\n'
+        '              broken lamps, torn parts; REPAIR for dents/scratches/scuffs; ASSESS if unsure),\n'
         '      "box": { "x": 0..1, "y": 0..1, "w": 0..1, "h": 0..1 } normalized bounding box of\n'
         '              the issue on the AFTER image (x,y = top-left corner as fractions of\n'
         '              width/height), or null if you cannot localize it\n'
@@ -232,6 +253,20 @@ def _normalize_photo_check(parsed: dict, comparable: bool) -> dict:
     }
 
 
+def _normalize_integrity(parsed: dict) -> dict:
+    ig = parsed.get("integrity") if isinstance(parsed.get("integrity"), dict) else {}
+    signals = ig.get("signals")
+    signals = [str(s)[:140] for s in signals if isinstance(s, str)][:6] if isinstance(signals, list) else []
+    likelihood = ig.get("aiGeneratedLikelihood")
+    likelihood = likelihood.upper() if isinstance(likelihood, str) and likelihood.upper() in _AI_LIKELIHOOD else "LOW"
+    return {
+        "beforeSuspicious": bool(ig.get("beforeSuspicious", False)),
+        "afterSuspicious": bool(ig.get("afterSuspicious", False)),
+        "aiGeneratedLikelihood": likelihood,
+        "signals": signals,
+    }
+
+
 def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) -> dict:
     if not isinstance(parsed, dict):
         return {
@@ -243,6 +278,7 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             "newIssueCount": 0,
             "overall": "NOT_COMPARABLE",
             "photoCheck": {"beforeUsable": False, "afterUsable": False, "issues": ["analysis could not be completed"], "sameVehicle": False, "vehicleMismatchReason": None},
+            "integrity": {"beforeSuspicious": False, "afterSuspicious": False, "aiGeneratedLikelihood": "LOW", "signals": []},
             "conditionScore": None,
             "cleanliness": None,
             "estimatedCost": {"low": 0, "high": 0, "currency": _COST_CURRENCY},
@@ -264,6 +300,16 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             conf = max(0.0, min(1.0, float(it.get("confidence") or 0)))
         except (TypeError, ValueError):
             conf = 0.0
+        try:
+            size_cm = float(it.get("sizeCm")) if it.get("sizeCm") is not None else None
+            if size_cm is not None and (size_cm <= 0 or size_cm > 400):
+                size_cm = None
+            elif size_cm is not None:
+                size_cm = round(size_cm, 1)
+        except (TypeError, ValueError):
+            size_cm = None
+        rec = it.get("recommendation")
+        rec = rec.upper() if isinstance(rec, str) and rec.upper() in _RECOMMENDATIONS else None
         items.append({
             "category": cat,
             "status": status,
@@ -271,6 +317,9 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             "severity": sev,
             "confidence": conf,
             "detail": (it.get("detail") if isinstance(it.get("detail"), str) else "")[:300],
+            "sizeCm": size_cm,
+            "sizeNote": (it.get("sizeNote") if isinstance(it.get("sizeNote"), str) else "")[:120] or None,
+            "recommendation": rec,
             "box": _normalize_box(it.get("box")),
             "estimatedCost": _estimate_cost(cat, sev),
         })
@@ -302,6 +351,7 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
         "newIssueCount": new_issues,
         "overall": overall,
         "photoCheck": _normalize_photo_check(parsed, comparable),
+        "integrity": _normalize_integrity(parsed),
         "conditionScore": score,
         "cleanliness": cleanliness,
         "estimatedCost": {"low": new_low, "high": new_high, "currency": _COST_CURRENCY},
@@ -309,7 +359,7 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
 
 
 async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, after_mime: str,
-                        kind: str, correlation_id: str) -> tuple[dict, str, int]:
+                        kind: str, angle: Optional[str], correlation_id: str) -> tuple[dict, str, int]:
     categories = EXTERIOR_CATEGORIES if kind == "EXTERIOR" else INTERIOR_CATEGORIES
     synonyms = _EXT_SYNONYMS if kind == "EXTERIOR" else _INT_SYNONYMS
     lines = _EXT_PROMPT_LINES if kind == "EXTERIOR" else _INT_PROMPT_LINES
@@ -317,7 +367,7 @@ async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, 
     enum_list = ",".join(f'"{c}"' for c in categories)
     parsed, model_label, latency_ms, err = await call_vision_model_multi(
         provider=_provider(), model_name=_model(),
-        system_message=system, user_prompt=_user_prompt(kind, lines, enum_list),
+        system_message=system, user_prompt=_user_prompt(kind, lines, enum_list, angle),
         images=[
             {"path": before_path, "mime": before_mime},
             {"path": after_path, "mime": after_mime},
@@ -329,7 +379,11 @@ async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, 
                           "The analysis engine is temporarily unavailable. Please retry.", 503)
     section = _normalize_section(parsed, categories, synonyms)
     section["kind"] = kind
-    section["label"] = "Exterior" if kind == "EXTERIOR" else "Interior"
+    section["angle"] = angle
+    if kind == "EXTERIOR":
+        section["label"] = f"Exterior — {_ANGLE_LABEL[angle]}" if angle in _ANGLE_LABEL else "Exterior"
+    else:
+        section["label"] = "Interior"
     return section, model_label, latency_ms or 0
 
 
@@ -348,20 +402,28 @@ def _validate_and_save(work: Path, slot: str, payload: tuple[bytes, Optional[str
 
 
 async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> dict:
-    """`files` maps slot -> (bytes, content_type). At least one complete pair is required:
-    exterior_before+exterior_after and/or interior_before+interior_after. Each provided area
-    is analyzed independently."""
+    """`files` maps slot -> (bytes, content_type). Supported slots:
+    ext_{angle}_before / ext_{angle}_after for angle in front|rear|left|right|roof, and
+    interior_before / interior_after. At least one complete pair is required; each provided
+    pair is analyzed independently (in parallel)."""
     tenant_id = principal["tenantId"]
-    ext_before = files.get("exterior_before")
-    ext_after = files.get("exterior_after")
+
+    # Discover the complete pairs present in the request.
+    pairs = []  # (kind, angle, before_payload, after_payload, slot_prefix)
+    for angle in _EXTERIOR_ANGLES:
+        a = angle.lower()
+        before = files.get(f"ext_{a}_before")
+        after = files.get(f"ext_{a}_after")
+        if before and after:
+            pairs.append(("EXTERIOR", angle, before, after, f"ext_{a}"))
     int_before = files.get("interior_before")
     int_after = files.get("interior_after")
-    has_ext = bool(ext_before and ext_after)
-    has_int = bool(int_before and int_after)
-    if not has_ext and not has_int:
+    if int_before and int_after:
+        pairs.append(("INTERIOR", None, int_before, int_after, "interior"))
+
+    if not pairs:
         raise DomainError(ErrorCode.VALIDATION_ERROR,
-                          "Provide a Before and After photo for at least one area (exterior or interior).",
-                          400, "images")
+                          "Provide a Before and After photo for at least one area.", 400, "images")
 
     work = _TMP_ROOT / uuid.uuid4().hex
     work.mkdir(parents=True, exist_ok=True)
@@ -370,21 +432,14 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
     total_latency = 0
     try:
         tasks = []
-        if has_ext:
-            eb_path, eb_mime = _validate_and_save(work, "exterior_before", ext_before)
-            ea_path, ea_mime = _validate_and_save(work, "exterior_after", ext_after)
+        for kind, angle, before, after, prefix in pairs:
+            b_path, b_mime = _validate_and_save(work, f"{prefix}_before", before)
+            a_path, a_mime = _validate_and_save(work, f"{prefix}_after", after)
             tasks.append(_analyze_pair(
-                before_path=eb_path, before_mime=eb_mime, after_path=ea_path, after_mime=ea_mime,
-                kind="EXTERIOR", correlation_id=correlation_id,
+                before_path=b_path, before_mime=b_mime, after_path=a_path, after_mime=a_mime,
+                kind=kind, angle=angle, correlation_id=correlation_id,
             ))
-        if has_int:
-            ib_path, ib_mime = _validate_and_save(work, "interior_before", int_before)
-            ia_path, ia_mime = _validate_and_save(work, "interior_after", int_after)
-            tasks.append(_analyze_pair(
-                before_path=ib_path, before_mime=ib_mime, after_path=ia_path, after_mime=ia_mime,
-                kind="INTERIOR", correlation_id=correlation_id,
-            ))
-        # Run exterior + interior analyses concurrently to minimize total latency.
+        # Analyze every provided pair concurrently to minimize total latency.
         for section, model, lat in await asyncio.gather(*tasks):
             sections.append(section)
             models.append(model)
@@ -408,6 +463,20 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         or (not s["photoCheck"]["sameVehicle"]) or bool(s["photoCheck"]["issues"])
         for s in sections
     )
+    integrity_warnings = any(
+        s["integrity"]["beforeSuspicious"] or s["integrity"]["afterSuspicious"]
+        or s["integrity"]["aiGeneratedLikelihood"] != "LOW" or bool(s["integrity"]["signals"])
+        for s in sections
+    )
+
+    captured_angles = [s["angle"] for s in sections if s["kind"] == "EXTERIOR" and s["angle"]]
+    coverage = {
+        "capturedAngles": captured_angles,
+        "missingAngles": [a for a in _EXTERIOR_ANGLES if a not in captured_angles],
+        "totalAngles": len(_EXTERIOR_ANGLES),
+        "capturedCount": len(captured_angles),
+        "interiorCaptured": any(s["kind"] == "INTERIOR" for s in sections),
+    }
 
     result = {
         "sections": sections,
@@ -420,6 +489,8 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         "conditionScore": condition_score,
         "cleanliness": cleanliness,
         "hasPhotoWarnings": photo_warnings,
+        "hasIntegrityWarnings": integrity_warnings,
+        "coverage": coverage,
     }
 
     await write_audit(
@@ -427,7 +498,7 @@ async def analyze_trip(*, principal: dict, files: dict, correlation_id: str) -> 
         action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,
         object_id="trip-quick", correlation_id=correlation_id,
         safe_metadata={"overall": overall, "newIssues": new_total,
-                       "sections": [s["kind"] for s in sections],
+                       "sections": [s["label"] for s in sections],
                        "model": result["modelVersion"], "latencyMs": total_latency},
     )
     return result
