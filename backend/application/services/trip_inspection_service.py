@@ -187,6 +187,25 @@ def _model_for_mode(mode: str) -> str:
     return _fast_model() if (mode or "fast").lower() == "fast" else _model()
 
 
+# Auto-escalation: in Fast mode, areas with uncertain or high-severity findings are silently
+# re-checked on the Pro model — Flash speed on the easy majority, Pro accuracy where it matters.
+_AUTO_ESCALATE = os.environ.get("DI_TRIP_AUTO_ESCALATE", "true").lower() == "true"
+_ESCALATE_CONF = float(os.environ.get("DI_TRIP_ESCALATE_CONFIDENCE", "0.6"))
+
+
+def _should_escalate(section: dict) -> bool:
+    for it in section.get("items", []):
+        status = it.get("status")
+        if status == "UNCERTAIN":
+            return True
+        if status == "NEW" and it.get("severity") == "HIGH":
+            return True
+        conf = it.get("confidence")
+        if status == "NEW" and conf is not None and conf < _ESCALATE_CONF:
+            return True
+    return False
+
+
 _RECOMMENDATIONS = {"REPAIR", "REPLACE", "ASSESS"}
 _AI_LIKELIHOOD = {"LOW", "MEDIUM", "HIGH"}
 _EXTERIOR_ANGLES = ["FRONT", "REAR", "LEFT", "RIGHT", "ROOF"]
@@ -526,6 +545,28 @@ async def _maybe_auto_create_case(
         return {"created": False, "reason": "error"}
 
 
+async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_path: str,
+                                   after_mime: str, kind: str, angle: Optional[str], mode: str,
+                                   correlation_id: str) -> tuple[dict, str, int]:
+    """Analyze a pair on the mode's model; in Fast mode, re-run on Pro when the section looks
+    uncertain/high-severity. Returns (section, model_label, total_latency_ms)."""
+    section, model, lat = await _analyze_pair(
+        before_path=before_path, before_mime=before_mime, after_path=after_path, after_mime=after_mime,
+        kind=kind, angle=angle, model_name=_model_for_mode(mode), correlation_id=correlation_id,
+    )
+    escalated = False
+    total = lat
+    if (mode or "fast").lower() == "fast" and _AUTO_ESCALATE and _should_escalate(section):
+        section, model, lat2 = await _analyze_pair(
+            before_path=before_path, before_mime=before_mime, after_path=after_path, after_mime=after_mime,
+            kind=kind, angle=angle, model_name=_model(), correlation_id=correlation_id,
+        )
+        total += lat2
+        escalated = True
+    section["escalated"] = escalated
+    return section, model, total
+
+
 async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[dict] = None,
                        mode: str = "fast", correlation_id: str) -> dict:
     """`files` maps slot -> (bytes, content_type). Supported slots:
@@ -553,7 +594,6 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
 
     work = _TMP_ROOT / uuid.uuid4().hex
     work.mkdir(parents=True, exist_ok=True)
-    model_name = _model_for_mode(mode)
     sections: list[dict] = []
     models: list[str] = []
     total_latency = 0
@@ -562,9 +602,9 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
         for kind, angle, before, after, prefix in pairs:
             b_path, b_mime = _validate_and_save(work, f"{prefix}_before", before)
             a_path, a_mime = _validate_and_save(work, f"{prefix}_after", after)
-            tasks.append(_analyze_pair(
+            tasks.append(_analyze_pair_escalating(
                 before_path=b_path, before_mime=b_mime, after_path=a_path, after_mime=a_mime,
-                kind=kind, angle=angle, model_name=model_name, correlation_id=correlation_id,
+                kind=kind, angle=angle, mode=mode, correlation_id=correlation_id,
             ))
         # Analyze every provided pair concurrently to minimize total latency.
         for section, model, lat in await asyncio.gather(*tasks):
@@ -667,9 +707,9 @@ async def analyze_section(*, principal: dict, kind: str, angle: Optional[str],
     try:
         b_path, b_mime = _validate_and_save(work, f"{prefix}_before", before)
         a_path, a_mime = _validate_and_save(work, f"{prefix}_after", after)
-        section, model, _lat = await _analyze_pair(
+        section, model, _lat = await _analyze_pair_escalating(
             before_path=b_path, before_mime=b_mime, after_path=a_path, after_mime=a_mime,
-            kind=kind, angle=angle, model_name=_model_for_mode(mode), correlation_id=correlation_id,
+            kind=kind, angle=angle, mode=mode, correlation_id=correlation_id,
         )
     finally:
         shutil.rmtree(work, ignore_errors=True)

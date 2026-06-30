@@ -427,3 +427,17 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
     no QAR. NOT yet redeployed to production.
 - DEFERRED: #8a phase-2 auto-escalation (re-run uncertain Fast sections on Pro); #12 kiosk/gate
   mode (on hold per user).
+
+## Changelog — 2026-06-30 (#8a phase-2: auto-escalation Fast→Pro)
+
+- **Auto-escalation.** In Fast mode, any area whose Flash result looks uncertain/high-risk is
+  silently re-analyzed on the Pro model. Trigger (`_should_escalate`): a finding with
+  status=UNCERTAIN, OR status=NEW & severity=HIGH, OR status=NEW & confidence < threshold.
+  Config: `DI_TRIP_AUTO_ESCALATE` (default true), `DI_TRIP_ESCALATE_CONFIDENCE` (default 0.6).
+  New `_analyze_pair_escalating(...)` used by BOTH the streaming (`analyze_section`) and legacy
+  (`analyze_trip`) paths; escalated sections carry `escalated:true` and the Pro `modelVersion`.
+  UI: a "Pro-verified" badge on escalated section cards (`trip-section-escalated`).
+  - Verified via curl (both branches, real Gemini): MEDIUM/0.9 → no escalation (stays Flash, no
+    added latency); with threshold raised, NEW/0.9 → escalated=true, model switches to
+    gemini-3.1-pro-preview (latency Flash+Pro). Predicate unit-checked. Frontend compiles.
+    NOT yet redeployed to production.

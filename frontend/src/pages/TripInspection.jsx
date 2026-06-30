@@ -144,6 +144,11 @@ function SectionResult({ section, afterPreview }) {
       <div className="px-4 py-3 border-b border-ink-700/60 flex items-center gap-2">
         <ScanEye className="size-4 text-steel-300" />
         <span className="text-sm font-semibold text-white">{section.label}</span>
+        {section.escalated && (
+          <span data-testid="trip-section-escalated" className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-400/40 bg-violet-400/10 text-violet-300 flex items-center gap-1" title="Re-checked on the high-accuracy model">
+            <ScanEye className="size-3" /> Pro-verified
+          </span>
+        )}
         {!section.comparable && <span className="text-[10px] uppercase tracking-wider text-amber400 ml-auto">Not comparable</span>}
       </div>
       <div className="p-4 space-y-4">
