@@ -664,6 +664,7 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
         for s in sections
     )
     captured_angles = [s.get("angle") for s in sections if s.get("kind") == "EXTERIOR" and s.get("angle")]
+    escalated_count = sum(1 for s in sections if s.get("escalated"))
     coverage = {
         "capturedAngles": captured_angles,
         "missingAngles": [a for a in _EXTERIOR_ANGLES if a not in captured_angles],
@@ -684,6 +685,7 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
         "hasPhotoWarnings": photo_warnings,
         "hasIntegrityWarnings": integrity_warnings,
         "coverage": coverage,
+        "escalatedCount": escalated_count,
         "mode": (mode or "fast").lower(),
     }
 
