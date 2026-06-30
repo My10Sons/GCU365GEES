@@ -407,3 +407,23 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   run multiple workers in production (`gunicorn -k uvicorn.workers.UvicornWorker --workers 2*CPU+1`,
   drop `--reload`), confirm production worker count with Emergent Support; the read-tail/timeout
   issue is expected to clear with multiple workers. App is stateless → scales horizontally.
+
+## Changelog — 2026-06-30 (#8 AI speed: Fast/Thorough tiering + per-section streaming)
+
+- **#8a Model tiering (Fast/Thorough).** Trip analyze takes `mode` (fast|thorough). Fast =
+  `gemini-3.5-flash` (env `DI_AI_MODEL_DAMAGE_FAST_NAME`), Thorough = `gemini-3.1-pro-preview`.
+  UI: "⚡ Fast / 🔬 Thorough" toggle on `/trip` (default Fast). `_model_for_mode()` in
+  `trip_inspection_service.py`; route `mode` Form field.
+- **#8b Per-section streaming (Option A).** Frontend analyzes each walkaround area in a separate
+  parallel request to new `POST /trip-inspection/analyze-section` (one pair → one section),
+  rendering each card as it returns (streaming banner + pending placeholders), then calls new
+  `POST /trip-inspection/finalize` (JSON sections+reportFields+mode) which aggregates via extracted
+  `_aggregate_result(...)`, attaches branding, runs auto-case routing ONCE. Legacy `/analyze`
+  retained. Each request stateless → load-balancer safe.
+  - Files: `api/routes/trip_inspection.py` (+analyze-section, +finalize, FinalizeIn),
+    `trip_inspection_service.py` (`_aggregate_result`, `analyze_section`, `finalize_trip`),
+    `frontend/src/pages/TripInspection.jsx` (streaming `analyze()`, `streaming`/`pending` state).
+  - Verified by testing_agent (iteration_16.json): backend 5/5, frontend 12/12 E2E. SAR only,
+    no QAR. NOT yet redeployed to production.
+- DEFERRED: #8a phase-2 auto-escalation (re-run uncertain Fast sections on Pro); #12 kiosk/gate
+  mode (on hold per user).
