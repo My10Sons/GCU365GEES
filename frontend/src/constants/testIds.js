@@ -158,4 +158,13 @@ export const T = {
   tripReset: "trip-reset",
   tripError: "trip-error",
   tripResult: "trip-result",
+
+  // Help & Guide
+  sidebarHelp: "sidebar-link-help",
+  helpButton: "help-fab",
+  helpDrawer: "help-drawer",
+  helpDrawerClose: "help-drawer-close",
+  helpLang: "help-lang-toggle",
+  helpOpenFull: "help-open-full",
+  helpPage: "help-page",
 };

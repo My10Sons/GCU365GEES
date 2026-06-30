@@ -19,6 +19,7 @@ import DamageCaseDetail from "./pages/DamageCaseDetail";
 import Reports from "./pages/Reports";
 import TripInspection from "./pages/TripInspection";
 import TenantSettings from "./pages/TenantSettings";
+import Help from "./pages/Help";
 
 function Protected({ children }) {
   const { status, principal } = useAuth();
@@ -82,6 +83,7 @@ function AppRoutes() {
           element={<Reports />}
         />
         <Route path="settings" element={<TenantSettings />} />
+        <Route path="help" element={<Help />} />
         <Route
           path="admin"
           element={

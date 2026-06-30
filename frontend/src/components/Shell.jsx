@@ -17,9 +17,11 @@ import {
   Sun,
   Moon,
   CarFront,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { IntegrationAlertBanner } from "./IntegrationAlertBanner";
+import HelpDrawer from "./HelpDrawer";
 import { useTheme } from "../lib/theme";
 import { T } from "../constants/testIds";
 
@@ -32,6 +34,7 @@ const NAV = [
   { to: "/reports", label: "Reports", icon: FileBarChart2, testId: T.sidebarReports, perm: "di.reports.read" },
   { to: "/settings", label: "Tenant Settings", icon: Settings2, testId: T.sidebarSettings, perm: "di.configuration.manage" },
   { to: "/admin", label: "Admin", icon: ShieldAlert, testId: T.sidebarAdmin, perm: "di.configuration.manage" },
+  { to: "/help", label: "Help & Guide", icon: BookOpen, testId: T.sidebarHelp, perm: null },
 ];
 
 export default function Shell() {
@@ -160,6 +163,7 @@ export default function Shell() {
           <Outlet />
         </main>
       </div>
+      <HelpDrawer />
     </div>
   );
 }

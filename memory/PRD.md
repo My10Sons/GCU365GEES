@@ -441,3 +441,18 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
     added latency); with threshold raised, NEW/0.9 → escalated=true, model switches to
     gemini-3.1-pro-preview (latency Flash+Pro). Predicate unit-checked. Frontend compiles.
     NOT yet redeployed to production.
+
+## Changelog — 2026-06-30 (User Help & Guide)
+
+- **In-context help drawer + central Help page (frontend-only, bilingual EN/AR).** Per user
+  choice: a "?" floating button on every screen (rendered once in `Shell.jsx`) opens a slide-in
+  drawer with page-specific tips (auto-detected from the route via `topicForPath`), plus a central
+  "Help & Guide" page at `/help` (sidebar nav link) covering the whole app as collapsible sections.
+  - Content: `frontend/src/constants/helpContent.js` — task-focused, bilingual (EN + Arabic),
+    8 topics (dashboard, trip, inspections, review, cases, reports, settings, admin). Each topic
+    has intro + numbered steps + tips. Shared by both the drawer and the page.
+  - Components: `components/HelpDrawer.jsx` (FAB + RTL-aware drawer, EN/AR toggle, "Open full
+    guide" link), `pages/Help.jsx` (accordion + EN/AR toggle + advisory-boundary note).
+  - Wiring: route in `App.js`, nav item + `<HelpDrawer/>` in `Shell.jsx`, testIds added.
+  - Verified via screenshots: drawer opens on /trip, renders steps+tips, toggles to full RTL
+    Arabic; sidebar "Help & Guide" link present. NOT yet redeployed to production.
