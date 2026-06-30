@@ -388,3 +388,22 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   PDF header (logo + company + branch + sample report title/refs/verdict) that updates as the
   admin edits branding. Frontend-only (`pages/TenantSettings.jsx`, `tenant-pdf-preview`).
   Verified via screenshot on PREVIEW. NOT yet redeployed to production.
+
+## Changelog — 2026-06-29 (Perf: non-blocking bcrypt + stress findings)
+
+- **Non-blocking bcrypt (auth perf fix).** `application/security/password.py` now exposes
+  `hash_password_async` / `verify_password_async` (bcrypt offloaded via `asyncio.to_thread`); the
+  login route awaits the async verify. Hash scheme/format unchanged — seeded `$2b$` hashes still
+  verify. Verified by testing_agent (iteration_15.json): 10/10 auth regression PASS (all accounts,
+  401/403 paths, /me, /refresh, brute-force lockout). NOT yet redeployed to production.
+- **Stress test (PREVIEW, single uvicorn worker).** Harness at `backend/tests/stress/`.
+  - Auth login (200 req @ 25 concurrent): before fix p50 5.68s / wall 45.9s → after fix
+    **p50 2.9s / wall 24.5s** (~2× better; bcrypt threads run in parallel, GIL released).
+  - Read mix (500 req @ 40 concurrent): p50 ~0.35s but p95/p99 20–30s with ~5–10% ConnectTimeouts;
+    UNCHANGED by the bcrypt fix → confirmed it is **single-worker connection-acceptance
+    saturation**, not query speed.
+  - AI analyze (Gemini): stable, 0 failures, ~12–13s p50, scales fine 5→10 concurrent (I/O-bound).
+- **DI-0042 Production Concurrency & Scaling Guidance** added (`docs/07-Damage-Intelligence/`):
+  run multiple workers in production (`gunicorn -k uvicorn.workers.UvicornWorker --workers 2*CPU+1`,
+  drop `--reload`), confirm production worker count with Emergent Support; the read-tail/timeout
+  issue is expected to clear with multiple workers. App is stateless → scales horizontally.
