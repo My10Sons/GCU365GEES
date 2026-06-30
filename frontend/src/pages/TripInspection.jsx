@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye, FolderPlus, ArrowRight } from "lucide-react";
+import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye, FolderPlus, ArrowRight, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, envelopeError } from "../lib/api";
 import { T } from "../constants/testIds";
@@ -215,6 +215,9 @@ export default function TripInspection() {
   const [reportFields, setReportFields] = useState({ customerName: "", vehiclePlate: "", vehicleModel: "", rentalId: "", inspectorName: "" });
   const [includeSignatures, setIncludeSignatures] = useState(true);
   const [pdfLang, setPdfLang] = useState("en");
+  const [mode, setMode] = useState("fast");
+  const [streaming, setStreaming] = useState(false);
+  const [pending, setPending] = useState([]);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [stage, setStage] = useState("");
@@ -282,29 +285,46 @@ export default function TripInspection() {
 
   const analyze = async () => {
     setBusy(true); setError(""); setResult(null);
-    try {
-      setStage("Analyzing with AI (this can take up to a couple of minutes)…");
-      const fd = new FormData();
-      selectedAngles.forEach((k) => {
-        if (angleComplete(k)) {
-          const a = k.toLowerCase();
-          fd.append(`ext_${a}_before`, angles[k].before.blob, `${a}_before.jpg`);
-          fd.append(`ext_${a}_after`, angles[k].after.blob, `${a}_after.jpg`);
-        }
+    const jobs = [];
+    selectedAngles.forEach((k) => {
+      if (angleComplete(k)) jobs.push({
+        kind: "EXTERIOR", angle: k, label: `Exterior — ${ANGLES.find((x) => x.key === k)?.en || k}`,
+        before: angles[k].before.blob, after: angles[k].after.blob,
       });
-      if (interiorOn && intComplete) {
-        fd.append("interior_before", intBefore.blob, "interior_before.jpg");
-        fd.append("interior_after", intAfter.blob, "interior_after.jpg");
-      }
-      Object.entries({
-        customer_name: reportFields.customerName, vehicle_plate: reportFields.vehiclePlate,
-        vehicle_model: reportFields.vehicleModel, rental_id: reportFields.rentalId,
-        inspector_name: reportFields.inspectorName,
-      }).forEach(([k, v]) => { if (v && v.trim()) fd.append(k, v.trim()); });
-      const { data } = await api.post("/trip-inspection/analyze", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 });
+    });
+    if (interiorOn && intComplete) jobs.push({ kind: "INTERIOR", angle: null, label: "Interior", before: intBefore.blob, after: intAfter.blob });
+
+    setStreaming(true);
+    setPending(jobs.map((j) => ({ label: j.label, kind: j.kind, angle: j.angle })));
+    setResult({ sections: [], overall: "PENDING", mode, coverage: {}, isAdvisory: true });
+    const collected = [];
+    try {
+      // Analyze each area in parallel; render each section the moment it returns.
+      await Promise.all(jobs.map(async (j) => {
+        try {
+          const fd = new FormData();
+          fd.append("kind", j.kind);
+          if (j.angle) fd.append("angle", j.angle);
+          fd.append("mode", mode);
+          fd.append("before", j.before, "before.jpg");
+          fd.append("after", j.after, "after.jpg");
+          const { data } = await api.post("/trip-inspection/analyze-section", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 });
+          collected.push(data.data);
+          setResult((prev) => ({ ...prev, sections: [...(prev?.sections || []), data.data] }));
+        } catch (e) {
+          collected.push(null);
+        } finally {
+          setPending((prev) => prev.filter((p) => p.label !== j.label));
+        }
+      }));
+
+      const good = collected.filter(Boolean);
+      if (good.length === 0) { setError("Analysis failed. Please retry."); setResult(null); return; }
+      // Aggregate + auto-case routing once over the whole set.
+      const { data } = await api.post("/trip-inspection/finalize", { sections: good, reportFields, mode }, { timeout: 60000 });
       setResult(data.data);
     } catch (err) { setError(envelopeError(err, "Analysis failed. Please retry.")); }
-    finally { setBusy(false); setStage(""); }
+    finally { setBusy(false); setStreaming(false); setPending([]); setStage(""); }
   };
 
   const afterPreviewFor = (s) => (s.kind === "INTERIOR" ? intAfter.preview : angles[s.angle]?.after?.preview);
@@ -570,6 +590,17 @@ export default function TripInspection() {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap border-t border-ink-700/60 pt-5">
+          <div data-testid="trip-mode-toggle" className="inline-flex rounded-md border border-ink-700 overflow-hidden">
+            <button type="button" data-testid="trip-mode-fast" onClick={() => { setMode("fast"); clear(); }} disabled={busy}
+              className={`px-3 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 ${mode === "fast" ? "bg-signal text-white" : "bg-ink-800 text-steel-300 hover:bg-ink-700/80"}`}>
+              <Zap className="size-3.5" /> Fast
+            </button>
+            <button type="button" data-testid="trip-mode-thorough" onClick={() => { setMode("thorough"); clear(); }} disabled={busy}
+              className={`px-3 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 ${mode === "thorough" ? "bg-signal text-white" : "bg-ink-800 text-steel-300 hover:bg-ink-700/80"}`}>
+              <ScanEye className="size-3.5" /> Thorough
+            </button>
+          </div>
+          <span className="text-[11px] text-steel-400">{mode === "fast" ? "Faster results, lighter model." : "Slower, most accurate model."}</span>
           <button data-testid={T.tripAnalyze} onClick={analyze} disabled={!canAnalyze}
             className="px-4 py-2 rounded-md text-sm font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-2">
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{busy ? "Working…" : "Analyze"}
@@ -585,8 +616,16 @@ export default function TripInspection() {
 
       {result && (
         <section data-testid={T.tripResult} className="mt-6 space-y-4">
-          {overallCard()}
-          {result.autoCase?.created && (
+          {streaming && (
+            <div data-testid="trip-streaming-banner" className="rounded-lg border border-ink-700 bg-ink-900/60 p-4 flex items-center gap-3">
+              <Loader2 className="size-5 animate-spin text-signal-soft shrink-0" />
+              <div className="text-sm text-steel-200">Analyzing areas as you wait…
+                <span className="text-steel-400"> ({(result.sections || []).length} done{pending.length ? `, ${pending.length} in progress` : ""})</span>
+              </div>
+            </div>
+          )}
+          {!streaming && overallCard()}
+          {!streaming && result.autoCase?.created && (
             <div data-testid="trip-autocase-banner" className="rounded-lg border border-signal/40 bg-signal/10 px-4 py-3 flex items-start gap-3">
               <FolderPlus className="size-5 mt-0.5 text-signal-soft shrink-0" />
               <div className="flex-1">
@@ -604,7 +643,14 @@ export default function TripInspection() {
             </div>
           )}
           {(result.sections || []).map((s) => <SectionResult key={s.label} section={s} afterPreview={afterPreviewFor(s)} />)}
-          <p className="text-[11px] text-steel-400">Advisory AI result ({result.modelVersion}). Final liability, customer charge, and repair decisions are not made here.</p>
+          {streaming && pending.map((p) => (
+            <div key={p.label} data-testid={`trip-pending-${p.kind}-${(p.angle || "interior").toLowerCase()}`}
+              className="rounded-lg border border-ink-700/60 bg-ink-900/40 p-4 flex items-center gap-3">
+              <Loader2 className="size-4 animate-spin text-steel-400 shrink-0" />
+              <span className="text-sm text-steel-300">{p.label} — analyzing…</span>
+            </div>
+          ))}
+          {!streaming && <p className="text-[11px] text-steel-400">Advisory AI result ({result.modelVersion}). Final liability, customer charge, and repair decisions are not made here.</p>}
         </section>
       )}
     </div>

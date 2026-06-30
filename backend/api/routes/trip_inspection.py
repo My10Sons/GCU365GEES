@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from pydantic import BaseModel
 
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
@@ -45,6 +46,7 @@ async def analyze(
     vehicle_model: Optional[str] = Form(None),
     rental_id: Optional[str] = Form(None),
     inspector_name: Optional[str] = Form(None),
+    mode: Optional[str] = Form("fast"),
     principal: dict = Depends(require_permission("di.ai.request")),
 ):
     raw = {
@@ -67,6 +69,45 @@ async def analyze(
     }
     data = await trip_inspection_service.analyze_trip(
         principal=principal, files=files, report_fields=report_fields,
-        correlation_id=request.state.correlation_id,
+        mode=(mode or "fast"), correlation_id=request.state.correlation_id,
+    )
+    return ok(data, request.state.correlation_id)
+
+
+@router.post("/analyze-section")
+async def analyze_section(
+    request: Request,
+    kind: str = Form("EXTERIOR"),
+    angle: Optional[str] = Form(None),
+    mode: Optional[str] = Form("fast"),
+    before: UploadFile = File(...),
+    after: UploadFile = File(...),
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    """Analyze a SINGLE before/after pair → returns one section. Used by the streaming UI."""
+    data = await trip_inspection_service.analyze_section(
+        principal=principal, kind=kind, angle=angle,
+        before=await _read(before), after=await _read(after),
+        mode=(mode or "fast"), correlation_id=request.state.correlation_id,
+    )
+    return ok(data, request.state.correlation_id)
+
+
+class FinalizeIn(BaseModel):
+    sections: list[dict] = []
+    reportFields: Optional[dict] = None
+    mode: Optional[str] = "fast"
+
+
+@router.post("/finalize")
+async def finalize(
+    request: Request,
+    payload: FinalizeIn,
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    """Aggregate streamed sections + run auto-case routing once over the whole set."""
+    data = await trip_inspection_service.finalize_trip(
+        principal=principal, sections=payload.sections, report_fields=payload.reportFields,
+        mode=(payload.mode or "fast"), correlation_id=request.state.correlation_id,
     )
     return ok(data, request.state.correlation_id)

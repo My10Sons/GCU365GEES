@@ -179,6 +179,14 @@ def _model() -> str:
     return os.environ.get("DI_AI_MODEL_DAMAGE_NAME", "gemini-3.1-pro-preview")
 
 
+def _fast_model() -> str:
+    return os.environ.get("DI_AI_MODEL_DAMAGE_FAST_NAME", "gemini-3.5-flash")
+
+
+def _model_for_mode(mode: str) -> str:
+    return _fast_model() if (mode or "fast").lower() == "fast" else _model()
+
+
 _RECOMMENDATIONS = {"REPAIR", "REPLACE", "ASSESS"}
 _AI_LIKELIHOOD = {"LOW", "MEDIUM", "HIGH"}
 _EXTERIOR_ANGLES = ["FRONT", "REAR", "LEFT", "RIGHT", "ROOF"]
@@ -379,14 +387,14 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
 
 
 async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, after_mime: str,
-                        kind: str, angle: Optional[str], correlation_id: str) -> tuple[dict, str, int]:
+                        kind: str, angle: Optional[str], model_name: str, correlation_id: str) -> tuple[dict, str, int]:
     categories = EXTERIOR_CATEGORIES if kind == "EXTERIOR" else INTERIOR_CATEGORIES
     synonyms = _EXT_SYNONYMS if kind == "EXTERIOR" else _INT_SYNONYMS
     lines = _EXT_PROMPT_LINES if kind == "EXTERIOR" else _INT_PROMPT_LINES
     system = _EXT_SYSTEM if kind == "EXTERIOR" else _INT_SYSTEM
     enum_list = ",".join(f'"{c}"' for c in categories)
     parsed, model_label, latency_ms, err = await call_vision_model_multi(
-        provider=_provider(), model_name=_model(),
+        provider=_provider(), model_name=model_name,
         system_message=system, user_prompt=_user_prompt(kind, lines, enum_list, angle),
         images=[
             {"path": before_path, "mime": before_mime},
@@ -519,7 +527,7 @@ async def _maybe_auto_create_case(
 
 
 async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[dict] = None,
-                       correlation_id: str) -> dict:
+                       mode: str = "fast", correlation_id: str) -> dict:
     """`files` maps slot -> (bytes, content_type). Supported slots:
     ext_{angle}_before / ext_{angle}_after for angle in front|rear|left|right|roof, and
     interior_before / interior_after. At least one complete pair is required; each provided
@@ -545,6 +553,7 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
 
     work = _TMP_ROOT / uuid.uuid4().hex
     work.mkdir(parents=True, exist_ok=True)
+    model_name = _model_for_mode(mode)
     sections: list[dict] = []
     models: list[str] = []
     total_latency = 0
@@ -555,7 +564,7 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
             a_path, a_mime = _validate_and_save(work, f"{prefix}_after", after)
             tasks.append(_analyze_pair(
                 before_path=b_path, before_mime=b_mime, after_path=a_path, after_mime=a_mime,
-                kind=kind, angle=angle, correlation_id=correlation_id,
+                kind=kind, angle=angle, model_name=model_name, correlation_id=correlation_id,
             ))
         # Analyze every provided pair concurrently to minimize total latency.
         for section, model, lat in await asyncio.gather(*tasks):
@@ -565,65 +574,129 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
-    new_total = sum(s["newIssueCount"] for s in sections)
-    any_comparable = any(s["comparable"] for s in sections)
+    model_version = models[0] if models else f"{_provider()}:{_model()}"
+    result = _aggregate_result(sections, mode, model_version)
+    result["branding"] = await get_branding(tenant_id)
+    result["autoCase"] = await _maybe_auto_create_case(
+        principal=principal, result=result, report_fields=report_fields or {},
+        correlation_id=correlation_id,
+    )
+    await write_audit(
+        tenant_id=tenant_id, actor_id=principal["id"], actor_type=ActorType.USER,
+        action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,
+        object_id="trip-quick", correlation_id=correlation_id,
+        safe_metadata={"overall": result["overall"], "newIssues": result["newIssueCount"],
+                       "sections": [s.get("label") for s in sections],
+                       "autoCaseCreated": bool(result["autoCase"].get("created")),
+                       "model": result["modelVersion"], "latencyMs": total_latency},
+    )
+    return result
+
+
+def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> dict:
+    """Build the trip-level aggregate from already-analyzed section dicts. Defensive against
+    partial/client-supplied sections (used by both the single-shot and streaming flows)."""
+    def _ec(s):
+        return s.get("estimatedCost") or {"low": 0, "high": 0, "currency": _COST_CURRENCY}
+    def _pc(s):
+        return s.get("photoCheck") or {}
+    def _ig(s):
+        return s.get("integrity") or {}
+
+    new_total = sum(int(s.get("newIssueCount") or 0) for s in sections)
+    any_comparable = any(s.get("comparable") for s in sections)
     overall = ("NEW_DAMAGE_FOUND" if new_total > 0
                else "NO_NEW_DAMAGE" if any_comparable
                else "NOT_COMPARABLE")
-
-    cost_low = sum(s["estimatedCost"]["low"] for s in sections)
-    cost_high = sum(s["estimatedCost"]["high"] for s in sections)
-    scores = [s["conditionScore"] for s in sections if s.get("conditionScore") is not None]
+    cost_low = sum(int(_ec(s).get("low") or 0) for s in sections)
+    cost_high = sum(int(_ec(s).get("high") or 0) for s in sections)
+    scores = [s.get("conditionScore") for s in sections if s.get("conditionScore") is not None]
     condition_score = min(scores) if scores else None
     cleanliness = _worst_cleanliness([s.get("cleanliness") for s in sections])
     photo_warnings = any(
-        (not s["photoCheck"]["beforeUsable"]) or (not s["photoCheck"]["afterUsable"])
-        or (not s["photoCheck"]["sameVehicle"]) or bool(s["photoCheck"]["issues"])
+        (not _pc(s).get("beforeUsable", True)) or (not _pc(s).get("afterUsable", True))
+        or (not _pc(s).get("sameVehicle", True)) or bool(_pc(s).get("issues"))
         for s in sections
     )
     integrity_warnings = any(
-        s["integrity"]["beforeSuspicious"] or s["integrity"]["afterSuspicious"]
-        or s["integrity"]["aiGeneratedLikelihood"] != "LOW" or bool(s["integrity"]["signals"])
+        _ig(s).get("beforeSuspicious") or _ig(s).get("afterSuspicious")
+        or (_ig(s).get("aiGeneratedLikelihood") or "LOW") != "LOW" or bool(_ig(s).get("signals"))
         for s in sections
     )
-
-    captured_angles = [s["angle"] for s in sections if s["kind"] == "EXTERIOR" and s["angle"]]
+    captured_angles = [s.get("angle") for s in sections if s.get("kind") == "EXTERIOR" and s.get("angle")]
     coverage = {
         "capturedAngles": captured_angles,
         "missingAngles": [a for a in _EXTERIOR_ANGLES if a not in captured_angles],
         "totalAngles": len(_EXTERIOR_ANGLES),
         "capturedCount": len(captured_angles),
-        "interiorCaptured": any(s["kind"] == "INTERIOR" for s in sections),
+        "interiorCaptured": any(s.get("kind") == "INTERIOR" for s in sections),
         "fullWalkaround": len(captured_angles) == len(_EXTERIOR_ANGLES),
     }
-
-    result = {
+    return {
         "sections": sections,
         "overall": overall,
         "newIssueCount": new_total,
-        "modelVersion": models[0] if models else f"{_provider()}:{_model()}",
+        "modelVersion": model_version,
         "isAdvisory": True,
-        "branding": await get_branding(tenant_id),
         "costSummary": {"low": cost_low, "high": cost_high, "currency": _COST_CURRENCY},
         "conditionScore": condition_score,
         "cleanliness": cleanliness,
         "hasPhotoWarnings": photo_warnings,
         "hasIntegrityWarnings": integrity_warnings,
         "coverage": coverage,
+        "mode": (mode or "fast").lower(),
     }
 
+
+async def analyze_section(*, principal: dict, kind: str, angle: Optional[str],
+                          before: tuple, after: tuple, mode: str, correlation_id: str) -> dict:
+    """Analyze a SINGLE before/after pair and return just its section (no aggregation, no
+    auto-case). Used by the streaming flow so the UI can render each area as it completes."""
+    kind = (kind or "EXTERIOR").upper()
+    if kind not in ("EXTERIOR", "INTERIOR"):
+        raise DomainError(ErrorCode.VALIDATION_ERROR, "Invalid kind.", 400, "kind")
+    angle = angle.upper() if (kind == "EXTERIOR" and angle) else None
+    if kind == "EXTERIOR" and angle not in _EXTERIOR_ANGLES:
+        raise DomainError(ErrorCode.VALIDATION_ERROR, "Invalid angle.", 400, "angle")
+    if not before or not after:
+        raise DomainError(ErrorCode.VALIDATION_ERROR, "Both a Before and an After photo are required.", 400, "images")
+
+    prefix = f"ext_{angle.lower()}" if kind == "EXTERIOR" else "interior"
+    work = _TMP_ROOT / uuid.uuid4().hex
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        b_path, b_mime = _validate_and_save(work, f"{prefix}_before", before)
+        a_path, a_mime = _validate_and_save(work, f"{prefix}_after", after)
+        section, model, _lat = await _analyze_pair(
+            before_path=b_path, before_mime=b_mime, after_path=a_path, after_mime=a_mime,
+            kind=kind, angle=angle, model_name=_model_for_mode(mode), correlation_id=correlation_id,
+        )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    section["modelVersion"] = model
+    return section
+
+
+async def finalize_trip(*, principal: dict, sections: list[dict], report_fields: Optional[dict],
+                        mode: str, correlation_id: str) -> dict:
+    """Aggregate already-analyzed sections (from analyze_section), attach branding, and run
+    auto-case routing once over the whole set. Sections are advisory; trip remains anonymous."""
+    sections = sections or []
+    model_version = next((s.get("modelVersion") for s in sections if s.get("modelVersion")),
+                         f"{_provider()}:{_model_for_mode(mode)}")
+    result = _aggregate_result(sections, mode, model_version)
+    result["branding"] = await get_branding(principal["tenantId"])
     result["autoCase"] = await _maybe_auto_create_case(
         principal=principal, result=result, report_fields=report_fields or {},
         correlation_id=correlation_id,
     )
-
     await write_audit(
-        tenant_id=tenant_id, actor_id=principal["id"], actor_type=ActorType.USER,
+        tenant_id=principal["tenantId"], actor_id=principal["id"], actor_type=ActorType.USER,
         action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,
         object_id="trip-quick", correlation_id=correlation_id,
-        safe_metadata={"overall": overall, "newIssues": new_total,
-                       "sections": [s["label"] for s in sections],
+        safe_metadata={"overall": result["overall"], "newIssues": result["newIssueCount"],
+                       "sections": [s.get("label") for s in sections], "streamed": True,
                        "autoCaseCreated": bool(result["autoCase"].get("created")),
-                       "model": result["modelVersion"], "latencyMs": total_latency},
+                       "model": result["modelVersion"]},
     )
     return result

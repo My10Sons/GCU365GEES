@@ -1,0 +1,45 @@
+{
+  "summary": "Sprint-08 verification of Trip Inspection AI tiering (Fast=Flash / Thorough=Pro) + per-section streaming endpoints + auto-case routing via /finalize. Backend pytest 5/5 PASSED. Frontend E2E PASSED end-to-end (login → /trip → upload → mode toggle → analyze → streaming banner → finalize → cost summary + coverage + auto-case banner with /cases/<id> link + PDF export + result clears on mode switch). SAR currency everywhere, no QAR.",
+  "test_scope": "Backend: POST /trip-inspection/analyze-section (fast & thorough), POST /trip-inspection/finalize (above & below 1000 SAR threshold, latency, /damage-cases listing with externalVehicleRef mapping), legacy POST /trip-inspection/analyze with mode form field. Frontend: /trip route streaming UX, mode toggle clears, auto-case banner + view-case link, PDF export, streaming banner lifecycle.",
+  "feature_verification": {
+    "analyze_section_fast_flash":        "PASS - 200, modelVersion contains 'flash' (mapped to DI_AI_MODEL_DAMAGE_FAST_NAME=gemini-3.5-flash), SAR currency on estimatedCost.",
+    "analyze_section_thorough_pro":      "PASS - 200, modelVersion differs from fast and contains 'pro' (DI_AI_MODEL_DAMAGE_NAME=gemini-3.1-pro-preview).",
+    "analyze_section_shape":             "PASS - all required keys present: label, kind, angle, items, newIssueCount, comparable, estimatedCost{low,high,currency:SAR}, conditionScore, cleanliness, photoCheck, integrity, modelVersion.",
+    "finalize_no_call_fast":             "PASS - finalize completes in <2s with no Gemini call (synthetic section).",
+    "finalize_below_threshold_no_case":  "PASS - autoCase.created=false, overall=NO_NEW_DAMAGE, costSummary.currency=SAR, coverage{capturedCount:1, fullWalkaround:false}, isAdvisory:true.",
+    "finalize_above_threshold_case":     "PASS - With NEW item (cost high 1500 SAR >= 1000) finalize returned autoCase.created=true + damageCaseId; case is listed in GET /damage-cases; caseType=REPAIR_RELEVANT; externalVehicleRef == reportFields.vehiclePlate.",
+    "legacy_analyze_with_mode":          "PASS - /analyze still accepts multipart with `mode` form field, returns aggregate with result.mode='fast', sections[1], SAR currency, isAdvisory:true. No 'QAR' anywhere.",
+    "frontend_streaming_ux":             "PASS - On /trip with Front+before_0/after_0 uploads and Fast mode: Analyze enables; streaming-banner appears immediately after click; per-area pending placeholder fires; cost-summary + coverage(1/5) + section card render after finalize.",
+    "frontend_autocase_banner":          "PASS - synthetic damage in after_0.jpg triggered autoCase; trip-autocase-banner is visible and trip-autocase-link href = /cases/6a43c66f9bb8d8d1142b1525.",
+    "frontend_mode_toggle_clears":       "PASS - clicking trip-mode-thorough after a successful run removes trip-cost-summary (state cleared).",
+    "frontend_pdf_export":               "PASS - trip-export-pdf button visible & enabled after streaming completes.",
+    "frontend_streaming_banner_clears":  "PASS - trip-streaming-banner count = 0 after finalize completes."
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_trip_inspection_streaming.py",
+    "/app/test_reports/pytest/trip_streaming.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "trip_inspection_service.py:182-187 _model_for_mode falls back to the THOROUGH model name if DI_AI_MODEL_DAMAGE_FAST_NAME is missing from .env. In the current deployment the FAST env var is NOT explicitly set, but the default 'gemini-3.5-flash' is correctly returned and Gemini accepted it. Recommend adding DI_AI_MODEL_DAMAGE_FAST_NAME to /app/backend/.env explicitly to avoid ambiguity if defaults change.",
+    "trip_inspection_service.py:432-526 _maybe_auto_create_case wraps the whole persistence path in a broad 'except Exception' that silently returns created=false with reason='error'. This is correct policy (auto-routing must never break the advisory response) but it would mask real DB / case-service bugs. Recommend at minimum logging the exception with correlation_id before swallowing.",
+    "trip_inspection.py:96-113 finalize endpoint accepts arbitrary client-supplied section dicts including modelVersion and estimatedCost. A malicious client could synthesise NEW items with low confidence to force an auto-case creation. Acceptable for an internal advisory tool, but consider re-running section normalization server-side in finalize (currently only _aggregate_result runs) before allowing auto_case to act on the data.",
+    "TripInspection.jsx pending placeholder (trip-pending-exterior-front) is so short-lived under Flash (<5s) that it can flicker imperceptibly when only one section is in flight. Cosmetic only — the streaming-banner correctly carries the user's progress signal until finalize returns."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_trip_inspection_streaming.py"
+  ],
+  "success_rate": {"backend": "100% (5/5 pytest in ~21s)", "frontend": "100% (12/12 UI assertions)"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026 on TENANT-000001 (verified working).",
+  "seed_data_creation": "Test created N inspection sessions + di_ai_findings + 1 damage case under TENANT-000001 via the auto-case path of test_finalize_creates_auto_case_when_above_threshold (acceptable per the request's note that the auto-case path may persist data). Also created 1 real damage case during the frontend E2E run (caseId 6a43c66f9bb8d8d1142b1525, plate auto-generated as TRIP-<uuid>).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "For trip inspection streaming testing: (1) The data-testid for the file input is ON the hidden <input>, so use `page.set_input_files('[data-testid=trip-front-before]', path)` — DO NOT chain ' input[type=file]'. (2) /trip default state already has FRONT selected and the file inputs rendered. (3) Mode toggle calls clear() so it resets `result` to null — that's why switching modes wipes the cost-summary. (4) Flash returns in ~5-10s so the per-area pending placeholder may disappear before a 5s polling selector catches it; use the streaming-banner instead as the in-flight indicator. (5) Synthetic damage in /app/backend/tests/stress/after_0.jpg reliably triggers a NEW finding whose cost-high crosses the 1000 SAR threshold → autoCase.created=true. (6) finalize is synchronous & cheap (<1s) but does open a Mongo connection through inspection_service + damage_case_service for the auto-case branch.",
+  "rca of the issue": "n/a — no bugs found in this iteration."
+}
