@@ -3,8 +3,8 @@
  * - Source Documents: DI-SPRINT-00 (Web Setup — layout, navigation, dashboard
  *   placeholder, role-based menu visibility placeholder, scope boundary).
  */
-import React from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -21,6 +21,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+import { api } from "../lib/api";
 import { IntegrationAlertBanner } from "./IntegrationAlertBanner";
 import HelpDrawer from "./HelpDrawer";
 import { useTheme } from "../lib/theme";
@@ -42,6 +43,22 @@ const NAV = [
 export default function Shell() {
   const { principal, has, logout } = useAuth();
   const { theme, toggle } = useTheme();
+  const location = useLocation();
+  const [budgetAlert, setBudgetAlert] = useState(null); // "over" | "near" | null
+
+  useEffect(() => {
+    if (!has("di.reports.read")) return;
+    let alive = true;
+    api.get("/trip-inspection/budget")
+      .then(({ data }) => {
+        if (!alive) return;
+        const b = data.data || {};
+        setBudgetAlert(b.overBudget ? "over" : b.nearBudget ? "near" : null);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+    // Re-check when navigating (e.g. after saving a budget or running analyses).
+  }, [has, location.pathname]);
   const navigate = useNavigate();
 
   const onLogout = async () => {
@@ -100,6 +117,13 @@ export default function Shell() {
               >
                 <Icon className="size-4 shrink-0" />
                 <span className="flex-1">{label}</span>
+                {to === "/ai-usage" && budgetAlert && (
+                  <span
+                    data-testid="ai-usage-nav-alert"
+                    title={budgetAlert === "over" ? "Projected to exceed the monthly AI budget" : "Approaching the monthly AI budget"}
+                    className={`size-2 rounded-full shrink-0 ${budgetAlert === "over" ? "bg-red-500" : "bg-amber400"}`}
+                  />
+                )}
                 {!enabled && (
                   <span className="text-[10px] uppercase tracking-wider text-steel-400">
                     locked

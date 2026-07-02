@@ -124,6 +124,16 @@ async def usage(
     return ok(data, request.state.correlation_id)
 
 
+@router.get("/budget")
+async def get_budget(
+    request: Request,
+    principal: dict = Depends(require_permission("di.reports.read")),
+):
+    """Lightweight budget status (no daily aggregation) — used for the sidebar alert badge."""
+    data = await trip_inspection_service._budget_status(principal["tenantId"])
+    return ok(data, request.state.correlation_id)
+
+
 class BudgetIn(BaseModel):
     monthlyTokenBudget: int = 0
     costPer1kTokens: float = 0

@@ -496,3 +496,11 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   (ok/near/over), progress bar, and an admin-only editor (budget + cost/1K). In-app only (no email).
   - Verified via curl (set 500k budget → projected 131,672 = 26%, est 10 SAR budget cost) +
     screenshot (banner + progress bar + admin editor render). NOT yet redeployed to production.
+
+## Changelog — 2026-07-02 (Sidebar budget alert badge)
+
+- **Sidebar "AI Usage" alert dot.** New lightweight `GET /trip-inspection/budget` (di.reports.read,
+  no daily aggregation) returns `_budget_status`. `Shell.jsx` fetches it on mount + on route change
+  (for users with di.reports.read) and renders a dot on the AI Usage nav item: **red** when
+  projected-over-budget, **amber** when approaching. Verified via screenshot (forced low budget →
+  red dot visible next to "AI Usage"); reset demo budget to non-alerting 500k. NOT yet redeployed.
