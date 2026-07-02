@@ -456,3 +456,19 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
   - Wiring: route in `App.js`, nav item + `<HelpDrawer/>` in `Shell.jsx`, testIds added.
   - Verified via screenshots: drawer opens on /trip, renders steps+tips, toggles to full RTL
     Arabic; sidebar "Help & Guide" link present. NOT yet redeployed to production.
+
+## Changelog — 2026-07-02 (Per-inspection AI token telemetry)
+
+- **Real token usage per inspection.** `gemini_client.call_vision_model_multi` now uses
+  `LlmChat.send_message_with_tools` and returns the provider `Usage` (input/output/total tokens)
+  as a 5th tuple element. `_analyze_pair` attaches `section.tokenUsage {inputTokens,outputTokens,
+  totalTokens,calls}`; escalation sums both calls (calls=2); `_aggregate_result` rolls up a
+  trip-level `result.tokenUsage`. Shown as a chip on the Trip Inspection result
+  (`trip-token-usage`, e.g. "~4,426 AI tokens · 1 call") and written to the audit log
+  (`totalTokens`, `aiCalls`).
+  - Callers updated for the new 5-tuple: `comparison_service` (usage ignored), `trip_inspection_service`.
+  - Verified via curl (analyze-section returned real usage {in 3268/out 801} and finalize
+    aggregated it) + UI screenshot (chip renders with live count). Single Fast front-angle ≈ 4k
+    tokens (mostly image input). NOT yet redeployed to production.
+  - NOTE: exact SAR/credit cost per token is not published by Emergent — use Profile → Universal
+    Key for balance; these counts give in-app per-inspection telemetry.

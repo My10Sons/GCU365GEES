@@ -506,6 +506,12 @@ export default function TripInspection() {
                 <ScanEye className="size-3" /> {result.escalatedCount} area{result.escalatedCount > 1 ? "s" : ""} auto-upgraded to Pro
               </span>
             )}
+            {result.tokenUsage?.totalTokens > 0 && (
+              <span data-testid="trip-token-usage" title={`Approx. AI tokens used for this inspection — input ${result.tokenUsage.inputTokens?.toLocaleString?.() || result.tokenUsage.inputTokens}, output ${result.tokenUsage.outputTokens?.toLocaleString?.() || result.tokenUsage.outputTokens}, across ${result.tokenUsage.calls} AI call(s). Billed against your Emergent key balance.`}
+                className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-ink-600 bg-ink-800/70 text-steel-300 flex items-center gap-1">
+                ~{Number(result.tokenUsage.totalTokens).toLocaleString()} AI tokens · {result.tokenUsage.calls} call{result.tokenUsage.calls > 1 ? "s" : ""}
+              </span>
+            )}
           </div>
           {result.hasPhotoWarnings && <p className="text-[11px] text-amber400 mt-1.5 flex items-center gap-1"><AlertTriangle className="size-3" /> Photo-quality / vehicle-match warnings — see sections below.</p>}
           {result.hasIntegrityWarnings && <p className="text-[11px] text-amber400 mt-1 flex items-center gap-1"><ScanEye className="size-3" /> Image-integrity warnings — see sections below.</p>}

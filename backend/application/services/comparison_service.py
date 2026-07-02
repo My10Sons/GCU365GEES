@@ -240,7 +240,7 @@ async def request_comparison(
             continue
         total_pairs += 1
         prompt = USER_TEMPLATE.format(capture_position=pos)
-        parsed, model_label, latency_ms, err = await call_vision_model_multi(
+        parsed, model_label, latency_ms, err, _usage = await call_vision_model_multi(
             provider=_provider(), model_name=_model(),
             system_message=SYSTEM_MESSAGE, user_prompt=prompt,
             images=[

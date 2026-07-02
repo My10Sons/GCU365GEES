@@ -412,7 +412,7 @@ async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, 
     lines = _EXT_PROMPT_LINES if kind == "EXTERIOR" else _INT_PROMPT_LINES
     system = _EXT_SYSTEM if kind == "EXTERIOR" else _INT_SYSTEM
     enum_list = ",".join(f'"{c}"' for c in categories)
-    parsed, model_label, latency_ms, err = await call_vision_model_multi(
+    parsed, model_label, latency_ms, err, usage = await call_vision_model_multi(
         provider=_provider(), model_name=model_name,
         system_message=system, user_prompt=_user_prompt(kind, lines, enum_list, angle),
         images=[
@@ -427,6 +427,7 @@ async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, 
     section = _normalize_section(parsed, categories, synonyms)
     section["kind"] = kind
     section["angle"] = angle
+    section["tokenUsage"] = {**(usage or {}), "calls": 1}
     if kind == "EXTERIOR":
         section["label"] = f"Exterior — {_ANGLE_LABEL[angle]}" if angle in _ANGLE_LABEL else "Exterior"
     else:
@@ -556,11 +557,20 @@ async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_
     )
     escalated = False
     total = lat
+    first_usage = section.get("tokenUsage") or {}
     if (mode or "fast").lower() == "fast" and _AUTO_ESCALATE and _should_escalate(section):
-        section, model, lat2 = await _analyze_pair(
+        section2, model, lat2 = await _analyze_pair(
             before_path=before_path, before_mime=before_mime, after_path=after_path, after_mime=after_mime,
             kind=kind, angle=angle, model_name=_model(), correlation_id=correlation_id,
         )
+        second_usage = section2.get("tokenUsage") or {}
+        section = section2
+        section["tokenUsage"] = {
+            "inputTokens": (first_usage.get("inputTokens") or 0) + (second_usage.get("inputTokens") or 0),
+            "outputTokens": (first_usage.get("outputTokens") or 0) + (second_usage.get("outputTokens") or 0),
+            "totalTokens": (first_usage.get("totalTokens") or 0) + (second_usage.get("totalTokens") or 0),
+            "calls": 2,
+        }
         total += lat2
         escalated = True
     section["escalated"] = escalated
@@ -628,6 +638,8 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
         safe_metadata={"overall": result["overall"], "newIssues": result["newIssueCount"],
                        "sections": [s.get("label") for s in sections],
                        "autoCaseCreated": bool(result["autoCase"].get("created")),
+                       "totalTokens": result["tokenUsage"]["totalTokens"],
+                       "aiCalls": result["tokenUsage"]["calls"],
                        "model": result["modelVersion"], "latencyMs": total_latency},
     )
     return result
@@ -665,6 +677,12 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
     )
     captured_angles = [s.get("angle") for s in sections if s.get("kind") == "EXTERIOR" and s.get("angle")]
     escalated_count = sum(1 for s in sections if s.get("escalated"))
+    token_usage = {
+        "inputTokens": sum((s.get("tokenUsage") or {}).get("inputTokens", 0) or 0 for s in sections),
+        "outputTokens": sum((s.get("tokenUsage") or {}).get("outputTokens", 0) or 0 for s in sections),
+        "totalTokens": sum((s.get("tokenUsage") or {}).get("totalTokens", 0) or 0 for s in sections),
+        "calls": sum((s.get("tokenUsage") or {}).get("calls", 0) or 0 for s in sections),
+    }
     coverage = {
         "capturedAngles": captured_angles,
         "missingAngles": [a for a in _EXTERIOR_ANGLES if a not in captured_angles],
@@ -686,6 +704,7 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
         "hasIntegrityWarnings": integrity_warnings,
         "coverage": coverage,
         "escalatedCount": escalated_count,
+        "tokenUsage": token_usage,
         "mode": (mode or "fast").lower(),
     }
 
@@ -739,6 +758,8 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
         safe_metadata={"overall": result["overall"], "newIssues": result["newIssueCount"],
                        "sections": [s.get("label") for s in sections], "streamed": True,
                        "autoCaseCreated": bool(result["autoCase"].get("created")),
+                       "totalTokens": result["tokenUsage"]["totalTokens"],
+                       "aiCalls": result["tokenUsage"]["calls"],
                        "model": result["modelVersion"]},
     )
     return result

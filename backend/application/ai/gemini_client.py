@@ -39,6 +39,16 @@ def _max_retries() -> int:
     return int(os.environ.get("DI_AI_MAX_RETRIES", "1"))
 
 
+def _usage_dict(u: Any) -> dict:
+    if not u:
+        return {"inputTokens": 0, "outputTokens": 0, "totalTokens": 0}
+    return {
+        "inputTokens": getattr(u, "input_tokens", 0) or 0,
+        "outputTokens": getattr(u, "output_tokens", 0) or 0,
+        "totalTokens": getattr(u, "total_tokens", 0) or 0,
+    }
+
+
 def _extract_json_block(text: str) -> dict | None:
     if not text:
         return None
@@ -155,13 +165,13 @@ async def call_vision_model_multi(
     Multi-image variant used by the Sprint 03 comparison engine.
     `images` is a list of {"path": str, "mime": str}. Order is significant — the
     prompt should reference image positions (e.g. baseline first, current second).
-    Never logs image bytes. Returns (parsed_json_or_None, model_label, latency_ms, error).
+    Never logs image bytes. Returns (parsed_json_or_None, model_label, latency_ms, error, usage).
     """
     file_contents = []
     for img in images:
         path = img.get("path")
         if not path or not Path(path).exists():
-            return None, f"{provider}:{model_name}", 0, "image_missing"
+            return None, f"{provider}:{model_name}", 0, "image_missing", _usage_dict(None)
         file_contents.append(
             FileContentWithMimeType(file_path=path, mime_type=img.get("mime") or "image/jpeg")
         )
@@ -177,21 +187,24 @@ async def call_vision_model_multi(
         ).with_model(provider, model_name)
         msg = UserMessage(text=user_prompt, file_contents=file_contents)
         try:
-            text = await asyncio.wait_for(chat.send_message(msg), timeout=_timeout_seconds())
+            resp = await asyncio.wait_for(chat.send_message_with_tools(msg), timeout=_timeout_seconds())
+            text = getattr(resp, "content", "") or ""
+            usage = _usage_dict(getattr(resp, "usage", None))
             latency_ms = int((time.perf_counter() - started) * 1000)
             parsed = _extract_json_block(text or "")
             log_event(
                 logger, 20, "AI compare call done",
                 provider=provider, model=model_name, latencyMs=latency_ms,
                 parsedOk=parsed is not None, images=len(file_contents),
+                totalTokens=usage.get("totalTokens"),
                 attempt=attempt, correlationId=correlation_id,
             )
             if parsed is None:
                 last_error = "non_json_output"
                 if attempt < retries:
                     continue
-                return None, f"{provider}:{model_name}", latency_ms, last_error
-            return parsed, f"{provider}:{model_name}", latency_ms, None
+                return None, f"{provider}:{model_name}", latency_ms, last_error, usage
+            return parsed, f"{provider}:{model_name}", latency_ms, None, usage
         except asyncio.TimeoutError:
             last_error = "timeout"
             log_event(logger, 30, "AI compare timeout", provider=provider, model=model_name, attempt=attempt, correlationId=correlation_id)
@@ -199,7 +212,7 @@ async def call_vision_model_multi(
                 await asyncio.sleep(1.5 * (attempt + 1))
                 continue
             latency_ms = int((time.perf_counter() - started) * 1000)
-            return None, f"{provider}:{model_name}", latency_ms, last_error
+            return None, f"{provider}:{model_name}", latency_ms, last_error, _usage_dict(None)
         except Exception as exc:  # noqa: BLE001
             last_error = type(exc).__name__
             log_event(logger, 40, "AI compare failed", provider=provider, model=model_name, error=last_error, attempt=attempt, correlationId=correlation_id)
@@ -207,7 +220,7 @@ async def call_vision_model_multi(
                 await asyncio.sleep(1.5 * (attempt + 1))
                 continue
             latency_ms = int((time.perf_counter() - started) * 1000)
-            return None, f"{provider}:{model_name}", latency_ms, last_error
+            return None, f"{provider}:{model_name}", latency_ms, last_error, _usage_dict(None)
 
     latency_ms = int((time.perf_counter() - started) * 1000)
-    return None, f"{provider}:{model_name}", latency_ms, last_error
+    return None, f"{provider}:{model_name}", latency_ms, last_error, _usage_dict(None)
