@@ -167,4 +167,9 @@ export const T = {
   helpLang: "help-lang-toggle",
   helpOpenFull: "help-open-full",
   helpPage: "help-page",
+
+  // AI Usage
+  sidebarAiUsage: "sidebar-link-ai-usage",
+  aiUsagePage: "ai-usage-page",
+  aiUsageRange: "ai-usage-range",
 };

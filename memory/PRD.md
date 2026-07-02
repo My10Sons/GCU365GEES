@@ -472,3 +472,15 @@ DI-0014, DI-0015, DI-0019, DI-0034, DI-0035, DI-0037, and
     tokens (mostly image input). NOT yet redeployed to production.
   - NOTE: exact SAR/credit cost per token is not published by Emergent — use Profile → Universal
     Key for balance; these counts give in-app per-inspection telemetry.
+
+## Changelog — 2026-07-02 (AI Usage mini-dashboard)
+
+- **Admin "AI Usage" dashboard.** New `GET /trip-inspection/usage?days=N` (gated `di.reports.read`)
+  aggregates the audit log (`di_audit_records`, action QUICK_TRIP_ANALYSIS_RUN) by day →
+  totals {tokens, calls, inspections, avgTokensPerInspection (over inspections with token data)}
+  + daily rows. New page `pages/AiUsage.jsx` at `/ai-usage` (sidebar link, di.reports.read):
+  stat cards + a dependency-free CSS bar chart of daily tokens + 7/30/90-day range toggle.
+  Service `usage_summary()` in `trip_inspection_service.py`.
+  - Verified via curl + screenshot: cards show 8,495 tokens / 2 calls / 97 inspections /
+    avg 4,248; daily chart + nav link render. Older pre-telemetry runs show 0 tokens (expected).
+    NOT yet redeployed to production.

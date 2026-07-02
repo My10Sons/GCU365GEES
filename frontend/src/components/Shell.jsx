@@ -18,6 +18,7 @@ import {
   Moon,
   CarFront,
   BookOpen,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { IntegrationAlertBanner } from "./IntegrationAlertBanner";
@@ -33,6 +34,7 @@ const NAV = [
   { to: "/cases", label: "Damage Cases", icon: FolderOpen, testId: T.sidebarCases, perm: "di.damagecases.read" },
   { to: "/reports", label: "Reports", icon: FileBarChart2, testId: T.sidebarReports, perm: "di.reports.read" },
   { to: "/settings", label: "Tenant Settings", icon: Settings2, testId: T.sidebarSettings, perm: "di.configuration.manage" },
+  { to: "/ai-usage", label: "AI Usage", icon: Activity, testId: T.sidebarAiUsage, perm: "di.reports.read" },
   { to: "/admin", label: "Admin", icon: ShieldAlert, testId: T.sidebarAdmin, perm: "di.configuration.manage" },
   { to: "/help", label: "Help & Guide", icon: BookOpen, testId: T.sidebarHelp, perm: null },
 ];

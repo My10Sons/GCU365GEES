@@ -16,7 +16,7 @@ import asyncio
 import os
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -575,6 +575,43 @@ async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_
         escalated = True
     section["escalated"] = escalated
     return section, model, total
+
+
+async def usage_summary(*, principal: dict, days: int = 30) -> dict:
+    """Aggregate AI token usage from the audit log for the tenant (Trip Inspection runs),
+    grouped by day — powers the admin 'AI usage' mini-dashboard."""
+    days = max(1, min(int(days or 30), 180))
+    db = get_db()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    pipeline = [
+        {"$match": {"tenantId": principal["tenantId"],
+                    "action": "QUICK_TRIP_ANALYSIS_RUN",
+                    "timestamp": {"$gte": cutoff}}},
+        {"$project": {
+            "day": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+            "tokens": {"$ifNull": ["$safeMetadata.totalTokens", 0]},
+            "calls": {"$ifNull": ["$safeMetadata.aiCalls", 0]},
+        }},
+        {"$group": {"_id": "$day", "tokens": {"$sum": "$tokens"},
+                    "calls": {"$sum": "$calls"}, "inspections": {"$sum": 1},
+                    "tokenedInspections": {"$sum": {"$cond": [{"$gt": ["$tokens", 0]}, 1, 0]}}}},
+        {"$sort": {"_id": 1}},
+    ]
+    rows = await db.di_audit_records.aggregate(pipeline).to_list(length=200)
+    daily = [{"date": r["_id"], "tokens": r["tokens"], "calls": r["calls"],
+              "inspections": r["inspections"]} for r in rows]
+    total_tokens = sum(d["tokens"] for d in daily)
+    total_calls = sum(d["calls"] for d in daily)
+    total_inspections = sum(d["inspections"] for d in daily)
+    tokened = sum(r.get("tokenedInspections", 0) for r in rows)
+    return {
+        "days": days,
+        "totals": {
+            "tokens": total_tokens, "calls": total_calls, "inspections": total_inspections,
+            "avgTokensPerInspection": round(total_tokens / tokened) if tokened else 0,
+        },
+        "daily": daily,
+    }
 
 
 async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[dict] = None,

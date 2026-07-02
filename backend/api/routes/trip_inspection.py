@@ -111,3 +111,14 @@ async def finalize(
         mode=(payload.mode or "fast"), correlation_id=request.state.correlation_id,
     )
     return ok(data, request.state.correlation_id)
+
+
+@router.get("/usage")
+async def usage(
+    request: Request,
+    days: int = 30,
+    principal: dict = Depends(require_permission("di.reports.read")),
+):
+    """AI token/call usage aggregated by day, for the admin usage dashboard."""
+    data = await trip_inspection_service.usage_summary(principal=principal, days=days)
+    return ok(data, request.state.correlation_id)

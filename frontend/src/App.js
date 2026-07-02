@@ -19,6 +19,7 @@ import DamageCaseDetail from "./pages/DamageCaseDetail";
 import Reports from "./pages/Reports";
 import TripInspection from "./pages/TripInspection";
 import TenantSettings from "./pages/TenantSettings";
+import AiUsage from "./pages/AiUsage";
 import Help from "./pages/Help";
 
 function Protected({ children }) {
@@ -83,6 +84,7 @@ function AppRoutes() {
           element={<Reports />}
         />
         <Route path="settings" element={<TenantSettings />} />
+        <Route path="ai-usage" element={<AiUsage />} />
         <Route path="help" element={<Help />} />
         <Route
           path="admin"
