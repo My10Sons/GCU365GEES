@@ -13,6 +13,7 @@ Repository Traceability:
 from __future__ import annotations
 
 import asyncio
+import calendar
 import os
 import shutil
 import uuid
@@ -577,6 +578,76 @@ async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_
     return section, model, total
 
 
+async def get_budget(tenant_id: str) -> dict:
+    db = get_db()
+    doc = await db.di_tenant_ai_budget.find_one({"tenantId": tenant_id}) or {}
+    return {
+        "monthlyTokenBudget": int(doc.get("monthlyTokenBudget") or 0),
+        "costPer1kTokens": float(doc.get("costPer1kTokens") or 0),
+        "currency": doc.get("currency") or _COST_CURRENCY,
+    }
+
+
+async def set_budget(*, principal: dict, monthly_token_budget: int, cost_per_1k: float) -> dict:
+    db = get_db()
+    tenant_id = principal["tenantId"]
+    await db.di_tenant_ai_budget.update_one(
+        {"tenantId": tenant_id},
+        {"$set": {
+            "tenantId": tenant_id,
+            "monthlyTokenBudget": max(0, int(monthly_token_budget or 0)),
+            "costPer1kTokens": max(0.0, float(cost_per_1k or 0)),
+            "currency": _COST_CURRENCY,
+            "updatedAt": datetime.now(timezone.utc),
+            "updatedBy": principal["id"],
+        }},
+        upsert=True,
+    )
+    return await _budget_status(tenant_id)
+
+
+async def _budget_status(tenant_id: str) -> dict:
+    db = get_db()
+    cfg = await get_budget(tenant_id)
+    budget = cfg["monthlyTokenBudget"]
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    days_in_month = calendar.monthrange(now.year, now.month)[1]
+    day_of_month = now.day
+    rows = await db.di_audit_records.aggregate([
+        {"$match": {"tenantId": tenant_id, "action": "QUICK_TRIP_ANALYSIS_RUN",
+                    "timestamp": {"$gte": month_start}}},
+        {"$group": {"_id": None, "tokens": {"$sum": {"$ifNull": ["$safeMetadata.totalTokens", 0]}}}},
+    ]).to_list(1)
+    mtd = rows[0]["tokens"] if rows else 0
+    projected = round(mtd / day_of_month * days_in_month) if day_of_month else mtd
+    cost_per_1k = cfg["costPer1kTokens"]
+
+    def pct(v):
+        return round(v / budget * 100) if budget else 0
+
+    def cost(tok):
+        return round(tok / 1000 * cost_per_1k, 2) if cost_per_1k else None
+
+    return {
+        "monthlyTokenBudget": budget,
+        "costPer1kTokens": cost_per_1k,
+        "currency": cfg["currency"],
+        "monthToDateTokens": mtd,
+        "projectedMonthTokens": projected,
+        "daysElapsed": day_of_month,
+        "daysInMonth": days_in_month,
+        "daysLeft": days_in_month - day_of_month,
+        "percentUsed": pct(mtd),
+        "projectedPercent": pct(projected),
+        "overBudget": bool(budget and projected > budget),
+        "nearBudget": bool(budget and projected > budget * 0.8 and projected <= budget),
+        "estCostMonthToDate": cost(mtd),
+        "estCostProjected": cost(projected),
+        "estBudgetCost": cost(budget),
+    }
+
+
 async def usage_summary(*, principal: dict, days: int = 30) -> dict:
     """Aggregate AI token usage from the audit log for the tenant (Trip Inspection runs),
     grouped by day — powers the admin 'AI usage' mini-dashboard."""
@@ -611,6 +682,7 @@ async def usage_summary(*, principal: dict, days: int = 30) -> dict:
             "avgTokensPerInspection": round(total_tokens / tokened) if tokened else 0,
         },
         "daily": daily,
+        "budget": await _budget_status(principal["tenantId"]),
     }
 
 

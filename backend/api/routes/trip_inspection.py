@@ -122,3 +122,22 @@ async def usage(
     """AI token/call usage aggregated by day, for the admin usage dashboard."""
     data = await trip_inspection_service.usage_summary(principal=principal, days=days)
     return ok(data, request.state.correlation_id)
+
+
+class BudgetIn(BaseModel):
+    monthlyTokenBudget: int = 0
+    costPer1kTokens: float = 0
+
+
+@router.put("/budget")
+async def set_budget(
+    request: Request,
+    payload: BudgetIn,
+    principal: dict = Depends(require_permission("di.configuration.manage")),
+):
+    """Set the tenant's monthly AI token budget (+ optional cost per 1K tokens for SAR estimates)."""
+    data = await trip_inspection_service.set_budget(
+        principal=principal, monthly_token_budget=payload.monthlyTokenBudget,
+        cost_per_1k=payload.costPer1kTokens,
+    )
+    return ok(data, request.state.correlation_id)
