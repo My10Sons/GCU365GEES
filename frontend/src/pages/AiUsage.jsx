@@ -1,10 +1,44 @@
 import React, { useEffect, useState } from "react";
-import { Cpu, Coins, ScanEye, TrendingUp, Loader2, Activity, AlertTriangle, CheckCircle2, Target } from "lucide-react";
+import { Cpu, Coins, ScanEye, TrendingUp, Loader2, Activity, AlertTriangle, CheckCircle2, Target, Zap, Gauge, FlaskConical } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { T } from "../constants/testIds";
 
 const RANGES = [7, 30, 90];
+
+// SAR is pegged to USD; Universal Key balance is billed in USD.
+const USD_SAR = 3.75;
+
+// Empirically measured on the live preview (each block = 40 single-angle Before/After
+// analyses, no-damage pair so no auto-escalation). Balance read at Profile → Universal Key.
+const MEASURED = {
+  asOf: "Jun 2026",
+  anglesPerWalkaround: 5,
+  fast: {
+    label: "Fast", model: "gemini-3.5-flash",
+    calls: 40, tokens: 165501, deltaUsd: 0.42,
+  },
+  thorough: {
+    label: "Thorough", model: "gemini-3.1-pro-preview",
+    calls: 40, tokens: 153686, deltaUsd: 1.24,
+  },
+};
+
+const rateOf = (m) => {
+  const usdPer1k = m.deltaUsd / (m.tokens / 1000);
+  const usdPerCall = m.deltaUsd / m.calls;
+  const tokensPerSection = m.tokens / m.calls;
+  const usdPerInspection = usdPerCall * MEASURED.anglesPerWalkaround;
+  return {
+    ...m,
+    tokensPerSection: Math.round(tokensPerSection),
+    tokensPerInspection: Math.round(tokensPerSection * MEASURED.anglesPerWalkaround),
+    usdPer1k, sarPer1k: usdPer1k * USD_SAR,
+    usdPerInspection, sarPerInspection: usdPerInspection * USD_SAR,
+  };
+};
+
+const RATES = { fast: rateOf(MEASURED.fast), thorough: rateOf(MEASURED.thorough) };
 
 function Stat({ icon: Icon, label, value, testId, sub }) {
   return (
@@ -35,7 +69,7 @@ export default function AiUsage() {
       .then(({ data }) => {
         setData(data.data);
         setBudgetInput(String(data.data.budget?.monthlyTokenBudget || ""));
-        setRateInput(String(data.data.budget?.costPer1kTokens || ""));
+        setRateInput(String(data.data.budget?.costPer1kTokens || RATES.fast.sarPer1k.toFixed(4)));
       })
       .catch(() => setError("Could not load usage data."))
       .finally(() => setLoading(false));
@@ -97,6 +131,8 @@ export default function AiUsage() {
           <BudgetPanel budget={data.budget} canEdit={canEdit} budgetInput={budgetInput}
             setBudgetInput={setBudgetInput} rateInput={rateInput} setRateInput={setRateInput}
             saving={saving} onSave={saveBudget} />
+
+          <MeasuredCostModel />
 
           <div className="mt-8">
             <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-3">Daily tokens</div>
@@ -191,6 +227,81 @@ function BudgetPanel({ budget, canEdit, budgetInput, setBudgetInput, rateInput, 
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+
+function ModeCard({ rate, icon: Icon, tone }) {
+  const sar = (n) => `${Number(n).toFixed(2)} SAR`;
+  return (
+    <div data-testid={`ai-cost-card-${rate.label.toLowerCase()}`}
+      className={`rounded-lg border p-4 ${tone === "fast" ? "border-signal/40 bg-signal/5" : "border-amber400/40 bg-amber400/5"}`}>
+      <div className="flex items-center gap-2">
+        <Icon className={`size-4 ${tone === "fast" ? "text-signal" : "text-amber400"}`} />
+        <span className="text-sm font-semibold text-white">{rate.label}</span>
+        <span className="text-[11px] text-steel-400 font-mono">{rate.model}</span>
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-white">
+        {sar(rate.sarPerInspection)}
+        <span className="text-xs font-normal text-steel-400"> / inspection</span>
+      </div>
+      <div className="text-[11px] text-steel-400 mt-1">
+        {MEASURED.anglesPerWalkaround}-angle walkaround · ~{Number(rate.tokensPerInspection).toLocaleString()} tokens
+      </div>
+      <div className="mt-2 text-[11px] text-steel-400">
+        ≈ {rate.sarPer1k.toFixed(4)} SAR / 1K tokens (${rate.usdPer1k.toFixed(5)})
+      </div>
+    </div>
+  );
+}
+
+function MeasuredCostModel() {
+  const rows = [
+    { k: "Tokens / angle", f: Number(RATES.fast.tokensPerSection).toLocaleString(), t: Number(RATES.thorough.tokensPerSection).toLocaleString() },
+    { k: "Tokens / 5-angle inspection", f: Number(RATES.fast.tokensPerInspection).toLocaleString(), t: Number(RATES.thorough.tokensPerInspection).toLocaleString() },
+    { k: "Cost / 1K tokens", f: `${RATES.fast.sarPer1k.toFixed(4)} SAR`, t: `${RATES.thorough.sarPer1k.toFixed(4)} SAR` },
+    { k: "Cost / inspection", f: `${RATES.fast.sarPerInspection.toFixed(2)} SAR`, t: `${RATES.thorough.sarPerInspection.toFixed(2)} SAR` },
+    { k: "Cost / inspection (USD)", f: `$${RATES.fast.usdPerInspection.toFixed(3)}`, t: `$${RATES.thorough.usdPerInspection.toFixed(3)}` },
+  ];
+  return (
+    <div data-testid="ai-usage-cost-model" className="mt-8">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-steel-400 mb-3">
+        <FlaskConical className="size-3.5" /> Measured cost per inspection · {MEASURED.asOf}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ModeCard rate={RATES.fast} icon={Zap} tone="fast" />
+        <ModeCard rate={RATES.thorough} icon={Gauge} tone="thorough" />
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-lg border border-ink-700/70">
+        <table data-testid="ai-usage-cost-table" className="w-full text-sm">
+          <thead>
+            <tr className="bg-ink-900/60 text-steel-400 text-[11px] uppercase tracking-wider">
+              <th className="text-left font-medium px-4 py-2.5">Metric</th>
+              <th className="text-right font-medium px-4 py-2.5">Fast (Flash)</th>
+              <th className="text-right font-medium px-4 py-2.5">Thorough (Pro)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-700/60">
+            {rows.map((r) => (
+              <tr key={r.k} className="text-steel-200">
+                <td className="px-4 py-2.5 text-steel-300">{r.k}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{r.f}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{r.t}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-[11px] text-steel-400">
+        Empirical: {MEASURED.fast.calls} Fast + {MEASURED.thorough.calls} Thorough single-angle analyses
+        against the live Universal Key. Balance billed in USD; SAR shown at the fixed 3.75 peg.
+        Thorough ≈ {(RATES.thorough.sarPerInspection / RATES.fast.sarPerInspection).toFixed(1)}× the cost of Fast.
+        Auto-escalation adds one Pro call per uncertain/high-severity angle.
+      </p>
     </div>
   );
 }
