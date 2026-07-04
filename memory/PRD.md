@@ -22,6 +22,19 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
 ## Completed (this fork, 2026-07-04)
+- PLATE/VIN OCR + VEHICLE-LINKING (P0, tested via testing agent iteration_18 — all pass):
+  - POST /trip-inspection/read-plate: dedicated close-up OCR (Gemini Flash) → plate EN/AR, region,
+    VIN (17-char validated), basic vehicle info. Audited as PLATE_OCR_RUN (tokens count in budget/usage).
+  - Auto-fill: plate read from walkaround photos (vehicleSignature.visiblePlate) or the OCR close-up
+    auto-fills the empty Vehicle plate field with a green 'read from photo/close-up' chip; manual
+    typing clears the chip.
+  - Vehicle registry (vehicle_registry_service.py, di_vehicles + di_vehicle_trips): finalize links
+    trips when 'Save to vehicle history' toggle is ON (default) and a plate/VIN exists. VIN wins
+    conflicts (plate-change warning); opt-out keeps trips anonymous. Compact trip snapshots power
+    the damage-history timeline (delivers part of P1 timeline).
+  - New UI: sidebar 'Vehicles' → /vehicles searchable list + /vehicles/:id detail (stats: trips,
+    new issues, cases opened, latest condition + chronological trip timeline with case links).
+    Result card shows 'Saved to vehicle history · <plate>' chip linking to the vehicle.
 - IMAGE VERIFICATION EXPANSION (all 10 asks, tested 14/14 via testing agent, iteration_17):
   - AI per-section checks (prompt + normalizers in trip_inspection_service.py): angle-mismatch
     (angleCorrect/angleIssue), framing/cropped parts (fullyVisible/croppedParts), camera distance
@@ -49,9 +62,9 @@ auto-escalate Fast→Pro; bilingual Help; AI token telemetry; AI Usage dashboard
 Docs: DI-0041 (Maintenance cost interface, awaiting sign-off), DI-0042 (scaling runbook), DI-0043 (cost discovery plan).
 
 ## Backlog
-- P0: License plate / VIN OCR (auto vehicle-linking + pricing API).
-- P1: Vehicle damage-history timeline; customer-facing transparency report + e-signature link;
-  accuracy validation harness + benchmark; finer part taxonomy; real-time guided/auto capture.
+- P1: Vehicle damage-history timeline (PARTIALLY DONE via /vehicles detail — remaining: pricing API
+  integration off the plate, cross-tenant vehicle lookup); customer-facing transparency report +
+  e-signature link; accuracy validation harness + benchmark; finer part taxonomy; real-time guided/auto capture.
 - P2: Maintenance cost handoff (DI-0041, blocked on GCU365 sign-off); mobile SDK / public API;
   KSA insurance/claims integration; tyre tread / dash-reading OCR.
 - On hold: Kiosk capture mode (per user).
