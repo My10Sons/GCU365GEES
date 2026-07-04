@@ -52,6 +52,39 @@ def _compact_sections(sections: list[dict]) -> list[dict]:
     return out
 
 
+_RISK_WINDOW = 5
+
+
+def _risk_profile(trips: list[dict]) -> dict:
+    """Derive a fleet-risk profile from the vehicle's most recent linked trips (desc order)."""
+    recent = trips[:_RISK_WINDOW]
+    damaged = [t for t in recent if t.get("overall") == "NEW_DAMAGE_FOUND"]
+    streak = 0
+    for t in recent:
+        if t.get("overall") == "NEW_DAMAGE_FOUND":
+            streak += 1
+        else:
+            break
+    new_issues = sum(int(t.get("newIssueCount") or 0) for t in damaged)
+    cost_high = sum(int((t.get("costSummary") or {}).get("high") or 0) for t in damaged)
+    currency = next(((t.get("costSummary") or {}).get("currency") for t in damaged
+                     if (t.get("costSummary") or {}).get("currency")), "SAR")
+    n = len(damaged)
+    if n >= 3 or streak >= 2:
+        level, label = "HIGH", "Repeat offender"
+    elif n == 2:
+        level, label = "MEDIUM", "Watch list"
+    elif n == 1:
+        level, label = "LOW", "Normal"
+    else:
+        level, label = "NONE", "Clean"
+    return {
+        "level": level, "label": label,
+        "damagedTrips": n, "window": len(recent), "streak": streak,
+        "newIssues": new_issues, "estCostHigh": cost_high, "currency": currency,
+    }
+
+
 async def link_trip(*, principal: dict, result: dict, report_fields: Optional[dict],
                     ocr: Optional[dict], correlation_id: str) -> dict:
     rf = report_fields or {}
@@ -141,10 +174,14 @@ async def link_trip(*, principal: dict, result: dict, report_fields: Optional[di
         safe_metadata={"isNewVehicle": is_new, "hasVin": bool(vin),
                        "overall": result.get("overall"), "warnings": len(warnings)},
     )
+    recent = await db.di_vehicle_trips.find(
+        {"tenantId": tenant_id, "vehicleId": str(vehicle_id)}
+    ).sort("createdAt", -1).limit(_RISK_WINDOW).to_list(length=_RISK_WINDOW)
     return {
         "linked": True, "vehicleId": str(vehicle_id), "tripId": str(trip_res.inserted_id),
         "plate": plate_display[:24] or None, "vin": vin or None,
         "isNewVehicle": is_new, "warnings": warnings,
+        "risk": _risk_profile(recent),
     }
 
 
@@ -158,7 +195,19 @@ async def list_vehicles(*, principal: dict, search: str = "", limit: int = 200) 
         q["$or"] = [{"plateNormalized": {"$regex": re.escape(plate_norm(s)), "$options": "i"}},
                     {"plateDisplay": rx}, {"vin": rx}, {"model": rx}]
     rows = await db.di_vehicles.find(q).sort("lastSeenAt", -1).limit(max(1, min(limit, 500))).to_list(length=500)
-    return {"vehicles": [_ser(r) for r in rows], "total": len(rows)}
+    vehicles = [_ser(r) for r in rows]
+    ids = [v["id"] for v in vehicles]
+    if ids:
+        trips = await db.di_vehicle_trips.find(
+            {"tenantId": principal["tenantId"], "vehicleId": {"$in": ids}},
+            {"vehicleId": 1, "overall": 1, "newIssueCount": 1, "costSummary": 1, "createdAt": 1},
+        ).sort("createdAt", -1).to_list(length=3000)
+        by_vehicle: dict[str, list] = {}
+        for t in trips:
+            by_vehicle.setdefault(t["vehicleId"], []).append(t)
+        for v in vehicles:
+            v["risk"] = _risk_profile(by_vehicle.get(v["id"], []))
+    return {"vehicles": vehicles, "total": len(vehicles)}
 
 
 async def get_vehicle(*, principal: dict, vehicle_id: str) -> dict:
@@ -180,4 +229,5 @@ async def get_vehicle(*, principal: dict, vehicle_id: str) -> dict:
         "trips": [_ser(t) for t in trips],
         "casesCreated": cases_created,
         "totalNewIssues": total_new,
+        "risk": _risk_profile(trips),
     }

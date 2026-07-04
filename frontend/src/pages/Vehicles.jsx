@@ -11,6 +11,24 @@ import { T } from "../constants/testIds";
 
 const fmtDate = (s) => (s ? new Date(s).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—");
 
+export const RISK_STYLE = {
+  HIGH: "border-signal/50 bg-signal/10 text-signal-soft",
+  MEDIUM: "border-amber400/50 bg-amber400/10 text-amber400",
+  LOW: "border-ink-600 bg-ink-800/70 text-steel-400",
+  NONE: "border-emerald400/40 bg-emerald-400/10 text-emerald400",
+};
+
+export function RiskBadge({ risk, testId }) {
+  if (!risk || !risk.window) return <span className="text-xs text-steel-500">—</span>;
+  return (
+    <span data-testid={testId}
+      title={`New damage in ${risk.damagedTrips} of the last ${risk.window} rental(s)${risk.streak >= 2 ? ` · ${risk.streak} in a row` : ""}`}
+      className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border w-fit ${RISK_STYLE[risk.level] || RISK_STYLE.LOW}`}>
+      {risk.label}{risk.level === "HIGH" || risk.level === "MEDIUM" ? ` · ${risk.damagedTrips}/${risk.window}` : ""}
+    </span>
+  );
+}
+
 export default function Vehicles() {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
@@ -48,8 +66,8 @@ export default function Vehicles() {
       {error && <p data-testid="vehicles-error" className="text-sm text-signal-soft mt-4">{error}</p>}
 
       <div className="mt-5 rounded-lg border border-ink-700/70 bg-ink-900/60 overflow-hidden">
-        <div className="grid grid-cols-[1.2fr_1.4fr_1.4fr_0.8fr_1fr_auto] gap-3 px-4 py-2.5 text-[11px] uppercase tracking-wider text-steel-400 bg-ink-900 border-b border-ink-700/60">
-          <span>Plate</span><span>VIN</span><span>Vehicle</span><span>Trips</span><span>Last seen</span><span />
+        <div className="grid grid-cols-[1.2fr_1.3fr_1.2fr_0.6fr_1fr_1fr_auto] gap-3 px-4 py-2.5 text-[11px] uppercase tracking-wider text-steel-400 bg-ink-900 border-b border-ink-700/60">
+          <span>Plate</span><span>VIN</span><span>Vehicle</span><span>Trips</span><span>Risk</span><span>Last seen</span><span />
         </div>
         {busy ? (
           <div className="px-4 py-10 text-center text-steel-400 text-sm flex items-center justify-center gap-2"><Loader2 className="size-4 animate-spin" /> Loading…</div>
@@ -63,7 +81,7 @@ export default function Vehicles() {
             {rows.map((v) => (
               <li key={v.id}>
                 <Link to={`/vehicles/${v.id}`} data-testid={`vehicle-row-${v.id}`}
-                  className="grid grid-cols-[1.2fr_1.4fr_1.4fr_0.8fr_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-ink-800/50 transition-colors">
+                  className="grid grid-cols-[1.2fr_1.3fr_1.2fr_0.6fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-ink-800/50 transition-colors">
                   <span className="text-sm font-semibold text-white font-mono">{v.plateDisplay || "—"}</span>
                   <span className="text-xs font-mono text-steel-300 truncate">{v.vin || "—"}</span>
                   <span className="text-xs text-steel-300 truncate">
@@ -72,6 +90,7 @@ export default function Vehicles() {
                     {!v.color && !v.bodyType && !v.model && "—"}
                   </span>
                   <span className="text-sm text-steel-100">{v.inspectionCount || 0}</span>
+                  <RiskBadge risk={v.risk} testId={`vehicle-risk-${v.id}`} />
                   <span className="text-xs text-steel-400">{fmtDate(v.lastSeenAt)}</span>
                   <ChevronRight className="size-4 text-steel-500" />
                 </Link>

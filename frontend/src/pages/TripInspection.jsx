@@ -597,6 +597,13 @@ export default function TripInspection() {
                 <CarFront className="size-3" /> Saved to vehicle history · {vl.plate || vl.vin}{vl.isNewVehicle ? " (new)" : ""} <ArrowRight className="size-3" />
               </Link>
             )}
+            {vl.linked && (vl.risk?.level === "HIGH" || vl.risk?.level === "MEDIUM") && (
+              <Link to={`/vehicles/${vl.vehicleId}`} data-testid="trip-repeat-offender-chip"
+                title={`New damage in ${vl.risk.damagedTrips} of this vehicle's last ${vl.risk.window} rental(s)${vl.risk.streak >= 2 ? ` — ${vl.risk.streak} in a row` : ""}. Estimated repairs up to ${vl.risk.currency} ${Number(vl.risk.estCostHigh || 0).toLocaleString()}.`}
+                className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${vl.risk.level === "HIGH" ? "border-signal/50 bg-signal/10 text-signal-soft hover:bg-signal/20" : "border-amber400/50 bg-amber400/10 text-amber400 hover:bg-amber400/20"}`}>
+                <AlertTriangle className="size-3" /> {vl.risk.level === "HIGH" ? "Repeat offender" : "Watch list"} · {vl.risk.damagedTrips}/{vl.risk.window} rentals with new damage
+              </Link>
+            )}
             {vc.consistent && (extSections >= 2 || vc.plateMatch === true) && (
               <span data-testid="trip-vehicle-consistent-chip" title={`Colour(s): ${(vc.colors || []).join(", ") || "n/a"} · Plate(s) read: ${(vc.platesRead || []).join(", ") || "none"}`}
                 className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald400/50 bg-emerald-400/10 text-emerald400 flex items-center gap-1">

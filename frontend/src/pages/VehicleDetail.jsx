@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Car, ArrowLeft, Loader2, AlertTriangle, CheckCircle2, FolderOpen, Zap, ScanEye } from "lucide-react";
 import { api, envelopeError } from "../lib/api";
+import { RiskBadge } from "./Vehicles";
 import { T } from "../constants/testIds";
 
 const fmtDT = (s) => (s ? new Date(s).toLocaleString() : "—");
@@ -55,6 +56,7 @@ export default function VehicleDetail() {
 
   const v = data.vehicle || {};
   const trips = data.trips || [];
+  const risk = data.risk || {};
 
   return (
     <div data-testid={T.vehicleDetailPage} className="px-8 py-8 max-w-5xl">
@@ -63,6 +65,7 @@ export default function VehicleDetail() {
       </Link>
       <h1 className="text-2xl font-semibold text-white mt-2 flex items-center gap-3">
         <Car className="size-6 text-steel-300" /> {v.plateDisplay || v.vin || "Vehicle"}
+        <RiskBadge risk={risk} testId="vehicle-detail-risk-badge" />
       </h1>
       <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-steel-300">
         {v.vin && <span>VIN <span className="font-mono text-steel-100">{v.vin}</span></span>}
@@ -78,6 +81,20 @@ export default function VehicleDetail() {
         <Stat label="Damage cases opened" value={data.casesCreated || 0} testId="vehicle-stat-cases" />
         <Stat label="Latest condition" value={trips[0]?.conditionScore != null ? `${trips[0].conditionScore}/100` : "—"} testId="vehicle-stat-condition" />
       </div>
+
+      {(risk.level === "HIGH" || risk.level === "MEDIUM") && (
+        <div data-testid="vehicle-risk-banner"
+          className={`mt-4 rounded-lg border px-4 py-3 flex items-start gap-3 ${risk.level === "HIGH" ? "border-signal/40 bg-signal/10" : "border-amber400/40 bg-amber400/10"}`}>
+          <AlertTriangle className={`size-5 mt-0.5 shrink-0 ${risk.level === "HIGH" ? "text-signal-soft" : "text-amber400"}`} />
+          <div className="text-sm">
+            <span className={`font-semibold ${risk.level === "HIGH" ? "text-signal-soft" : "text-amber400"}`}>
+              {risk.level === "HIGH" ? "Repeat offender" : "Watch list"} — new damage in {risk.damagedTrips} of the last {risk.window} rental{risk.window > 1 ? "s" : ""}
+              {risk.streak >= 2 ? ` (${risk.streak} in a row)` : ""}.
+            </span>
+            <span className="text-steel-300"> {risk.newIssues} new issue{risk.newIssues === 1 ? "" : "s"}, estimated repairs up to {risk.currency} {Number(risk.estCostHigh || 0).toLocaleString()}. Consider a higher deposit or a pre-rental walkthrough with the customer.</span>
+          </div>
+        </div>
+      )}
 
       <div className="mt-7">
         <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-3">Damage history — most recent first</div>

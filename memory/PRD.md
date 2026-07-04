@@ -22,6 +22,13 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
 ## Completed (this fork, 2026-07-04)
+- REPEAT-OFFENDER / FLEET RISK SCORING (self-tested via curl + screenshots):
+  - _risk_profile in vehicle_registry_service: window = last 5 linked trips; HIGH "Repeat offender"
+    (>=3 damaged of last 5 OR streak >=2), MEDIUM "Watch list" (2), LOW/NONE. Includes damagedTrips,
+    streak, newIssues, estCostHigh.
+  - Surfaced in: vehicles list Risk column (vehicle-risk-{id}), vehicle detail header badge + red/amber
+    banner with deposit recommendation (vehicle-risk-banner), Trip Inspection result chip
+    (trip-repeat-offender-chip) via vehicleLink.risk from finalize.
 - PLATE/VIN OCR + VEHICLE-LINKING (P0, tested via testing agent iteration_18 — all pass):
   - POST /trip-inspection/read-plate: dedicated close-up OCR (Gemini Flash) → plate EN/AR, region,
     VIN (17-char validated), basic vehicle info. Audited as PLATE_OCR_RUN (tokens count in budget/usage).
