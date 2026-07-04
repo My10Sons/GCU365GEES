@@ -24,6 +24,16 @@ async def list_vehicles(
     return ok(data, request.state.correlation_id)
 
 
+@router.get("/risk-overview")
+async def risk_overview(
+    request: Request,
+    top: int = Query(5),
+    principal: dict = Depends(require_permission("di.inspections.read")),
+):
+    data = await vehicle_registry_service.risk_overview(principal=principal, top=top)
+    return ok(data, request.state.correlation_id)
+
+
 @router.get("/{vehicle_id}")
 async def get_vehicle(
     request: Request,

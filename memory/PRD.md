@@ -22,6 +22,11 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
 ## Completed (this fork, 2026-07-04)
+- FLEET RISK OVERVIEW ON DASHBOARD (self-tested via curl + screenshot):
+  - GET /vehicles/risk-overview: totals (vehicles, highCount, mediumCount, totalExposure SAR) +
+    top-5 riskiest vehicles ranked by level → exposure → damagedTrips.
+  - Dashboard section (dashboard-risk-overview, perm di.inspections.read): exposure/offender/watch
+    stats + clickable top-vehicle rows with risk badges → /vehicles/{id}; "All vehicles" link.
 - REPEAT-OFFENDER / FLEET RISK SCORING (self-tested via curl + screenshots):
   - _risk_profile in vehicle_registry_service: window = last 5 linked trips; HIGH "Repeat offender"
     (>=3 damaged of last 5 OR streak >=2), MEDIUM "Watch list" (2), LOW/NONE. Includes damagedTrips,

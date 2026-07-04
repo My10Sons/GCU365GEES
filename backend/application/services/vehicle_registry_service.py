@@ -185,6 +185,45 @@ async def link_trip(*, principal: dict, result: dict, report_fields: Optional[di
     }
 
 
+async def risk_overview(*, principal: dict, top: int = 5) -> dict:
+    """Fleet-level risk rollup for the dashboard: top riskiest vehicles + total exposure."""
+    db = get_db()
+    tenant_id = principal["tenantId"]
+    vehicles = await db.di_vehicles.find({"tenantId": tenant_id}).to_list(length=1000)
+    empty_totals = {"vehicles": 0, "highCount": 0, "mediumCount": 0, "totalExposure": 0, "currency": "SAR"}
+    if not vehicles:
+        return {"totals": empty_totals, "topVehicles": []}
+    ids = [str(v["_id"]) for v in vehicles]
+    trips = await db.di_vehicle_trips.find(
+        {"tenantId": tenant_id, "vehicleId": {"$in": ids}},
+        {"vehicleId": 1, "overall": 1, "newIssueCount": 1, "costSummary": 1, "createdAt": 1},
+    ).sort("createdAt", -1).to_list(length=5000)
+    by_vehicle: dict[str, list] = {}
+    for t in trips:
+        by_vehicle.setdefault(t["vehicleId"], []).append(t)
+    rows = [(v, _risk_profile(by_vehicle.get(str(v["_id"]), []))) for v in vehicles]
+    rank = {"HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
+    rows.sort(key=lambda x: (rank.get(x[1]["level"], 0), x[1]["estCostHigh"], x[1]["damagedTrips"]),
+              reverse=True)
+    currency = next((r["currency"] for _, r in rows if r["estCostHigh"]), "SAR")
+    return {
+        "totals": {
+            "vehicles": len(vehicles),
+            "highCount": sum(1 for _, r in rows if r["level"] == "HIGH"),
+            "mediumCount": sum(1 for _, r in rows if r["level"] == "MEDIUM"),
+            "totalExposure": sum(r["estCostHigh"] for _, r in rows),
+            "currency": currency,
+        },
+        "topVehicles": [
+            {"id": str(v["_id"]), "plateDisplay": v.get("plateDisplay"), "vin": v.get("vin"),
+             "model": v.get("model"), "color": v.get("color"), "bodyType": v.get("bodyType"),
+             "inspectionCount": v.get("inspectionCount", 0), "lastSeenAt": _iso(v.get("lastSeenAt")),
+             "risk": r}
+            for v, r in rows[:max(1, min(top, 20))] if r["window"] > 0
+        ],
+    }
+
+
 async def list_vehicles(*, principal: dict, search: str = "", limit: int = 200) -> dict:
     db = get_db()
     q: dict = {"tenantId": principal["tenantId"]}

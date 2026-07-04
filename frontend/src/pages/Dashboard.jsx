@@ -4,10 +4,12 @@
  *   (GET /health, GET /health/dependencies, GET /version), DI-0031 (Scope boundary).
  */
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { T } from "../constants/testIds";
-import { Activity, Database, Cpu, HardDrive, Lock, GitBranch, CheckCircle2, XCircle, Plug, AlertTriangle, Sparkles, Loader2, Github } from "lucide-react";
+import { Activity, Database, Cpu, HardDrive, Lock, GitBranch, CheckCircle2, XCircle, Plug, AlertTriangle, Sparkles, Loader2, Github, Car, ArrowRight } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+import { RiskBadge } from "./Vehicles";
 
 const SPRINTS = [
   { id: "SPRINT-00", label: "Engineering Setup", status: "done" },
@@ -76,6 +78,7 @@ export default function Dashboard() {
   const [deps, setDeps] = useState(null);
   const [version, setVersion] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  const [risk, setRisk] = useState(null);
   const [error, setError] = useState("");
   const [demo, setDemo] = useState({ busy: false, msg: "" });
   const canSeedDemo = has("di.configuration.manage");
@@ -118,6 +121,16 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (!has("di.inspections.read")) return;
+    let active = true;
+    api.get("/vehicles/risk-overview")
+      .then(({ data }) => active && setRisk(data.data))
+      .catch(() => {});
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -192,6 +205,42 @@ export default function Dashboard() {
               <IntegStat label="Unauthorized attempts" value={metrics.security?.unauthorizedAttempts} warn={metrics.security?.unauthorizedAttempts > 0} />
             </div>
           </div>
+        </section>
+      )}
+
+      {risk && risk.totals?.vehicles > 0 && (
+        <section data-testid="dashboard-risk-overview" className="mb-10 rounded-lg border border-ink-700/70 bg-ink-900/60 p-5">
+          <div className="flex items-center gap-2.5 mb-4">
+            <Car className="size-4 text-steel-300" />
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Fleet risk overview</h2>
+            {risk.totals.highCount > 0 && <AlertTriangle className="size-4 text-signal-soft" />}
+            <Link to="/vehicles" data-testid="dashboard-risk-view-all" className="ml-auto text-xs text-steel-300 hover:text-white flex items-center gap-1">
+              All vehicles <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <IntegStat label={`Recent exposure (${risk.totals.currency})`} value={Number(risk.totals.totalExposure || 0).toLocaleString()} warn={risk.totals.totalExposure > 0} />
+            <IntegStat label="Repeat offenders" value={risk.totals.highCount} warn={risk.totals.highCount > 0} />
+            <IntegStat label="Watch list" value={risk.totals.mediumCount} warn={risk.totals.mediumCount > 0} />
+            <IntegStat label="Vehicles tracked" value={risk.totals.vehicles} />
+          </div>
+          {(risk.topVehicles || []).length > 0 && (
+            <ul className="divide-y divide-ink-700/60 border-t border-ink-700/60">
+              {risk.topVehicles.map((v) => (
+                <li key={v.id}>
+                  <Link to={`/vehicles/${v.id}`} data-testid={`dashboard-risk-row-${v.id}`}
+                    className="flex items-center gap-3 py-2.5 hover:bg-ink-800/40 px-2 -mx-2 rounded transition-colors">
+                    <span className="text-sm font-mono font-semibold text-white w-28 shrink-0 truncate">{v.plateDisplay || v.vin || "—"}</span>
+                    <span className="text-xs text-steel-400 flex-1 truncate capitalize">{[v.color, v.model].filter(Boolean).join(" ") || v.bodyType || ""}</span>
+                    <RiskBadge risk={v.risk} testId={`dashboard-risk-badge-${v.id}`} />
+                    {v.risk?.estCostHigh > 0 && <span className="text-xs font-mono text-signal-soft w-28 text-right shrink-0">~{v.risk.currency} {Number(v.risk.estCostHigh).toLocaleString()}</span>}
+                    <ArrowRight className="size-3.5 text-steel-500 shrink-0" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[10px] text-steel-500 mt-3">Risk is derived from each vehicle's last 5 linked trip inspections. Exposure = estimated repair cost (high end) of new damage in those windows.</p>
         </section>
       )}
 
