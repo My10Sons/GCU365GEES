@@ -18,6 +18,8 @@ import DamageCases from "./pages/DamageCases";
 import DamageCaseDetail from "./pages/DamageCaseDetail";
 import Reports from "./pages/Reports";
 import TripInspection from "./pages/TripInspection";
+import Vehicles from "./pages/Vehicles";
+import VehicleDetail from "./pages/VehicleDetail";
 import TenantSettings from "./pages/TenantSettings";
 import AiUsage from "./pages/AiUsage";
 import Help from "./pages/Help";
@@ -55,6 +57,8 @@ function AppRoutes() {
           path="trip"
           element={<TripInspection />}
         />
+        <Route path="vehicles" element={<Vehicles />} />
+        <Route path="vehicles/:id" element={<VehicleDetail />} />
         <Route
           path="inspections"
           element={<Inspections />}

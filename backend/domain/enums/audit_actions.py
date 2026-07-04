@@ -66,6 +66,8 @@ class AuditAction:
 
     # Anonymous quick trip analysis (ephemeral, nothing stored)
     QUICK_TRIP_ANALYSIS_RUN = "QUICK_TRIP_ANALYSIS_RUN"
+    PLATE_OCR_RUN = "PLATE_OCR_RUN"
+    VEHICLE_LINKED = "VEHICLE_LINKED"
 
     # Integration — CROMS + Maintenance (Sprint 04)
     CROMS_CHECKOUT_INSPECTION_REQUESTED = "CROMS_CHECKOUT_INSPECTION_REQUESTED"
@@ -107,3 +109,4 @@ class ObjectType:
     INTEGRATION = "INTEGRATION"
     MAINTENANCE_HANDOFF = "MAINTENANCE_HANDOFF"
     REPORT = "REPORT"
+    VEHICLE = "VEHICLE"

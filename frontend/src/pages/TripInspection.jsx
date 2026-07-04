@@ -264,6 +264,19 @@ export default function TripInspection() {
   const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [ocrShot, setOcrShot] = useState(EMPTY);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrData, setOcrData] = useState(null);
+  const [plateSource, setPlateSource] = useState(null);
+  const [saveHistory, setSaveHistory] = useState(true);
+  const rfRef = useRef(reportFields);
+  useEffect(() => { rfRef.current = reportFields; }, [reportFields]);
+
+  const maybeAutofillPlate = (plate, source) => {
+    if (!plate || (rfRef.current.vehiclePlate || "").trim()) return;
+    setReportFields((prev) => ({ ...prev, vehiclePlate: plate }));
+    setPlateSource(source);
+  };
 
   const clear = () => { setResult(null); setError(""); };
 
@@ -311,7 +324,25 @@ export default function TripInspection() {
     catch { setError("Could not read that image. Please try a different photo."); }
   }, []);
 
-  const reset = () => { setAngles({ FRONT: { before: EMPTY, after: EMPTY } }); setSelectedAngles(["FRONT"]); setInteriorOn(false); setIntBefore(EMPTY); setIntAfter(EMPTY); clear(); setStage(""); };
+  const pickOcr = useCallback(async (_slot, file) => {
+    setError("");
+    try {
+      const p = await prepareImage(file);
+      setOcrShot(p); setOcrBusy(true); setOcrData(null);
+      const fd = new FormData();
+      fd.append("image", p.blob, "plate.jpg");
+      const { data } = await api.post("/trip-inspection/read-plate", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 120000 });
+      const d = data.data;
+      setOcrData(d);
+      maybeAutofillPlate(d.plate?.text, "ocr");
+      const m = [d.vehicle?.make, d.vehicle?.model].filter(Boolean).join(" ");
+      if (m) setReportFields((prev) => ((prev.vehicleModel || "").trim() ? prev : { ...prev, vehicleModel: m }));
+    } catch (err) { setError(envelopeError(err, "Could not read the plate/VIN. Please try a clearer close-up.")); }
+    finally { setOcrBusy(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const reset = () => { setAngles({ FRONT: { before: EMPTY, after: EMPTY } }); setSelectedAngles(["FRONT"]); setInteriorOn(false); setIntBefore(EMPTY); setIntAfter(EMPTY); setOcrShot(EMPTY); setOcrData(null); setPlateSource(null); clear(); setStage(""); };
 
   const angleComplete = (k) => angles[k]?.before?.blob && angles[k]?.after?.blob;
   const intComplete = intBefore.blob && intAfter.blob;
@@ -354,6 +385,7 @@ export default function TripInspection() {
           if (j.afterMeta) fd.append("after_meta", JSON.stringify(j.afterMeta));
           const { data } = await api.post("/trip-inspection/analyze-section", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 });
           collected.push(data.data);
+          maybeAutofillPlate(data.data?.vehicleSignature?.visiblePlate, "photo");
           setResult((prev) => ({ ...prev, sections: [...(prev?.sections || []), data.data] }));
         } catch (e) {
           collected.push(null);
@@ -365,7 +397,14 @@ export default function TripInspection() {
       const good = collected.filter(Boolean);
       if (good.length === 0) { setError("Analysis failed. Please retry."); setResult(null); return; }
       // Aggregate + auto-case routing once over the whole set.
-      const { data } = await api.post("/trip-inspection/finalize", { sections: good, reportFields, mode }, { timeout: 60000 });
+      const { data } = await api.post("/trip-inspection/finalize", {
+        sections: good, reportFields: rfRef.current, mode,
+        saveToVehicleHistory: saveHistory,
+        ocr: ocrData ? {
+          plate: ocrData.plate?.text || null, vin: ocrData.vin?.text || null,
+          model: [ocrData.vehicle?.make, ocrData.vehicle?.model].filter(Boolean).join(" ") || null,
+        } : null,
+      }, { timeout: 60000 });
       setResult(data.data);
     } catch (err) { setError(envelopeError(err, "Analysis failed. Please retry.")); }
     finally { setBusy(false); setStreaming(false); setPending([]); setStage(""); }
@@ -536,6 +575,7 @@ export default function TripInspection() {
     };
     const o = map[result.overall] || map.NOT_COMPARABLE; const Icon = o.icon; const cov = result.coverage || {};
     const vc = result.vehicleConsistency || {};
+    const vl = result.vehicleLink || {};
     const extSections = (result.sections || []).filter((s) => s.kind === "EXTERIOR").length;
     return (
       <div className={`rounded-lg border p-5 flex items-start gap-3 ${o.cls}`}>
@@ -551,6 +591,12 @@ export default function TripInspection() {
             <span data-testid="trip-walkaround-badge" className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${cov.fullWalkaround ? "border-emerald400/50 bg-emerald-400/10 text-emerald400" : "border-amber400/50 bg-amber400/10 text-amber400"}`}>
               {cov.fullWalkaround ? "✓ Full 5-angle walkaround" : `Partial walkaround ${cov.capturedCount || 0}/5`}
             </span>
+            {vl.linked && (
+              <Link to={`/vehicles/${vl.vehicleId}`} data-testid="trip-vehicle-link-chip"
+                className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald400/50 bg-emerald-400/10 text-emerald400 flex items-center gap-1 hover:bg-emerald-400/20">
+                <CarFront className="size-3" /> Saved to vehicle history · {vl.plate || vl.vin}{vl.isNewVehicle ? " (new)" : ""} <ArrowRight className="size-3" />
+              </Link>
+            )}
             {vc.consistent && (extSections >= 2 || vc.plateMatch === true) && (
               <span data-testid="trip-vehicle-consistent-chip" title={`Colour(s): ${(vc.colors || []).join(", ") || "n/a"} · Plate(s) read: ${(vc.platesRead || []).join(", ") || "none"}`}
                 className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald400/50 bg-emerald-400/10 text-emerald400 flex items-center gap-1">
@@ -579,6 +625,11 @@ export default function TripInspection() {
               <WarningPanel testId="trip-vehicle-consistency-warning" title="Vehicle identity check:" items={vc.warnings} />
             </div>
           )}
+          {vl.warnings?.length > 0 && (
+            <div className="mt-2">
+              <WarningPanel testId="trip-vehicle-link-warning" title="Vehicle registry:" items={vl.warnings} />
+            </div>
+          )}
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <select data-testid={T.tripExportLang} value={pdfLang} onChange={(e) => setPdfLang(e.target.value)}
@@ -602,7 +653,7 @@ export default function TripInspection() {
         <ShieldCheck className="size-4 mt-0.5 text-emerald400" />
         Guided walkaround: pick the angles to inspect, add a before/after photo for each, then analyze. You get damage detection with size,
         repair/replace and cost estimates, photo-quality &amp; image-integrity checks, condition &amp; cleanliness scores, and a branded PDF
-        (English / Arabic). Advisory only — nothing is stored.
+        (English / Arabic). Advisory only — photos are never stored; results can optionally be saved to the vehicle's damage history.
       </p>
 
 
@@ -658,15 +709,51 @@ export default function TripInspection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[["customerName", "Customer name", "trip-field-customer"], ["vehiclePlate", "Vehicle plate", "trip-field-plate"], ["vehicleModel", "Make / model", "trip-field-model"], ["rentalId", "Rental ID", "trip-field-rental"], ["inspectorName", "Inspector name", "trip-field-inspector"]].map(([key, label, tid]) => (
               <div key={key}>
-                <label className="text-[11px] uppercase tracking-wider text-steel-400">{label}</label>
-                <input data-testid={tid} value={reportFields[key]} onChange={(e) => setReportFields((s) => ({ ...s, [key]: e.target.value }))}
+                <label className="text-[11px] uppercase tracking-wider text-steel-400 flex items-center gap-2">
+                  {label}
+                  {key === "vehiclePlate" && plateSource && (
+                    <span data-testid="trip-plate-source-chip" className="text-[9px] normal-case tracking-normal px-1.5 py-0.5 rounded-full border border-emerald400/40 bg-emerald-400/10 text-emerald400">
+                      read from {plateSource === "ocr" ? "close-up" : "photo"}
+                    </span>
+                  )}
+                </label>
+                <input data-testid={tid} value={reportFields[key]} onChange={(e) => { if (key === "vehiclePlate") setPlateSource(null); setReportFields((s) => ({ ...s, [key]: e.target.value })); }}
                   className="mt-1 w-full rounded-md bg-ink-900/70 border border-ink-700 px-3 py-2 text-sm text-steel-100 placeholder:text-steel-500 focus:outline-none focus:border-signal/50" placeholder={label} />
               </div>
             ))}
           </div>
+          <div className="mt-5 flex flex-col sm:flex-row gap-5 items-start">
+            <div className="w-full sm:w-56 shrink-0">
+              <DropZone label="Plate / VIN close-up (optional)" slot="ocr" state={ocrShot} onPick={pickOcr} testId="trip-ocr-input" />
+            </div>
+            <div className="text-xs text-steel-400 flex-1 sm:pt-7">
+              {ocrBusy ? (
+                <span className="flex items-center gap-2 text-steel-300"><Loader2 className="size-4 animate-spin" /> Reading plate / VIN…</span>
+              ) : ocrData ? (
+                <div data-testid="trip-ocr-result" className="space-y-1.5">
+                  <div className="text-steel-200">Plate: <span className="font-mono font-semibold text-white">{ocrData.plate?.text || "not readable"}</span>
+                    {ocrData.plate?.textAr && <span className="font-mono text-steel-300 mr-1"> · {ocrData.plate.textAr}</span>}
+                    {ocrData.plate?.text && <span className="text-steel-500"> ({Math.round((ocrData.plate.confidence || 0) * 100)}%)</span>}
+                  </div>
+                  <div className="text-steel-200">VIN: <span className="font-mono font-semibold text-white">{ocrData.vin?.text || "not readable"}</span>
+                    {ocrData.vin?.text && !ocrData.vin?.valid && <span className="text-amber400"> — unusual length, please verify</span>}
+                  </div>
+                  {(ocrData.vehicle?.make || ocrData.vehicle?.model || ocrData.vehicle?.color) && (
+                    <div className="capitalize">{[ocrData.vehicle.color, ocrData.vehicle.make, ocrData.vehicle.model, ocrData.vehicle.year].filter(Boolean).join(" ")}</div>
+                  )}
+                </div>
+              ) : (
+                <span>Add a close-up of the license plate or windshield VIN — it is read automatically (Saudi EN/AR plates supported) and used to link this trip to the vehicle's damage history.</span>
+              )}
+            </div>
+          </div>
           <label className="mt-3 flex items-center gap-2 text-sm text-steel-300 cursor-pointer w-fit" data-testid="trip-field-signatures">
             <input type="checkbox" checked={includeSignatures} onChange={(e) => setIncludeSignatures(e.target.checked)} className="size-4 accent-signal" />
             Include customer &amp; staff signature blocks in the PDF
+          </label>
+          <label className="mt-2 flex items-center gap-2 text-sm text-steel-300 cursor-pointer w-fit" data-testid="trip-save-history">
+            <input type="checkbox" checked={saveHistory} onChange={(e) => setSaveHistory(e.target.checked)} className="size-4 accent-signal" />
+            Save result to the vehicle's damage history (needs a plate or VIN)
           </label>
         </div>
 

@@ -111,6 +111,22 @@ class FinalizeIn(BaseModel):
     sections: list[dict] = []
     reportFields: Optional[dict] = None
     mode: Optional[str] = "fast"
+    saveToVehicleHistory: bool = True
+    ocr: Optional[dict] = None
+
+
+@router.post("/read-plate")
+async def read_plate(
+    request: Request,
+    image: UploadFile = File(...),
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    """Dedicated plate/VIN close-up OCR — returns plate (EN/AR), VIN, and basic vehicle info."""
+    data = await trip_inspection_service.read_plate(
+        principal=principal, image=await _read(image),
+        correlation_id=request.state.correlation_id,
+    )
+    return ok(data, request.state.correlation_id)
 
 
 @router.post("/finalize")
@@ -123,6 +139,7 @@ async def finalize(
     data = await trip_inspection_service.finalize_trip(
         principal=principal, sections=payload.sections, report_fields=payload.reportFields,
         mode=(payload.mode or "fast"), correlation_id=request.state.correlation_id,
+        save_to_history=payload.saveToVehicleHistory, ocr=payload.ocr,
     )
     return ok(data, request.state.correlation_id)
 

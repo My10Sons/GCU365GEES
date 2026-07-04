@@ -1,0 +1,183 @@
+"""
+Repository Traceability:
+- Purpose: Per-tenant vehicle registry + trip-history linking for the Trip Inspection flow.
+  Vehicles are identified by VIN (stronger identifier — wins conflicts) or normalized plate.
+  Linked trips store a compact snapshot that powers the damage-history timeline.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Optional
+
+from bson import ObjectId
+
+from api.middleware.safe_errors import DomainError
+from application.services.audit_service import write_audit
+from domain.enums.audit_actions import ActorType, AuditAction, ObjectType
+from domain.enums.error_codes import ErrorCode
+from infrastructure.db.mongo import get_db
+
+
+def plate_norm(p) -> str:
+    return "".join(ch for ch in str(p or "").upper() if ch.isalnum())
+
+
+def vin_norm(v) -> str:
+    return "".join(ch for ch in str(v or "").upper() if ch.isalnum())
+
+
+def _iso(v):
+    return v.isoformat() if isinstance(v, datetime) else v
+
+
+def _ser(doc: dict) -> dict:
+    out = {k: _iso(v) for k, v in doc.items() if k != "_id"}
+    out["id"] = str(doc["_id"])
+    return out
+
+
+def _compact_sections(sections: list[dict]) -> list[dict]:
+    out = []
+    for s in sections[:8]:
+        out.append({
+            "label": s.get("label"), "kind": s.get("kind"), "angle": s.get("angle"),
+            "newIssueCount": s.get("newIssueCount"), "summary": (s.get("summary") or "")[:300],
+            "conditionScore": s.get("conditionScore"), "cleanliness": s.get("cleanliness"),
+            "items": [
+                {k: it.get(k) for k in ("category", "status", "severity", "location",
+                                        "sizeCm", "recommendation", "estimatedCost", "confidence")}
+                for it in (s.get("items") or [])[:40]
+            ],
+        })
+    return out
+
+
+async def link_trip(*, principal: dict, result: dict, report_fields: Optional[dict],
+                    ocr: Optional[dict], correlation_id: str) -> dict:
+    rf = report_fields or {}
+    ocr = ocr or {}
+    vc = result.get("vehicleConsistency") or {}
+    plate_display = (rf.get("vehiclePlate") or "").strip() or (str(ocr.get("plate") or "")).strip()
+    if not plate_display and vc.get("platesRead"):
+        plate_display = vc["platesRead"][0]
+    plate = plate_norm(plate_display)
+    vin = vin_norm(ocr.get("vin"))
+    if not plate and not vin:
+        return {"linked": False, "reason": "no_identifier"}
+
+    db = get_db()
+    tenant_id = principal["tenantId"]
+    now = datetime.now(timezone.utc)
+    warnings: list[str] = []
+
+    vehicle = None
+    if vin:
+        vehicle = await db.di_vehicles.find_one({"tenantId": tenant_id, "vin": vin})
+        if vehicle and plate and vehicle.get("plateNormalized") and vehicle["plateNormalized"] != plate:
+            warnings.append(
+                f"Plate changed for this VIN: previously {vehicle.get('plateDisplay')}, now "
+                f"{plate_display}. VIN is treated as the stronger identifier — plate updated."
+            )
+        if vehicle is None and plate:
+            same_plate = await db.di_vehicles.find_one({"tenantId": tenant_id, "plateNormalized": plate})
+            if same_plate and vin_norm(same_plate.get("vin")) and vin_norm(same_plate.get("vin")) != vin:
+                warnings.append(
+                    f"Plate {plate_display} is already registered to a different VIN "
+                    f"({same_plate.get('vin')}). A separate vehicle record was kept for this VIN."
+                )
+            elif same_plate and not vin_norm(same_plate.get("vin")):
+                vehicle = same_plate  # same plate, no VIN on record yet → enrich it with the VIN
+    elif plate:
+        vehicle = await db.di_vehicles.find_one({"tenantId": tenant_id, "plateNormalized": plate})
+
+    model = (rf.get("vehicleModel") or "").strip() or (str(ocr.get("model") or "")).strip()
+    colors = vc.get("colors") or []
+    bodies = vc.get("bodyTypes") or []
+    set_fields: dict = {"tenantId": tenant_id, "lastSeenAt": now, "updatedAt": now}
+    if plate:
+        set_fields["plateNormalized"] = plate
+        set_fields["plateDisplay"] = plate_display[:24]
+    if vin:
+        set_fields["vin"] = vin
+    if model:
+        set_fields["model"] = model[:80]
+    if len(colors) == 1:
+        set_fields["color"] = colors[0]
+    if len(bodies) == 1:
+        set_fields["bodyType"] = bodies[0]
+
+    is_new = vehicle is None
+    if is_new:
+        res = await db.di_vehicles.insert_one({
+            **set_fields, "firstSeenAt": now, "createdAt": now,
+            "createdBy": principal["id"], "inspectionCount": 0,
+        })
+        vehicle_id = res.inserted_id
+    else:
+        vehicle_id = vehicle["_id"]
+        await db.di_vehicles.update_one({"_id": vehicle_id}, {"$set": set_fields})
+    await db.di_vehicles.update_one({"_id": vehicle_id}, {"$inc": {"inspectionCount": 1}})
+
+    auto_case = result.get("autoCase") or {}
+    trip_res = await db.di_vehicle_trips.insert_one({
+        "tenantId": tenant_id, "vehicleId": str(vehicle_id),
+        "plateDisplay": plate_display[:24] or None,
+        "overall": result.get("overall"), "newIssueCount": result.get("newIssueCount"),
+        "costSummary": result.get("costSummary"), "conditionScore": result.get("conditionScore"),
+        "cleanliness": result.get("cleanliness"), "coverage": result.get("coverage"),
+        "mode": result.get("mode"), "modelVersion": result.get("modelVersion"),
+        "sections": _compact_sections(result.get("sections") or []),
+        "reportFields": {k: (rf.get(k) or None) for k in
+                         ("customerName", "vehicleModel", "rentalId", "inspectorName")},
+        "damageCaseId": auto_case.get("damageCaseId"),
+        "inspectionSessionId": auto_case.get("inspectionSessionId"),
+        "createdAt": now, "createdBy": principal["id"], "correlationId": correlation_id,
+    })
+
+    await write_audit(
+        tenant_id=tenant_id, actor_id=principal["id"], actor_type=ActorType.USER,
+        action=AuditAction.VEHICLE_LINKED, object_type=ObjectType.VEHICLE,
+        object_id=str(vehicle_id), correlation_id=correlation_id,
+        safe_metadata={"isNewVehicle": is_new, "hasVin": bool(vin),
+                       "overall": result.get("overall"), "warnings": len(warnings)},
+    )
+    return {
+        "linked": True, "vehicleId": str(vehicle_id), "tripId": str(trip_res.inserted_id),
+        "plate": plate_display[:24] or None, "vin": vin or None,
+        "isNewVehicle": is_new, "warnings": warnings,
+    }
+
+
+async def list_vehicles(*, principal: dict, search: str = "", limit: int = 200) -> dict:
+    db = get_db()
+    q: dict = {"tenantId": principal["tenantId"]}
+    s = (search or "").strip()
+    if s:
+        import re
+        rx = {"$regex": re.escape(s), "$options": "i"}
+        q["$or"] = [{"plateNormalized": {"$regex": re.escape(plate_norm(s)), "$options": "i"}},
+                    {"plateDisplay": rx}, {"vin": rx}, {"model": rx}]
+    rows = await db.di_vehicles.find(q).sort("lastSeenAt", -1).limit(max(1, min(limit, 500))).to_list(length=500)
+    return {"vehicles": [_ser(r) for r in rows], "total": len(rows)}
+
+
+async def get_vehicle(*, principal: dict, vehicle_id: str) -> dict:
+    db = get_db()
+    try:
+        oid = ObjectId(vehicle_id)
+    except Exception:
+        raise DomainError(ErrorCode.VALIDATION_ERROR, "Invalid vehicle id.", 400, "vehicleId")
+    vehicle = await db.di_vehicles.find_one({"_id": oid, "tenantId": principal["tenantId"]})
+    if not vehicle:
+        raise DomainError(ErrorCode.NOT_FOUND, "Vehicle not found.", 404)
+    trips = await db.di_vehicle_trips.find(
+        {"tenantId": principal["tenantId"], "vehicleId": str(oid)}
+    ).sort("createdAt", -1).limit(100).to_list(length=100)
+    cases_created = sum(1 for t in trips if t.get("damageCaseId"))
+    total_new = sum(int(t.get("newIssueCount") or 0) for t in trips)
+    return {
+        "vehicle": _ser(vehicle),
+        "trips": [_ser(t) for t in trips],
+        "casesCreated": cases_created,
+        "totalNewIssues": total_new,
+    }

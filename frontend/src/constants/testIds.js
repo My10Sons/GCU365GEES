@@ -172,4 +172,10 @@ export const T = {
   sidebarAiUsage: "sidebar-link-ai-usage",
   aiUsagePage: "ai-usage-page",
   aiUsageRange: "ai-usage-range",
+
+  // Vehicles registry
+  sidebarVehicles: "sidebar-link-vehicles",
+  vehiclesPage: "vehicles-page",
+  vehiclesSearch: "vehicles-search-input",
+  vehicleDetailPage: "vehicle-detail-page",
 };

@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   CarFront,
+  Car,
   BookOpen,
   Activity,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import { T } from "../constants/testIds";
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, testId: T.sidebarDashboard, perm: null, end: true },
   { to: "/trip", label: "Trip Inspection", icon: CarFront, testId: T.sidebarTrip, perm: "di.ai.request" },
+  { to: "/vehicles", label: "Vehicles", icon: Car, testId: T.sidebarVehicles, perm: "di.inspections.read" },
   { to: "/inspections", label: "Inspections", icon: ClipboardList, testId: T.sidebarInspections, perm: "di.inspections.read" },
   { to: "/review", label: "Review Queue", icon: ShieldCheck, testId: T.sidebarReview, perm: "di.review.read" },
   { to: "/cases", label: "Damage Cases", icon: FolderOpen, testId: T.sidebarCases, perm: "di.damagecases.read" },

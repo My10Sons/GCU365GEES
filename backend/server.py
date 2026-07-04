@@ -47,6 +47,7 @@ from api.routes import reports as report_routes
 from api.routes import demo as demo_routes
 from api.routes import trip_inspection as trip_routes
 from api.routes import tenant as tenant_routes
+from api.routes import vehicles as vehicle_routes
 from api.routes import reference as reference_routes
 from api.routes import storage_internal as storage_internal_routes
 from api.routes import version as version_routes
@@ -111,6 +112,7 @@ app.include_router(monitoring_routes.router, prefix=API_BASE_PATH)
 app.include_router(demo_routes.router, prefix=API_BASE_PATH)
 app.include_router(trip_routes.router, prefix=API_BASE_PATH)
 app.include_router(tenant_routes.router, prefix=API_BASE_PATH)
+app.include_router(vehicle_routes.router, prefix=API_BASE_PATH)
 
 
 @app.on_event("startup")

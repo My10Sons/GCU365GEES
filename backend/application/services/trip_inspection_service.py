@@ -23,7 +23,7 @@ from typing import Optional
 
 from api.middleware.safe_errors import DomainError
 from application.ai.gemini_client import call_vision_model_multi
-from application.services import damage_case_service, inspection_service
+from application.services import damage_case_service, inspection_service, vehicle_registry_service
 from application.services.audit_service import write_audit
 from application.services.exif_check import build_metadata_check
 from application.services.tenant_branding_service import get_branding
@@ -687,7 +687,8 @@ async def _budget_status(tenant_id: str) -> dict:
     days_in_month = calendar.monthrange(now.year, now.month)[1]
     day_of_month = now.day
     rows = await db.di_audit_records.aggregate([
-        {"$match": {"tenantId": tenant_id, "action": "QUICK_TRIP_ANALYSIS_RUN",
+        {"$match": {"tenantId": tenant_id,
+                    "action": {"$in": ["QUICK_TRIP_ANALYSIS_RUN", "PLATE_OCR_RUN"]},
                     "timestamp": {"$gte": month_start}}},
         {"$group": {"_id": None, "tokens": {"$sum": {"$ifNull": ["$safeMetadata.totalTokens", 0]}}}},
     ]).to_list(1)
@@ -728,16 +729,18 @@ async def usage_summary(*, principal: dict, days: int = 30) -> dict:
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     pipeline = [
         {"$match": {"tenantId": principal["tenantId"],
-                    "action": "QUICK_TRIP_ANALYSIS_RUN",
+                    "action": {"$in": ["QUICK_TRIP_ANALYSIS_RUN", "PLATE_OCR_RUN"]},
                     "timestamp": {"$gte": cutoff}}},
         {"$project": {
             "day": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
             "tokens": {"$ifNull": ["$safeMetadata.totalTokens", 0]},
             "calls": {"$ifNull": ["$safeMetadata.aiCalls", 0]},
+            "isTrip": {"$cond": [{"$eq": ["$action", "QUICK_TRIP_ANALYSIS_RUN"]}, 1, 0]},
         }},
         {"$group": {"_id": "$day", "tokens": {"$sum": "$tokens"},
-                    "calls": {"$sum": "$calls"}, "inspections": {"$sum": 1},
-                    "tokenedInspections": {"$sum": {"$cond": [{"$gt": ["$tokens", 0]}, 1, 0]}}}},
+                    "calls": {"$sum": "$calls"}, "inspections": {"$sum": "$isTrip"},
+                    "tokenedInspections": {"$sum": {"$cond": [
+                        {"$and": [{"$gt": ["$tokens", 0]}, {"$eq": ["$isTrip", 1]}]}, 1, 0]}}}},
         {"$sort": {"_id": 1}},
     ]
     rows = await db.di_audit_records.aggregate(pipeline).to_list(length=200)
@@ -977,8 +980,85 @@ async def analyze_section(*, principal: dict, kind: str, angle: Optional[str],
     return section
 
 
+_OCR_SYSTEM = (
+    "You are the Damage Intelligence vehicle-identification OCR agent. You read license "
+    "plates and VINs from close-up photos. Respond with STRICT JSON only — no prose."
+)
+_OCR_PROMPT = (
+    "Read the vehicle identification from this photo (license plate close-up, windshield VIN "
+    "plate, or door-jamb sticker).\n"
+    "Return JSON EXACTLY in this shape:\n"
+    "{\n"
+    '  "plate": { "text": plate in Latin letters/digits (e.g. "ABC 1234") or null, '
+    '"textAr": Arabic plate text if printed, else null, '
+    '"region": issuing country/state if identifiable else null, "confidence": 0..1 },\n'
+    '  "vin": { "text": the 17-character VIN or null, "confidence": 0..1 },\n'
+    '  "vehicle": { "color": one lowercase word or null, "make": string or null, '
+    '"model": string or null, "year": string or null }\n'
+    "}\n"
+    "Saudi plates print both Arabic and Latin characters — return the Latin form in plate.text. "
+    "If nothing is readable, use nulls."
+)
+
+
+async def read_plate(*, principal: dict, image: tuple, correlation_id: str) -> dict:
+    """Dedicated plate/VIN OCR on a single close-up photo (always Fast model)."""
+    work = _TMP_ROOT / uuid.uuid4().hex
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        path, mime = _validate_and_save(work, "plate", image)
+        parsed, model_label, latency_ms, err, usage = await call_vision_model_multi(
+            provider=_provider(), model_name=_fast_model(),
+            system_message=_OCR_SYSTEM, user_prompt=_OCR_PROMPT,
+            images=[{"path": path, "mime": mime}], correlation_id=correlation_id,
+        )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    if err is not None:
+        raise DomainError(ErrorCode.INTERNAL_ERROR,
+                          "The OCR engine is temporarily unavailable. Please retry.", 503)
+    parsed = parsed if isinstance(parsed, dict) else {}
+
+    def _conf(v):
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.0
+
+    pl = parsed.get("plate") if isinstance(parsed.get("plate"), dict) else {}
+    plate_text = (pl.get("text") or "").strip().upper()[:24] or None if isinstance(pl.get("text"), str) else None
+    vn = parsed.get("vin") if isinstance(parsed.get("vin"), dict) else {}
+    vin_text = vehicle_registry_service.vin_norm(vn.get("text")) or None
+    veh = parsed.get("vehicle") if isinstance(parsed.get("vehicle"), dict) else {}
+
+    result = {
+        "plate": {
+            "text": plate_text,
+            "textAr": (pl.get("textAr") or "").strip()[:24] or None if isinstance(pl.get("textAr"), str) else None,
+            "region": (pl.get("region") or "").strip()[:40] or None if isinstance(pl.get("region"), str) else None,
+            "confidence": _conf(pl.get("confidence")),
+        },
+        "vin": {"text": vin_text, "confidence": _conf(vn.get("confidence")),
+                "valid": len(vin_text or "") == 17},
+        "vehicle": {k: ((veh.get(k) or "").strip()[:40] or None if isinstance(veh.get(k), str) else None)
+                    for k in ("color", "make", "model", "year")},
+        "modelVersion": model_label,
+        "tokenUsage": {**(usage or {}), "calls": 1},
+    }
+    await write_audit(
+        tenant_id=principal["tenantId"], actor_id=principal["id"], actor_type=ActorType.USER,
+        action=AuditAction.PLATE_OCR_RUN, object_type=ObjectType.AI_ANALYSIS,
+        object_id="plate-ocr", correlation_id=correlation_id,
+        safe_metadata={"plateRead": bool(plate_text), "vinRead": bool(vin_text),
+                       "totalTokens": (usage or {}).get("totalTokens", 0), "aiCalls": 1,
+                       "model": model_label, "latencyMs": latency_ms},
+    )
+    return result
+
+
 async def finalize_trip(*, principal: dict, sections: list[dict], report_fields: Optional[dict],
-                        mode: str, correlation_id: str) -> dict:
+                        mode: str, correlation_id: str, save_to_history: bool = True,
+                        ocr: Optional[dict] = None) -> dict:
     """Aggregate already-analyzed sections (from analyze_section), attach branding, and run
     auto-case routing once over the whole set. Sections are advisory; trip remains anonymous."""
     sections = sections or []
@@ -990,6 +1070,16 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
         principal=principal, result=result, report_fields=report_fields or {},
         correlation_id=correlation_id,
     )
+    if save_to_history:
+        try:
+            result["vehicleLink"] = await vehicle_registry_service.link_trip(
+                principal=principal, result=result, report_fields=report_fields,
+                ocr=ocr, correlation_id=correlation_id,
+            )
+        except Exception:
+            result["vehicleLink"] = {"linked": False, "reason": "error"}
+    else:
+        result["vehicleLink"] = {"linked": False, "reason": "disabled"}
     await write_audit(
         tenant_id=principal["tenantId"], actor_id=principal["id"], actor_type=ActorType.USER,
         action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,
@@ -997,6 +1087,7 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
         safe_metadata={"overall": result["overall"], "newIssues": result["newIssueCount"],
                        "sections": [s.get("label") for s in sections], "streamed": True,
                        "autoCaseCreated": bool(result["autoCase"].get("created")),
+                       "vehicleLinked": bool(result["vehicleLink"].get("linked")),
                        "totalTokens": result["tokenUsage"]["totalTokens"],
                        "aiCalls": result["tokenUsage"]["calls"],
                        "model": result["modelVersion"]},
