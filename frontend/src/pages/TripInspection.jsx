@@ -10,12 +10,32 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import exifr from "exifr";
 import { CarFront, Loader2, ImagePlus, RotateCcw, ShieldCheck, AlertTriangle, CheckCircle2, Sparkles, Armchair, FileDown, Check, ScanEye, FolderPlus, ArrowRight, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, envelopeError } from "../lib/api";
 import { T } from "../constants/testIds";
 
+async function extractMeta(file) {
+  try {
+    const x = await exifr.parse(file);
+    if (!x || Object.keys(x).length === 0) return { hasExif: false };
+    const dt = x.DateTimeOriginal || x.CreateDate || x.ModifyDate;
+    return {
+      hasExif: true,
+      capturedAt: dt instanceof Date && !isNaN(dt) ? dt.toISOString() : null,
+      gpsLat: typeof x.latitude === "number" ? x.latitude : null,
+      gpsLon: typeof x.longitude === "number" ? x.longitude : null,
+      software: typeof x.Software === "string" ? x.Software : null,
+      cameraModel: [x.Make, x.Model].filter(Boolean).join(" ") || null,
+    };
+  } catch {
+    return { hasExif: false };
+  }
+}
+
 async function prepareImage(file) {
+  const meta = await extractMeta(file);
   const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   const img = await loadImage(dataUrl);
   const maxDim = 1600;
@@ -25,7 +45,7 @@ async function prepareImage(file) {
   canvas.width = width; canvas.height = height;
   canvas.getContext("2d").drawImage(img, 0, 0, width, height);
   const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
-  return { blob, preview: canvas.toDataURL("image/jpeg", 0.7) };
+  return { blob, preview: canvas.toDataURL("image/jpeg", 0.7), meta };
 }
 function loadImage(src) { return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
 
@@ -130,14 +150,28 @@ function StatusBadge({ status }) {
 function SectionResult({ section, afterPreview }) {
   const items = section.items || [];
   const ig = section.integrity || {};
-  const photoProbs = [...((section.photoCheck || {}).issues || [])];
-  if (section.photoCheck && !section.photoCheck.beforeUsable) photoProbs.push("Before photo may be unusable");
-  if (section.photoCheck && !section.photoCheck.afterUsable) photoProbs.push("After photo may be unusable");
-  if (section.photoCheck && !section.photoCheck.sameVehicle) photoProbs.push(section.photoCheck.vehicleMismatchReason || "Before/After may be different vehicles");
+  const pc = section.photoCheck || {};
+  const env = section.environment || {};
+  const photoProbs = [...(pc.issues || [])];
+  if (pc.beforeUsable === false) photoProbs.push("Before photo may be unusable");
+  if (pc.afterUsable === false) photoProbs.push("After photo may be unusable");
+  if (pc.sameVehicle === false) photoProbs.push(pc.vehicleMismatchReason || "Before/After may be different vehicles");
+  if (pc.angleCorrect === false) photoProbs.push(pc.angleIssue || "Photo does not show the expected view/angle");
+  if (pc.fullyVisible === false) {
+    (pc.croppedParts?.length ? pc.croppedParts : ["Part of the vehicle is cut off in the frame"]).forEach((p) => photoProbs.push(p));
+  }
+  if (pc.distance === "TOO_CLOSE") photoProbs.push("Camera too close — step back so the whole area is visible");
+  if (pc.distance === "TOO_FAR") photoProbs.push("Camera too far — smaller damage may not be visible");
   const igProbs = [...(ig.signals || [])];
   if (ig.beforeSuspicious) igProbs.push("Before photo shows possible manipulation");
   if (ig.afterSuspicious) igProbs.push("After photo shows possible manipulation");
   if (ig.aiGeneratedLikelihood && ig.aiGeneratedLikelihood !== "LOW") igProbs.push(`AI-generated likelihood: ${ig.aiGeneratedLikelihood}`);
+  if (ig.screenRecaptureLikelihood && ig.screenRecaptureLikelihood !== "LOW") igProbs.push(`Photo-of-a-screen/print likelihood: ${ig.screenRecaptureLikelihood}`);
+  const envProbs = [...(env.notes || [])];
+  if (env.dirtObscuring) envProbs.push("Heavy dirt/mud may be hiding damage");
+  if (env.wetSurface) envProbs.push("Rain/water droplets may hide or mimic damage");
+  if (env.glare) envProbs.push("Strong glare/reflections may hide or mimic damage");
+  const metaProbs = (section.metadataCheck || {}).warnings || [];
 
   return (
     <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 overflow-hidden" data-testid={`trip-section-${section.kind?.toLowerCase()}`}>
@@ -155,6 +189,8 @@ function SectionResult({ section, afterPreview }) {
         {section.summary && <p className="text-sm text-steel-300">{section.summary}</p>}
         <WarningPanel testId="trip-photo-warning" title="Photo check — results may be less reliable:" items={photoProbs} />
         <WarningPanel testId="trip-integrity-warning" title="Integrity check — possible image manipulation:" items={igProbs} />
+        <WarningPanel testId="trip-environment-warning" title="Capture conditions — findings confidence may be reduced:" items={envProbs} />
+        <WarningPanel testId="trip-metadata-warning" title="Photo metadata check:" items={metaProbs} />
 
         <div className="flex flex-wrap gap-2">
           {section.conditionScore != null && <span className="text-[11px] rounded-full border border-ink-700 bg-ink-800/70 px-2.5 py-1 text-steel-300">Condition: <span className={`font-semibold ${scoreColor(section.conditionScore)}`}>{section.conditionScore}/100</span></span>}
@@ -295,9 +331,10 @@ export default function TripInspection() {
       if (angleComplete(k)) jobs.push({
         kind: "EXTERIOR", angle: k, label: `Exterior — ${ANGLES.find((x) => x.key === k)?.en || k}`,
         before: angles[k].before.blob, after: angles[k].after.blob,
+        beforeMeta: angles[k].before.meta, afterMeta: angles[k].after.meta,
       });
     });
-    if (interiorOn && intComplete) jobs.push({ kind: "INTERIOR", angle: null, label: "Interior", before: intBefore.blob, after: intAfter.blob });
+    if (interiorOn && intComplete) jobs.push({ kind: "INTERIOR", angle: null, label: "Interior", before: intBefore.blob, after: intAfter.blob, beforeMeta: intBefore.meta, afterMeta: intAfter.meta });
 
     setStreaming(true);
     setPending(jobs.map((j) => ({ label: j.label, kind: j.kind, angle: j.angle })));
@@ -313,6 +350,8 @@ export default function TripInspection() {
           fd.append("mode", mode);
           fd.append("before", j.before, "before.jpg");
           fd.append("after", j.after, "after.jpg");
+          if (j.beforeMeta) fd.append("before_meta", JSON.stringify(j.beforeMeta));
+          if (j.afterMeta) fd.append("after_meta", JSON.stringify(j.afterMeta));
           const { data } = await api.post("/trip-inspection/analyze-section", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 });
           collected.push(data.data);
           setResult((prev) => ({ ...prev, sections: [...(prev?.sections || []), data.data] }));
@@ -349,6 +388,7 @@ export default function TripInspection() {
       fullWalk: { en: "Full 5-angle walkaround", ar: "فحص محيطي كامل (٥ زوايا)" }, partialWalk: { en: "Incomplete walkaround", ar: "فحص محيطي غير مكتمل" },
       findings: { en: "Findings", ar: "النتائج" }, noIssues: { en: "No issues found.", ar: "لا توجد مشاكل." },
       photoW: { en: "Photo check — results may be less reliable", ar: "فحص الصور — قد تقل الدقة" }, igW: { en: "Integrity check — possible image manipulation", ar: "فحص الأصالة — احتمال تلاعب" },
+      verif: { en: "Verification warnings", ar: "تحذيرات التحقق" },
       custSig: { en: "Customer signature", ar: "توقيع العميل" }, staffSig: { en: "Staff signature", ar: "توقيع الموظف" }, date: { en: "Date", ar: "التاريخ" },
       cat: { en: "Item", ar: "العنصر" }, status: { en: "Status", ar: "الحالة" }, action: { en: "Action", ar: "الإجراء" }, size: { en: "Size", ar: "الحجم" }, cost: { en: "Est. cost", ar: "التكلفة" }, loc: { en: "Location / note", ar: "الموقع / ملاحظة" },
     };
@@ -379,6 +419,14 @@ export default function TripInspection() {
       : `<span style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:bold;background:#fff4e5;color:#b26a00;border:1px solid #b26a00;">${tt(L.partialWalk, lang)} (${cov.capturedCount || 0}/${cov.totalAngles || 5})</span>`;
 
     const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+    const verifWarnings = [...((result.vehicleConsistency || {}).warnings || [])];
+    for (const s of result.sections || []) {
+      for (const w of ((s.metadataCheck || {}).warnings || [])) verifWarnings.push(`${s.label}: ${w}`);
+    }
+    const verifHtml = verifWarnings.length
+      ? `<div style="margin-top:10px;padding:8px 10px;border:1px solid #b26a00;background:#fff4e5;border-radius:6px;font-size:9.5px;color:#7a4a00;"><b>${tt(L.verif, lang)}</b><ul style="margin:4px 0 0 16px;padding:0;">${verifWarnings.slice(0, 10).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>`
+      : "";
 
     let sectionsHtml = "";
     for (const s of result.sections || []) {
@@ -439,6 +487,7 @@ export default function TripInspection() {
         ${metrics.length ? `<div style="font-size:11px;color:#222;font-weight:bold;margin-top:4px;">${metrics.join("&nbsp;&nbsp;·&nbsp;&nbsp;")}</div>` : ""}
         <div style="font-size:10px;color:#555;margin-top:3px;">${covLine}</div>
         <div>${walkBadge}</div>
+        ${verifHtml}
         ${sectionsHtml}
         ${sigHtml}
       </div>`;
@@ -486,6 +535,8 @@ export default function TripInspection() {
       NOT_COMPARABLE: { cls: "bg-amber400/10 border-amber400/40 text-amber400", icon: AlertTriangle, title: "Could not compare the photos" },
     };
     const o = map[result.overall] || map.NOT_COMPARABLE; const Icon = o.icon; const cov = result.coverage || {};
+    const vc = result.vehicleConsistency || {};
+    const extSections = (result.sections || []).filter((s) => s.kind === "EXTERIOR").length;
     return (
       <div className={`rounded-lg border p-5 flex items-start gap-3 ${o.cls}`}>
         <Icon className="size-6 mt-0.5 shrink-0" />
@@ -500,6 +551,12 @@ export default function TripInspection() {
             <span data-testid="trip-walkaround-badge" className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${cov.fullWalkaround ? "border-emerald400/50 bg-emerald-400/10 text-emerald400" : "border-amber400/50 bg-amber400/10 text-amber400"}`}>
               {cov.fullWalkaround ? "✓ Full 5-angle walkaround" : `Partial walkaround ${cov.capturedCount || 0}/5`}
             </span>
+            {vc.consistent && (extSections >= 2 || vc.plateMatch === true) && (
+              <span data-testid="trip-vehicle-consistent-chip" title={`Colour(s): ${(vc.colors || []).join(", ") || "n/a"} · Plate(s) read: ${(vc.platesRead || []).join(", ") || "none"}`}
+                className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald400/50 bg-emerald-400/10 text-emerald400 flex items-center gap-1">
+                <ShieldCheck className="size-3" /> Same vehicle verified{vc.plateMatch === true ? " · plate matches" : ""}
+              </span>
+            )}
             {result.mode === "fast" && result.escalatedCount > 0 && (
               <span data-testid="trip-escalated-summary" title="These areas looked uncertain or high-severity, so they were automatically re-checked on the high-accuracy model."
                 className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-400/50 bg-violet-400/10 text-violet-300 flex items-center gap-1">
@@ -513,8 +570,15 @@ export default function TripInspection() {
               </span>
             )}
           </div>
-          {result.hasPhotoWarnings && <p className="text-[11px] text-amber400 mt-1.5 flex items-center gap-1"><AlertTriangle className="size-3" /> Photo-quality / vehicle-match warnings — see sections below.</p>}
+          {result.hasPhotoWarnings && <p className="text-[11px] text-amber400 mt-1.5 flex items-center gap-1"><AlertTriangle className="size-3" /> Photo-quality / angle / framing warnings — see sections below.</p>}
           {result.hasIntegrityWarnings && <p className="text-[11px] text-amber400 mt-1 flex items-center gap-1"><ScanEye className="size-3" /> Image-integrity warnings — see sections below.</p>}
+          {result.hasEnvironmentWarnings && <p className="text-[11px] text-amber400 mt-1 flex items-center gap-1"><AlertTriangle className="size-3" /> Capture-condition warnings (dirt / rain / glare) — findings confidence may be reduced.</p>}
+          {result.hasMetadataWarnings && <p className="text-[11px] text-amber400 mt-1 flex items-center gap-1"><AlertTriangle className="size-3" /> Photo metadata warnings (missing / old / edited capture data) — see sections below.</p>}
+          {vc.warnings?.length > 0 && (
+            <div className="mt-2">
+              <WarningPanel testId="trip-vehicle-consistency-warning" title="Vehicle identity check:" items={vc.warnings} />
+            </div>
+          )}
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <select data-testid={T.tripExportLang} value={pdfLang} onChange={(e) => setPdfLang(e.target.value)}

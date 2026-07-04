@@ -25,6 +25,7 @@ from api.middleware.safe_errors import DomainError
 from application.ai.gemini_client import call_vision_model_multi
 from application.services import damage_case_service, inspection_service
 from application.services.audit_service import write_audit
+from application.services.exif_check import build_metadata_check
 from application.services.tenant_branding_service import get_branding
 from domain.enums.ai_codes import AIFindingStatus, DamageType
 from domain.enums.audit_actions import ActorType, AuditAction, ObjectType
@@ -222,7 +223,9 @@ def _user_prompt(kind: str, lines: str, enum_list: str, angle: Optional[str]) ->
         f"The FIRST image is the {where} BEFORE the trip. The SECOND image is the {where} AFTER "
         f"the trip. {angle_ctx}Compare them.\n"
         f"Report ALL visible {where} damage and condition issues across these categories. Be "
-        "conservative; if unsure, set status UNCERTAIN.\n"
+        "conservative; if unsure, set status UNCERTAIN. Also VERIFY the photos themselves: "
+        "correct view/angle, full framing, camera distance, same vehicle, authenticity, and "
+        "capture conditions (dirt, rain, glare).\n"
         "Categories:\n" + lines + "\n"
         "Return JSON EXACTLY in this shape:\n"
         "{\n"
@@ -233,13 +236,31 @@ def _user_prompt(kind: str, lines: str, enum_list: str, angle: Optional[str]) ->
         '     "afterUsable": true or false (is the AFTER photo clear enough to inspect),\n'
         '     "issues": [ short strings for any photo problems e.g. "after photo is blurry", "before photo too dark", "view partly obstructed" ],\n'
         '     "sameVehicle": true or false (do BEFORE and AFTER show the SAME vehicle),\n'
-        '     "vehicleMismatchReason": string or null\n'
+        '     "vehicleMismatchReason": string or null,\n'
+        '     "angleCorrect": true or false (do BOTH photos actually show the stated view/area; false if e.g. a rear photo was uploaded for the front),\n'
+        '     "angleIssue": string or null (which photo shows the wrong view and what it shows instead),\n'
+        '     "fullyVisible": true or false (is the stated area fully framed with nothing important cut off),\n'
+        '     "croppedParts": [ short strings naming cut-off parts e.g. "front bumper partly cropped" ],\n'
+        '     "distance": one of ["OK","TOO_CLOSE","TOO_FAR"] (camera distance in the AFTER photo)\n'
         "  },\n"
         '  "integrity": {\n'
         '     "beforeSuspicious": true or false (does the BEFORE photo show signs of digital editing, AI generation, or being a photo-of-a-screen),\n'
         '     "afterSuspicious": true or false (same for the AFTER photo),\n'
         '     "aiGeneratedLikelihood": one of ["LOW","MEDIUM","HIGH"] (likelihood either photo is AI-generated or manipulated),\n'
+        '     "screenRecaptureLikelihood": one of ["LOW","MEDIUM","HIGH"] (likelihood either photo is a photo OF a screen, print, or another photo — look for moire patterns, pixel grids, screen bezels, rectangular glare),\n'
         '     "signals": [ short strings describing any tampering/AI signals e.g. "cloned region", "inconsistent shadows", "screen moire pattern", "warped edges" ]\n'
+        "  },\n"
+        '  "environment": {\n'
+        '     "dirtObscuring": true or false (is dirt/mud heavy enough that it could HIDE damage),\n'
+        '     "wetSurface": true or false (rain or water droplets on the vehicle that could hide or mimic damage),\n'
+        '     "glare": true or false (strong glare/reflection hotspots that may hide or mimic damage),\n'
+        '     "notes": [ short strings saying where, e.g. "heavy glare on the bonnet" ],\n'
+        '     "confidenceReduced": true or false (should findings be treated with reduced confidence due to these conditions)\n'
+        "  },\n"
+        '  "vehicleSignature": {\n'
+        '     "color": main body colour as ONE lowercase word (e.g. "white") or null,\n'
+        '     "bodyType": one of ["sedan","suv","hatchback","pickup","van","coupe","truck","bus","other"] or null,\n'
+        '     "visiblePlate": license-plate text if clearly readable in either photo, else null\n'
         "  },\n"
         '  "conditionScore": integer 0-100 (overall condition of the vehicle in the AFTER photo; 100 = pristine, 0 = severely damaged),\n'
         '  "cleanliness": one of ["CLEAN","LIGHT_DIRT","DIRTY","VERY_DIRTY"] for the AFTER photo,\n'
@@ -288,16 +309,29 @@ def _normalize_box(box) -> Optional[dict]:
     return {"x": round(x, 4), "y": round(y, 4), "w": round(w, 4), "h": round(h, 4)}
 
 
+_DISTANCES = {"OK", "TOO_CLOSE", "TOO_FAR"}
+_BODY_TYPES = {"SEDAN", "SUV", "HATCHBACK", "PICKUP", "VAN", "COUPE", "TRUCK", "BUS", "OTHER"}
+
+
 def _normalize_photo_check(parsed: dict, comparable: bool) -> dict:
     pc = parsed.get("photoCheck") if isinstance(parsed.get("photoCheck"), dict) else {}
     issues = pc.get("issues")
     issues = [str(s)[:140] for s in issues if isinstance(s, str)][:6] if isinstance(issues, list) else []
+    cropped = pc.get("croppedParts")
+    cropped = [str(s)[:140] for s in cropped if isinstance(s, str)][:5] if isinstance(cropped, list) else []
+    distance = pc.get("distance")
+    distance = distance.upper() if isinstance(distance, str) and distance.upper() in _DISTANCES else "OK"
     return {
         "beforeUsable": bool(pc.get("beforeUsable", True)),
         "afterUsable": bool(pc.get("afterUsable", True)),
         "issues": issues,
         "sameVehicle": bool(pc.get("sameVehicle", comparable)),
         "vehicleMismatchReason": pc.get("vehicleMismatchReason") if isinstance(pc.get("vehicleMismatchReason"), str) else None,
+        "angleCorrect": bool(pc.get("angleCorrect", True)),
+        "angleIssue": (pc.get("angleIssue") or None) if isinstance(pc.get("angleIssue"), str) else None,
+        "fullyVisible": bool(pc.get("fullyVisible", True)),
+        "croppedParts": cropped,
+        "distance": distance,
     }
 
 
@@ -307,12 +341,41 @@ def _normalize_integrity(parsed: dict) -> dict:
     signals = [str(s)[:140] for s in signals if isinstance(s, str)][:6] if isinstance(signals, list) else []
     likelihood = ig.get("aiGeneratedLikelihood")
     likelihood = likelihood.upper() if isinstance(likelihood, str) and likelihood.upper() in _AI_LIKELIHOOD else "LOW"
+    screen = ig.get("screenRecaptureLikelihood")
+    screen = screen.upper() if isinstance(screen, str) and screen.upper() in _AI_LIKELIHOOD else "LOW"
     return {
         "beforeSuspicious": bool(ig.get("beforeSuspicious", False)),
         "afterSuspicious": bool(ig.get("afterSuspicious", False)),
         "aiGeneratedLikelihood": likelihood,
+        "screenRecaptureLikelihood": screen,
         "signals": signals,
     }
+
+
+def _normalize_environment(parsed: dict) -> dict:
+    env = parsed.get("environment") if isinstance(parsed.get("environment"), dict) else {}
+    notes = env.get("notes")
+    notes = [str(s)[:140] for s in notes if isinstance(s, str)][:6] if isinstance(notes, list) else []
+    return {
+        "dirtObscuring": bool(env.get("dirtObscuring", False)),
+        "wetSurface": bool(env.get("wetSurface", False)),
+        "glare": bool(env.get("glare", False)),
+        "notes": notes,
+        "confidenceReduced": bool(env.get("confidenceReduced", False)),
+    }
+
+
+def _normalize_signature(parsed: dict) -> dict:
+    sig = parsed.get("vehicleSignature") if isinstance(parsed.get("vehicleSignature"), dict) else {}
+    color = sig.get("color")
+    color = color.strip().lower()[:24] if isinstance(color, str) and color.strip() else None
+    if color == "grey":
+        color = "gray"
+    body = sig.get("bodyType")
+    body = body.strip().lower() if isinstance(body, str) and body.strip().upper() in _BODY_TYPES else None
+    plate = sig.get("visiblePlate")
+    plate = plate.strip()[:20] if isinstance(plate, str) and plate.strip() else None
+    return {"color": color, "bodyType": body, "visiblePlate": plate}
 
 
 def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) -> dict:
@@ -325,8 +388,11 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             "counts": {c: {"NEW": 0, "total": 0} for c in categories},
             "newIssueCount": 0,
             "overall": "NOT_COMPARABLE",
-            "photoCheck": {"beforeUsable": False, "afterUsable": False, "issues": ["analysis could not be completed"], "sameVehicle": False, "vehicleMismatchReason": None},
-            "integrity": {"beforeSuspicious": False, "afterSuspicious": False, "aiGeneratedLikelihood": "LOW", "signals": []},
+            "photoCheck": {"beforeUsable": False, "afterUsable": False, "issues": ["analysis could not be completed"], "sameVehicle": False, "vehicleMismatchReason": None,
+                           "angleCorrect": True, "angleIssue": None, "fullyVisible": True, "croppedParts": [], "distance": "OK"},
+            "integrity": {"beforeSuspicious": False, "afterSuspicious": False, "aiGeneratedLikelihood": "LOW", "screenRecaptureLikelihood": "LOW", "signals": []},
+            "environment": {"dirtObscuring": False, "wetSurface": False, "glare": False, "notes": [], "confidenceReduced": False},
+            "vehicleSignature": {"color": None, "bodyType": None, "visiblePlate": None},
             "conditionScore": None,
             "cleanliness": None,
             "estimatedCost": {"low": 0, "high": 0, "currency": _COST_CURRENCY},
@@ -400,6 +466,8 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
         "overall": overall,
         "photoCheck": _normalize_photo_check(parsed, comparable),
         "integrity": _normalize_integrity(parsed),
+        "environment": _normalize_environment(parsed),
+        "vehicleSignature": _normalize_signature(parsed),
         "conditionScore": score,
         "cleanliness": cleanliness,
         "estimatedCost": {"low": new_low, "high": new_high, "currency": _COST_CURRENCY},
@@ -549,7 +617,8 @@ async def _maybe_auto_create_case(
 
 async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_path: str,
                                    after_mime: str, kind: str, angle: Optional[str], mode: str,
-                                   correlation_id: str) -> tuple[dict, str, int]:
+                                   correlation_id: str, before_client_meta: Optional[dict] = None,
+                                   after_client_meta: Optional[dict] = None) -> tuple[dict, str, int]:
     """Analyze a pair on the mode's model; in Fast mode, re-run on Pro when the section looks
     uncertain/high-severity. Returns (section, model_label, total_latency_ms)."""
     section, model, lat = await _analyze_pair(
@@ -575,6 +644,9 @@ async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_
         total += lat2
         escalated = True
     section["escalated"] = escalated
+    section["metadataCheck"] = build_metadata_check(
+        before_path, after_path, before_client_meta, after_client_meta,
+    )
     return section, model, total
 
 
@@ -734,7 +806,7 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
         shutil.rmtree(work, ignore_errors=True)
 
     model_version = models[0] if models else f"{_provider()}:{_model()}"
-    result = _aggregate_result(sections, mode, model_version)
+    result = _aggregate_result(sections, mode, model_version, report_fields or {})
     result["branding"] = await get_branding(tenant_id)
     result["autoCase"] = await _maybe_auto_create_case(
         principal=principal, result=result, report_fields=report_fields or {},
@@ -754,7 +826,44 @@ async def analyze_trip(*, principal: dict, files: dict, report_fields: Optional[
     return result
 
 
-def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> dict:
+def _plate_norm(p) -> str:
+    return "".join(ch for ch in str(p or "").upper() if ch.isalnum())
+
+
+def _vehicle_consistency(sections: list[dict], report_fields: Optional[dict]) -> dict:
+    """Cross-angle vehicle identity check: compare AI-read colour/body-type/plate across
+    exterior sections and against the plate the inspector entered."""
+    sigs = [s.get("vehicleSignature") or {} for s in sections if s.get("kind") == "EXTERIOR"]
+    colors = sorted({str(g.get("color")).strip().lower() for g in sigs if g.get("color")})
+    bodies = sorted({str(g.get("bodyType")).strip().lower() for g in sigs if g.get("bodyType")})
+    plates = sorted({_plate_norm(g.get("visiblePlate")) for g in sigs if _plate_norm(g.get("visiblePlate"))})
+    warnings: list[str] = []
+    if len(colors) > 1:
+        warnings.append("Different vehicle colours seen across the photos: " + ", ".join(colors) + ".")
+    if len(bodies) > 1:
+        warnings.append("Different body types seen across the photos: " + ", ".join(bodies) + ".")
+    if len(plates) > 1:
+        warnings.append("More than one license plate read across the photos: " + ", ".join(plates) + ".")
+    entered_raw = ((report_fields or {}).get("vehiclePlate") or "").strip()
+    entered = _plate_norm(entered_raw)
+    plate_match = None
+    if entered and plates:
+        plate_match = entered in plates
+        if not plate_match:
+            warnings.append(
+                f"Entered plate '{entered_raw}' does not match the plate read in the photos "
+                f"({', '.join(plates)})."
+            )
+    return {
+        "consistent": len(warnings) == 0,
+        "colors": colors, "bodyTypes": bodies, "platesRead": plates,
+        "enteredPlate": entered_raw or None, "plateMatch": plate_match,
+        "warnings": warnings,
+    }
+
+
+def _aggregate_result(sections: list[dict], mode: str, model_version: str,
+                      report_fields: Optional[dict] = None) -> dict:
     """Build the trip-level aggregate from already-analyzed section dicts. Defensive against
     partial/client-supplied sections (used by both the single-shot and streaming flows)."""
     def _ec(s):
@@ -763,6 +872,8 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
         return s.get("photoCheck") or {}
     def _ig(s):
         return s.get("integrity") or {}
+    def _env(s):
+        return s.get("environment") or {}
 
     new_total = sum(int(s.get("newIssueCount") or 0) for s in sections)
     any_comparable = any(s.get("comparable") for s in sections)
@@ -777,13 +888,26 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
     photo_warnings = any(
         (not _pc(s).get("beforeUsable", True)) or (not _pc(s).get("afterUsable", True))
         or (not _pc(s).get("sameVehicle", True)) or bool(_pc(s).get("issues"))
+        or (not _pc(s).get("angleCorrect", True)) or (not _pc(s).get("fullyVisible", True))
+        or ((_pc(s).get("distance") or "OK") != "OK")
         for s in sections
     )
     integrity_warnings = any(
         _ig(s).get("beforeSuspicious") or _ig(s).get("afterSuspicious")
-        or (_ig(s).get("aiGeneratedLikelihood") or "LOW") != "LOW" or bool(_ig(s).get("signals"))
+        or (_ig(s).get("aiGeneratedLikelihood") or "LOW") != "LOW"
+        or (_ig(s).get("screenRecaptureLikelihood") or "LOW") != "LOW"
+        or bool(_ig(s).get("signals"))
         for s in sections
     )
+    environment_warnings = any(
+        _env(s).get("dirtObscuring") or _env(s).get("wetSurface") or _env(s).get("glare")
+        or _env(s).get("confidenceReduced")
+        for s in sections
+    )
+    metadata_warnings = any(
+        (s.get("metadataCheck") or {}).get("warnings") for s in sections
+    )
+    vehicle_consistency = _vehicle_consistency(sections, report_fields)
     captured_angles = [s.get("angle") for s in sections if s.get("kind") == "EXTERIOR" and s.get("angle")]
     escalated_count = sum(1 for s in sections if s.get("escalated"))
     token_usage = {
@@ -811,6 +935,9 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
         "cleanliness": cleanliness,
         "hasPhotoWarnings": photo_warnings,
         "hasIntegrityWarnings": integrity_warnings,
+        "hasEnvironmentWarnings": environment_warnings,
+        "hasMetadataWarnings": metadata_warnings,
+        "vehicleConsistency": vehicle_consistency,
         "coverage": coverage,
         "escalatedCount": escalated_count,
         "tokenUsage": token_usage,
@@ -819,7 +946,9 @@ def _aggregate_result(sections: list[dict], mode: str, model_version: str) -> di
 
 
 async def analyze_section(*, principal: dict, kind: str, angle: Optional[str],
-                          before: tuple, after: tuple, mode: str, correlation_id: str) -> dict:
+                          before: tuple, after: tuple, mode: str, correlation_id: str,
+                          before_meta: Optional[dict] = None,
+                          after_meta: Optional[dict] = None) -> dict:
     """Analyze a SINGLE before/after pair and return just its section (no aggregation, no
     auto-case). Used by the streaming flow so the UI can render each area as it completes."""
     kind = (kind or "EXTERIOR").upper()
@@ -840,6 +969,7 @@ async def analyze_section(*, principal: dict, kind: str, angle: Optional[str],
         section, model, _lat = await _analyze_pair_escalating(
             before_path=b_path, before_mime=b_mime, after_path=a_path, after_mime=a_mime,
             kind=kind, angle=angle, mode=mode, correlation_id=correlation_id,
+            before_client_meta=before_meta, after_client_meta=after_meta,
         )
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -854,7 +984,7 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
     sections = sections or []
     model_version = next((s.get("modelVersion") for s in sections if s.get("modelVersion")),
                          f"{_provider()}:{_model_for_mode(mode)}")
-    result = _aggregate_result(sections, mode, model_version)
+    result = _aggregate_result(sections, mode, model_version, report_fields or {})
     result["branding"] = await get_branding(principal["tenantId"])
     result["autoCase"] = await _maybe_auto_create_case(
         principal=principal, result=result, report_fields=report_fields or {},

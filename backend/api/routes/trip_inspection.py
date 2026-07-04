@@ -8,6 +8,7 @@ Repository Traceability:
 """
 from __future__ import annotations
 
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -24,6 +25,16 @@ async def _read(upload: Optional[UploadFile]):
     if upload is None:
         return None
     return (await upload.read(), upload.content_type)
+
+
+def _client_meta(raw: Optional[str]) -> Optional[dict]:
+    if not raw:
+        return None
+    try:
+        v = json.loads(raw)
+        return v if isinstance(v, dict) else None
+    except ValueError:
+        return None
 
 
 @router.post("/analyze")
@@ -82,6 +93,8 @@ async def analyze_section(
     mode: Optional[str] = Form("fast"),
     before: UploadFile = File(...),
     after: UploadFile = File(...),
+    before_meta: Optional[str] = Form(None),
+    after_meta: Optional[str] = Form(None),
     principal: dict = Depends(require_permission("di.ai.request")),
 ):
     """Analyze a SINGLE before/after pair → returns one section. Used by the streaming UI."""
@@ -89,6 +102,7 @@ async def analyze_section(
         principal=principal, kind=kind, angle=angle,
         before=await _read(before), after=await _read(after),
         mode=(mode or "fast"), correlation_id=request.state.correlation_id,
+        before_meta=_client_meta(before_meta), after_meta=_client_meta(after_meta),
     )
     return ok(data, request.state.correlation_id)
 
