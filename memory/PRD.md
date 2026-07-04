@@ -21,7 +21,22 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET  /api/v1/damage-intelligence/trip-inspection/usage?days=N
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
-## Completed (this fork, 2026-07-03)
+## Completed (this fork, 2026-07-04)
+- IMAGE VERIFICATION EXPANSION (all 10 asks, tested 14/14 via testing agent, iteration_17):
+  - AI per-section checks (prompt + normalizers in trip_inspection_service.py): angle-mismatch
+    (angleCorrect/angleIssue), framing/cropped parts (fullyVisible/croppedParts), camera distance
+    (OK/TOO_CLOSE/TOO_FAR), screen-recapture likelihood, environment (dirtObscuring/wetSurface/glare
+    /notes/confidenceReduced), vehicleSignature (color/bodyType/visiblePlate).
+  - EXIF metadata verification (exif_check.py): missing EXIF, stale (>72h, DI_TRIP_EXIF_MAX_AGE_HOURS),
+    future timestamp, editing software, Before/After chronology. Client extracts EXIF from ORIGINAL
+    file via exifr (canvas strips it) and sends before_meta/after_meta JSON to analyze-section.
+  - Cross-angle vehicle consistency in finalize: result.vehicleConsistency (colors/bodyTypes/platesRead/
+    plateMatch vs entered plate + warnings). UI: green 'Same vehicle verified' chip (>=2 angles or plate
+    match) or 'Vehicle identity check' warning panel; 4 section warning panels (photo/integrity/
+    environment/metadata); aggregate flags hasEnvironmentWarnings/hasMetadataWarnings; PDF verification
+    warnings block (EN/AR).
+
+## Completed (prior fork, 2026-07-03)
 - AI Cost Discovery COMPLETE. Empirical rates measured on live Universal Key (USD; SAR at 3.75 peg):
   - Fast (gemini-3.5-flash): 40 calls / 165,501 tok, $0.42 delta → ~$0.00254 (0.0095 SAR) /1K; ~0.20 SAR / 5-angle inspection.
   - Thorough (gemini-3.1-pro-preview): 40 calls / 153,686 tok, $1.24 delta → ~$0.00807 (0.0303 SAR) /1K; ~0.58 SAR / 5-angle inspection.
