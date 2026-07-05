@@ -108,6 +108,23 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
     environment/metadata); aggregate flags hasEnvironmentWarnings/hasMetadataWarnings; PDF verification
     warnings block (EN/AR).
 
+## Completed (this fork, 2026-07-05) — CROMS integration completion
+- Hosted report links: every External API job result + inspection.completed webhook now carries
+  reportUrl (public rendered HTML report — annotated photos with numbered damage markers, findings
+  table, verification warnings, print CSS) and reportPdfUrl (reportlab PDF). Public token-auth routes:
+  GET /public/reports/{token} | /pdf | /images/{name}. Service: ext_report_service.py; report doc in
+  di_ext_reports (token 40-hex is the credential). GCU365/SpeedAuto webhook mappings include the links.
+- Inbound rental events: POST/GET /ext/v1/rental-events (X-API-Key) for rental.checked_out/checked_in →
+  di_rental_events + di_open_rentals. Staff JWT endpoints GET /trip-inspection/open-rentals +
+  POST .../{rentalId}/dismiss. Trip Inspection page shows "Rentals awaiting inspection" banner with
+  Use (pre-fills report fields) / dismiss; finalize_trip auto-closes the open rental (status INSPECTED)
+  when rentalId matches.
+- Sandbox Playground in Developer Console: paste dik_ key, upload before/after pairs (6 slots), live
+  job polling, open hosted report / download PDF / raw JSON; plus rental-events tester form.
+- Integration Pack (downloadable MD) fully updated: Step 1.5 rental events, Step 3 Option C (zero-UI
+  hosted report), Sections 3.4/3.5, playground note, updated payload samples with reportUrl.
+- Tested: iteration_20.json — backend 17/17, frontend 100%. reportlab added to requirements.
+
 ## Completed (prior fork, 2026-07-03)
 - AI Cost Discovery COMPLETE. Empirical rates measured on live Universal Key (USD; SAR at 3.75 peg):
   - Fast (gemini-3.5-flash): 40 calls / 165,501 tok, $0.42 delta → ~$0.00254 (0.0095 SAR) /1K; ~0.20 SAR / 5-angle inspection.
@@ -129,7 +146,7 @@ Docs: DI-0041 (Maintenance cost interface, awaiting sign-off), DI-0042 (scaling 
 - On hold: Kiosk capture mode (per user).
 
 ## Mocked
-- CROMS and Maintenance integration endpoints.
+- CROMS and Maintenance integration endpoints (connectors run in SANDBOX until live GCU365 credentials).
 
 ## Credentials
 See /app/memory/test_credentials.md. Admin: admin@riyadah.tech / DamageAdmin#2026 / TENANT-000001.
