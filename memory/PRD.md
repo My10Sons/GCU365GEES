@@ -22,6 +22,16 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
 ## Completed (this fork, 2026-07-04/05)
+- DETAILED FINDINGS REPORT IN OUTBOUND EVENTS (curl + Mongo + UI verified):
+  - inspection.completed now carries full `report` (analyzedAt, mode, modelVersion, conditionScore,
+    cleanliness, coverage, compact sections+items, verification flags + vehicleConsistency) mapped
+    per connector: CROMS `data.findingsReport`, Speed `data.FindingsReport`, Generic `data.data.report`.
+    Also adds customerName/inspectorName/vehicleRisk to CROMS payload.
+  - Integration pack Section 5: complete findingsReport schema tables (all enums: categories,
+    NEW/PRE_EXISTING/RESOLVED/UNCERTAIN, LOW/MEDIUM/HIGH, REPAIR/REPLACE/ASSESS), billing rule
+    (only NEW items chargeable), populated JSON example, per-connector field path.
+  - Deliveries log now stores/returns requestBody (20KB cap) + 'view payload sent' expander in
+    Developer console so counterpart devs can inspect exact payloads from sandbox runs.
 - API USAGE METERING + INTEGRATION PACKS (curl + UI screenshot verified):
   - GET /developer/usage: per-API-key billing rollup from audit records (actorId=apikey:<id>) —
     inspections (fast/thorough split via model name), OCR calls, tokens, est cost SAR using

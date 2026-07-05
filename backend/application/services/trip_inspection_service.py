@@ -1083,13 +1083,29 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
         result["vehicleLink"] = {"linked": False, "reason": "disabled"}
     vl = result["vehicleLink"]
     rf = report_fields or {}
+    detailed_report = {
+        "analyzedAt": datetime.now(timezone.utc).isoformat(),
+        "mode": result.get("mode"), "modelVersion": result.get("modelVersion"),
+        "conditionScore": result.get("conditionScore"), "cleanliness": result.get("cleanliness"),
+        "coverage": result.get("coverage"),
+        "sections": vehicle_registry_service._compact_sections(result.get("sections") or []),
+        "verification": {
+            "hasPhotoWarnings": result.get("hasPhotoWarnings"),
+            "hasIntegrityWarnings": result.get("hasIntegrityWarnings"),
+            "hasEnvironmentWarnings": result.get("hasEnvironmentWarnings"),
+            "hasMetadataWarnings": result.get("hasMetadataWarnings"),
+            "vehicleConsistency": result.get("vehicleConsistency"),
+        },
+    }
     await connector_service.dispatch_event(principal["tenantId"], "inspection.completed", {
         "overall": result.get("overall"), "newIssueCount": result.get("newIssueCount"),
         "costSummary": result.get("costSummary"),
         "plate": vl.get("plate") or rf.get("vehiclePlate"), "vin": vl.get("vin"),
         "vehicleId": vl.get("vehicleId"), "rentalId": rf.get("rentalId"),
+        "customerName": rf.get("customerName"), "inspectorName": rf.get("inspectorName"),
         "damageCaseId": (result.get("autoCase") or {}).get("damageCaseId"),
         "risk": vl.get("risk"),
+        "report": detailed_report,
     })
     if (result.get("autoCase") or {}).get("created"):
         await connector_service.dispatch_event(principal["tenantId"], "damage_case.created", {

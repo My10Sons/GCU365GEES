@@ -54,14 +54,18 @@ def _map_payload(ctype: str, event_type: str, data: dict) -> dict:
             "EstimatedCostHigh": (data.get("costSummary") or {}).get("high"),
             "Currency": (data.get("costSummary") or {}).get("currency"),
             "DamageCaseRef": data.get("damageCaseId"),
+            "FindingsReport": data.get("report"),
             "SourceSystem": "DamageIntelligence",
         }
     if ctype == "GCU365_CROMS":
         return {
             "eventType": event_type, "rentalAgreementId": data.get("rentalId"),
             "vehiclePlate": data.get("plate"), "vin": data.get("vin"),
+            "customerName": data.get("customerName"), "inspectorName": data.get("inspectorName"),
             "overallResult": data.get("overall"), "newIssueCount": data.get("newIssueCount"),
             "advisoryEstimate": data.get("costSummary"), "damageCaseId": data.get("damageCaseId"),
+            "vehicleRisk": data.get("risk"),
+            "findingsReport": data.get("report"),
             "requestedBySystem": "DamageIntelligence",
         }
     return {"type": event_type, "data": data}
@@ -123,7 +127,7 @@ async def _log_delivery(db, c: dict, event_type: str, body: dict, status: str,
         "tenantId": c["tenantId"], "connectorType": c["type"], "mode": c.get("mode", "sandbox"),
         "event": event_type, "status": status, "httpStatus": http_status, "attempt": attempt,
         "error": (error or "")[:500] or None,
-        "requestBody": json.dumps(body)[:4000],
+        "requestBody": json.dumps(body)[:20000],
         "targetUrl": (c.get("baseUrl") or "") + _EVENT_PATHS.get(c["type"], "/webhooks/damage-intelligence"),
         "createdAt": datetime.now(timezone.utc),
     })
@@ -197,5 +201,6 @@ async def list_deliveries(*, principal: dict, limit: int = 30) -> dict:
         "id": str(r["_id"]), "connectorType": r["connectorType"], "mode": r.get("mode"),
         "event": r["event"], "status": r["status"], "httpStatus": r.get("httpStatus"),
         "attempt": r.get("attempt"), "targetUrl": r.get("targetUrl"), "error": r.get("error"),
+        "requestBody": r.get("requestBody"),
         "createdAt": r["createdAt"].isoformat(),
     } for r in rows]}

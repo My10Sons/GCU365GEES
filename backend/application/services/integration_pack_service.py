@@ -20,6 +20,9 @@ _NAMES = {"GENERIC": "Generic Rental System",
 _EVENT_PATHS = {"GENERIC": "/webhooks/damage-intelligence",
                 "SPEED_AUTO": "/api/v1/damage-events",
                 "GCU365_CROMS": "/croms/api/v1/damage-events"}
+_REPORT_FIELD = {"GENERIC": "data.data.report",
+                 "SPEED_AUTO": "data.FindingsReport",
+                 "GCU365_CROMS": "data.findingsReport"}
 
 _OUTBOUND_SAMPLES = {
     "GENERIC": """{
@@ -36,7 +39,8 @@ _OUTBOUND_SAMPLES = {
       "plate": "ABC 1234", "vin": "JTDBE32K123456789",
       "vehicleId": "<registry id>", "rentalId": "RA-1001",
       "damageCaseId": "<id or null>",
-      "risk": { "level": "HIGH", "label": "Repeat offender", "damagedTrips": 3, "window": 5 }
+      "risk": { "level": "HIGH", "label": "Repeat offender", "damagedTrips": 3, "window": 5 },
+      "report": { "…": "detailed findings report — full schema in Section 5" }
     }
   }
 }""",
@@ -49,7 +53,9 @@ _OUTBOUND_SAMPLES = {
     "RentalAgreementNo": "RA-1001",
     "DamageFound": true, "NewDamageCount": 2,
     "EstimatedCostLow": 800, "EstimatedCostHigh": 1300, "Currency": "SAR",
-    "DamageCaseRef": "<id or null>", "SourceSystem": "DamageIntelligence"
+    "DamageCaseRef": "<id or null>",
+    "FindingsReport": { "…": "detailed findings report — full schema in Section 5" },
+    "SourceSystem": "DamageIntelligence"
   }
 }""",
     "GCU365_CROMS": """{
@@ -59,13 +65,70 @@ _OUTBOUND_SAMPLES = {
     "eventType": "inspection.completed",
     "rentalAgreementId": "RA-1001",
     "vehiclePlate": "ABC 1234", "vin": "JTDBE32K123456789",
+    "customerName": "…", "inspectorName": "…",
     "overallResult": "NEW_DAMAGE_FOUND", "newIssueCount": 2,
     "advisoryEstimate": { "low": 800, "high": 1300, "currency": "SAR" },
     "damageCaseId": "<id or null>",
+    "vehicleRisk": { "level": "HIGH", "label": "Repeat offender",
+                     "damagedTrips": 3, "window": 5, "streak": 3,
+                     "newIssues": 6, "estCostHigh": 3900, "currency": "SAR" },
+    "findingsReport": { "…": "detailed report — full schema in Section 5" },
     "requestedBySystem": "DamageIntelligence"
   }
 }""",
 }
+
+_REPORT_SCHEMA = """### `findingsReport` object (the detailed report)
+
+| Field | Type | Description |
+|---|---|---|
+| `analyzedAt` | ISO-8601 string | When the analysis was finalized (UTC) |
+| `mode` | `"fast"` \\| `"thorough"` | AI tier used |
+| `modelVersion` | string | e.g. `gemini:gemini-3.5-flash` |
+| `conditionScore` | 0–100 or null | Overall vehicle condition after the trip |
+| `cleanliness` | object or null | `{ "score": 0-100, "label": … }` |
+| `coverage` | object | Which angles were captured, walkaround completeness |
+| `sections[]` | array | One entry per analyzed view (max 8) — see below |
+| `verification` | object | Photo/fraud checks — see below |
+
+### `sections[]` entry
+| Field | Type | Values / notes |
+|---|---|---|
+| `label` | string | e.g. `"Exterior — Front"`, `"Interior"` |
+| `kind` | enum | `EXTERIOR` \\| `INTERIOR` |
+| `angle` | enum or null | `FRONT` \\| `REAR` \\| `LEFT` \\| `RIGHT` \\| `ROOF` (null for interior) |
+| `newIssueCount` | int | New issues found in this view |
+| `summary` | string | Human-readable summary (≤300 chars) |
+| `conditionScore` | 0–100 or null | Per-view condition |
+| `cleanliness` | object or null | Per-view cleanliness |
+| `items[]` | array (≤40) | Individual findings — see below |
+
+### `items[]` (individual finding)
+| Field | Type | Values |
+|---|---|---|
+| `category` | enum | Exterior: `DENT` `SCRATCH` `CHIP` `TIRE` `WHEEL` `GLASS` `LIGHT` `PART` `RUST` `VANDALISM` `DIRT` `LEAK` · Interior: `SEAT` `DASHBOARD` `TRIM` `STAIN` `MISSING` `ELECTRONICS` |
+| `status` | enum | `NEW` (occurred during this rental) \\| `PRE_EXISTING` \\| `RESOLVED` \\| `UNCERTAIN` |
+| `severity` | enum or null | `LOW` \\| `MEDIUM` \\| `HIGH` |
+| `location` | string | e.g. `"front bumper, left corner"` |
+| `sizeCm` | number or null | Approximate size |
+| `recommendation` | enum or null | `REPAIR` \\| `REPLACE` \\| `ASSESS` |
+| `estimatedCost` | object or null | `{ "low": int, "high": int, "currency": "SAR" }` — advisory |
+| `confidence` | 0–1 | AI confidence |
+
+**Billing rule of thumb:** only `status = "NEW"` items are chargeable to the rental;
+`advisoryEstimate` at the top level sums the NEW items across all sections.
+
+### `verification` object (anti-fraud / capture quality)
+| Field | Type | Meaning |
+|---|---|---|
+| `hasPhotoWarnings` | bool | Blur / wrong angle / cropped framing / distance issues |
+| `hasIntegrityWarnings` | bool | Possible AI-generated, edited, or photo-of-a-screen images |
+| `hasEnvironmentWarnings` | bool | Dirt / rain / glare reduced analysis confidence |
+| `hasMetadataWarnings` | bool | Missing / stale / edited EXIF, wrong before-after chronology |
+| `vehicleConsistency` | object | `{ consistent, colors[], bodyTypes[], platesRead[], enteredPlate, plateMatch, warnings[] }` — cross-angle same-vehicle check |
+
+Treat any `true` warning flag as "review the photos manually before charging the customer".
+"""
 
 
 async def build_pack(*, principal: dict, ctype: str, public_base: str) -> tuple[str, str]:
@@ -190,7 +253,58 @@ Delivery: retried up to 3 attempts (0s / 5s / 25s). De-duplicate on the `id` fie
 
 ---
 
-## 5 · Go-live steps
+## 5 · Detailed findings report — what you receive and in what format
+
+Every `inspection.completed` event carries the **full findings report** at
+**`{_REPORT_FIELD[ctype]}`** (JSON, UTF-8).
+
+{_REPORT_SCHEMA}
+
+#### Populated example (one exterior section, abridged)
+```json
+{{
+  "analyzedAt": "2026-07-05T10:41:00+00:00",
+  "mode": "fast",
+  "modelVersion": "gemini:gemini-3.5-flash",
+  "conditionScore": 74,
+  "cleanliness": {{ "score": 80, "label": "Clean" }},
+  "coverage": {{ "anglesCaptured": ["FRONT"], "fullWalkaround": false }},
+  "sections": [
+    {{
+      "label": "Exterior — Front", "kind": "EXTERIOR", "angle": "FRONT",
+      "newIssueCount": 2,
+      "summary": "Two new issues: a dent on the front bumper and a scratched headlight.",
+      "conditionScore": 70,
+      "items": [
+        {{
+          "category": "DENT", "status": "NEW", "severity": "MEDIUM",
+          "location": "front bumper, left corner", "sizeCm": 8,
+          "recommendation": "REPAIR",
+          "estimatedCost": {{ "low": 500, "high": 800, "currency": "SAR" }},
+          "confidence": 0.86
+        }},
+        {{
+          "category": "LIGHT", "status": "NEW", "severity": "LOW",
+          "location": "left headlight lens", "sizeCm": 3,
+          "recommendation": "ASSESS",
+          "estimatedCost": {{ "low": 300, "high": 500, "currency": "SAR" }},
+          "confidence": 0.78
+        }}
+      ]
+    }}
+  ],
+  "verification": {{
+    "hasPhotoWarnings": false, "hasIntegrityWarnings": false,
+    "hasEnvironmentWarnings": false, "hasMetadataWarnings": false,
+    "vehicleConsistency": {{ "consistent": true, "plateMatch": true,
+                            "platesRead": ["ABC1234"], "warnings": [] }}
+  }}
+}}
+```
+
+---
+
+## 6 · Go-live steps
 1. Exchange credentials per Section 1 (both directions, via a secure channel).
 2. We set the connector to **Sandbox**, you call our External API against real photos.
 3. You confirm receipt/handling of `connection.test` + `inspection.completed` payload shape.

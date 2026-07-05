@@ -289,12 +289,20 @@ export default function Developer() {
         </div>
         <ul className="divide-y divide-ink-700/60 text-xs">
           {deliveries.map((d) => (
-            <li key={d.id} className="py-2 flex items-center gap-3">
-              <StatusChip status={d.status} />
-              <span className="text-steel-200 font-mono">{d.event}</span>
-              <span className="text-steel-400">{d.connectorType}</span>
-              {d.httpStatus && <span className="text-steel-500">HTTP {d.httpStatus}</span>}
-              <span className="text-steel-500 ml-auto">{new Date(d.createdAt).toLocaleString()}</span>
+            <li key={d.id} className="py-2">
+              <div className="flex items-center gap-3">
+                <StatusChip status={d.status} />
+                <span className="text-steel-200 font-mono">{d.event}</span>
+                <span className="text-steel-400">{d.connectorType}</span>
+                {d.httpStatus && <span className="text-steel-500">HTTP {d.httpStatus}</span>}
+                <span className="text-steel-500 ml-auto">{new Date(d.createdAt).toLocaleString()}</span>
+              </div>
+              {d.requestBody && (
+                <details className="mt-1 ml-1">
+                  <summary className="text-[10px] text-steel-500 cursor-pointer hover:text-steel-300" data-testid={`dev-delivery-payload-${d.id}`}>view payload sent</summary>
+                  <pre className="mt-1 bg-ink-950 rounded p-2 overflow-x-auto text-[10px] font-mono text-steel-300 max-h-64 overflow-y-auto">{(() => { try { return JSON.stringify(JSON.parse(d.requestBody), null, 1); } catch { return d.requestBody; } })()}</pre>
+                </details>
+              )}
             </li>
           ))}
           {deliveries.length === 0 && <li className="py-3 text-steel-500">No deliveries yet — enable a connector and run an inspection or send a test event.</li>}
