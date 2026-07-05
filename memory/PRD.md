@@ -123,6 +123,10 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
   job polling, open hosted report / download PDF / raw JSON; plus rental-events tester form.
 - Integration Pack (downloadable MD) fully updated: Step 1.5 rental events, Step 3 Option C (zero-UI
   hosted report), Sections 3.4/3.5, playground note, updated payload samples with reportUrl.
+- Help & Guide (bilingual EN/AR) updated to cover all shipped features: new topics Vehicles,
+  AI Usage & Budget, API & Integrations (keys/connectors/pack/playground/hosted reports/rental events);
+  Trip topic now covers OCR close-up, 10-point verification, open-rentals banner, vehicle history;
+  Inspections covers privacy blur; Cases covers Najm claim export. Drawer auto-maps new routes.
 - Tested: iteration_20.json — backend 17/17, frontend 100%. reportlab added to requirements.
 
 ## Completed (prior fork, 2026-07-03)
