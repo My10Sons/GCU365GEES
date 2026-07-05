@@ -38,6 +38,7 @@ async def put_policy(
     data = await tenant_policy_service.set_policy(
         tenant_id=principal["tenantId"],
         require_full_walkaround=bool(p.get("requireFullWalkaround", False)),
+        auto_blur_uploads=bool(p.get("autoBlurUploads", False)),
     )
     return ok(data, request.state.correlation_id)
 

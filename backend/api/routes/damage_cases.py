@@ -84,6 +84,20 @@ async def get_case(
     return ok(data, request.state.correlation_id)
 
 
+@router.get("/{damageCaseId}/claim-package")
+async def claim_package(
+    request: Request,
+    damageCaseId: str = Path(..., min_length=1, max_length=64),
+    principal: dict = Depends(require_permission("di.damagecases.read")),
+):
+    """Najm-style insurance claim package (JSON) for the case."""
+    data = await damage_case_service.claim_package(
+        principal=principal, case_id=damageCaseId,
+        correlation_id=request.state.correlation_id,
+    )
+    return ok(data, request.state.correlation_id)
+
+
 @router.patch("/{damageCaseId}/status")
 async def update_status(
     request: Request,

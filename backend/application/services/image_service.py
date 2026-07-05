@@ -7,6 +7,7 @@ Repository Traceability:
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -14,6 +15,7 @@ from typing import Optional
 from bson import ObjectId
 
 from api.middleware.safe_errors import DomainError
+from application.services import privacy_service, tenant_policy_service
 from application.services.audit_service import write_audit
 from application.services.inspection_service import _load_session_for_tenant
 from domain.enums.audit_actions import ActorType, AuditAction, ObjectType
@@ -252,6 +254,20 @@ async def register_uploaded_image(
         {"_id": upload_oid}, {"$set": {"status": "REGISTERED", "registeredAt": now}}
     )
 
+    # PDPL: auto-blur faces + bystander plates if the tenant opted in (best effort, async).
+    policy = await tenant_policy_service.get_policy(principal["tenantId"])
+    if policy.get("autoBlurUploads"):
+        async def _auto_blur():
+            try:
+                from infrastructure.storage.local_storage import storage_root
+                result = await privacy_service.blur_file(
+                    str(storage_root() / upload["objectPath"]), correlation_id)
+                await db.di_inspection_images.update_one(
+                    {"_id": image_id}, {"$set": {"privacyBlurred": True, "privacyBlurInfo": result}})
+            except Exception:
+                pass
+        asyncio.create_task(_auto_blur())
+
     # Increment counters and advance status if first registered image.
     inc_update: dict = {"$inc": {"imageCount": 1, "registeredImageCount": 1}, "$set": {"updatedAt": now, "updatedBy": principal["id"]}}
     await db.di_inspection_sessions.update_one(
@@ -307,6 +323,7 @@ def _image_to_response(doc: dict, *, evidence_id: Optional[str] = None) -> dict:
         "notes": doc.get("notes"),
         "createdAt": doc["createdAt"],
         "createdBy": doc["createdBy"],
+        "privacyBlurred": bool(doc.get("privacyBlurred", False)),
         "evidenceId": evidence_id,
     }
 

@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ImagePlus, Send, Ban, Eye, ShieldCheck, AlertTriangle, RefreshCcw, Loader2, Sparkles, Activity, GitCompare, History, ChevronDown, ChevronRight,
+  ArrowLeft, ImagePlus, Send, Ban, Eye, EyeOff, ShieldCheck, AlertTriangle, RefreshCcw, Loader2, Sparkles, Activity, GitCompare, History, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { inspectionsApi, evidenceApi, envelopeError, absoluteUrl } from "../lib/inspections-api";
 import { comparisonApi } from "../lib/sprint03-api";
@@ -29,6 +29,7 @@ export default function InspectionDetail() {
   const { has } = useAuth();
   const [session, setSession] = useState(null);
   const [images, setImages] = useState([]);
+  const [blurBusy, setBlurBusy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [action, setAction] = useState({ busy: false, error: "" });
@@ -171,6 +172,18 @@ export default function InspectionDetail() {
       window.open(absoluteUrl(r.accessUrl), "_blank", "noopener");
     } catch (err) {
       window.alert(envelopeError(err, "Could not generate access link."));
+    }
+  };
+
+  const blurImage = async (evidenceId, imageId) => {
+    setBlurBusy(imageId);
+    try {
+      await api.post(`/evidence/${evidenceId}/blur`, {}, { timeout: 120000 });
+      setImages((prev) => prev.map((i) => (i.id === imageId ? { ...i, privacyBlurred: true } : i)));
+    } catch (err) {
+      window.alert(envelopeError(err, "Could not blur the image. Please retry."));
+    } finally {
+      setBlurBusy(null);
     }
   };
 
@@ -401,6 +414,21 @@ export default function InspectionDetail() {
                     >
                       <Eye className="size-3" /> Open evidence
                     </button>
+                    {canUpload && !img.privacyBlurred && (
+                      <button
+                        onClick={() => blurImage(img.evidenceId, img.id)}
+                        disabled={blurBusy === img.id}
+                        className="mt-1.5 px-2.5 py-1 rounded-md text-[11px] bg-ink-800 border border-ink-700 hover:bg-ink-700/80 text-steel-200 flex items-center gap-1.5 disabled:opacity-50"
+                        data-testid={`inspection-image-blur-${img.id}`}
+                      >
+                        {blurBusy === img.id ? <Loader2 className="size-3 animate-spin" /> : <EyeOff className="size-3" />} Blur faces / plates
+                      </button>
+                    )}
+                    {img.privacyBlurred && (
+                      <p className="text-[10px] text-emerald-400 mt-1.5 flex items-center gap-1" data-testid={`inspection-image-blurred-${img.id}`}>
+                        <EyeOff className="size-3" /> Privacy-blurred (PDPL)
+                      </p>
+                    )}
                     {accessByEvidence[img.evidenceId] && (
                       <p className="text-[10px] text-steel-500 mt-1.5 font-mono">
                         link valid until {fmt(accessByEvidence[img.evidenceId].expiresAt)}

@@ -24,6 +24,7 @@ from typing import Optional
 from api.middleware.safe_errors import DomainError
 from application.ai.gemini_client import call_vision_model_multi
 from application.services import damage_case_service, inspection_service, vehicle_registry_service
+from application.services import connector_service
 from application.services.audit_service import write_audit
 from application.services.exif_check import build_metadata_check
 from application.services.tenant_branding_service import get_branding
@@ -1080,6 +1081,23 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
             result["vehicleLink"] = {"linked": False, "reason": "error"}
     else:
         result["vehicleLink"] = {"linked": False, "reason": "disabled"}
+    vl = result["vehicleLink"]
+    rf = report_fields or {}
+    await connector_service.dispatch_event(principal["tenantId"], "inspection.completed", {
+        "overall": result.get("overall"), "newIssueCount": result.get("newIssueCount"),
+        "costSummary": result.get("costSummary"),
+        "plate": vl.get("plate") or rf.get("vehiclePlate"), "vin": vl.get("vin"),
+        "vehicleId": vl.get("vehicleId"), "rentalId": rf.get("rentalId"),
+        "damageCaseId": (result.get("autoCase") or {}).get("damageCaseId"),
+        "risk": vl.get("risk"),
+    })
+    if (result.get("autoCase") or {}).get("created"):
+        await connector_service.dispatch_event(principal["tenantId"], "damage_case.created", {
+            "damageCaseId": result["autoCase"].get("damageCaseId"),
+            "plate": vl.get("plate") or rf.get("vehiclePlate"), "rentalId": rf.get("rentalId"),
+            "costSummary": result.get("costSummary"), "overall": result.get("overall"),
+            "newIssueCount": result.get("newIssueCount"),
+        })
     await write_audit(
         tenant_id=principal["tenantId"], actor_id=principal["id"], actor_type=ActorType.USER,
         action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,

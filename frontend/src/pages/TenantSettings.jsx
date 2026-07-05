@@ -32,6 +32,7 @@ export default function TenantSettings() {
   const [branchName, setBranchName] = useState("");
   const [logoDataUrl, setLogoDataUrl] = useState(null);
   const [requireFull, setRequireFull] = useState(false);
+  const [autoBlur, setAutoBlur] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [savingPolicy, setSavingPolicy] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
@@ -45,6 +46,7 @@ export default function TenantSettings() {
         const bd = b.data?.data || {}; const pd = p.data?.data || {};
         setCompanyName(bd.companyName || ""); setBranchName(bd.branchName || ""); setLogoDataUrl(bd.logoDataUrl || null);
         setRequireFull(!!pd.requireFullWalkaround);
+        setAutoBlur(!!pd.autoBlurUploads);
       })
       .catch((err) => setError(envelopeError(err, "Could not load tenant settings.")))
       .finally(() => active && setLoading(false));
@@ -71,7 +73,7 @@ export default function TenantSettings() {
   const savePolicy = async () => {
     setSavingPolicy(true); setError("");
     try {
-      await api.put("/tenant/policy", { requireFullWalkaround: requireFull });
+      await api.put("/tenant/policy", { requireFullWalkaround: requireFull, autoBlurUploads: autoBlur });
       flash("Policy saved.");
     } catch (err) { setError(envelopeError(err, "Could not save policy.")); }
     finally { setSavingPolicy(false); }
@@ -167,6 +169,11 @@ export default function TenantSettings() {
               Require a full 5-angle walkaround for every inspection
             </label>
             <p className="text-[12px] text-steel-400 mt-2">When enabled, staff must capture all 5 exterior angles (Front, Rear, Left, Right, Roof) before they can run an analysis — the walkaround gate is pre-enabled and locked.</p>
+            <label className="flex items-center gap-2 text-sm text-steel-300 cursor-pointer w-fit mt-4" data-testid="tenant-autoblur-toggle">
+              <input type="checkbox" checked={autoBlur} onChange={(e) => setAutoBlur(e.target.checked)} className="size-4 accent-signal" />
+              Auto-blur faces &amp; bystander plates on stored evidence (PDPL/GDPR)
+            </label>
+            <p className="text-[12px] text-steel-400 mt-2">Every image saved to inspection evidence is scanned and any human faces or background-vehicle plates are blurred in place. The subject vehicle's own plate stays visible for OCR and vehicle linking.</p>
             <button data-testid="tenant-policy-save" onClick={savePolicy} disabled={savingPolicy}
               className="mt-3 px-4 py-2 rounded-md text-sm font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-2">
               {savingPolicy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save policy

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
-from application.services import image_service
+from application.services import image_service, privacy_service
 
 router = APIRouter(prefix="/evidence", tags=["evidence"])
 
@@ -32,6 +32,20 @@ async def access_link(
         evidence_id=evidenceId,
         purpose=payload.purpose,
         expires_in_minutes=payload.expiresInMinutes,
+        correlation_id=request.state.correlation_id,
+    )
+    return ok(data, request.state.correlation_id)
+
+
+@router.post("/{evidenceId}/blur")
+async def blur_evidence(
+    request: Request,
+    evidenceId: str = Path(..., min_length=1, max_length=64),
+    principal: dict = Depends(require_permission("di.images.upload")),
+):
+    """PDPL/GDPR: blur faces + bystander plates in the stored evidence image (in place)."""
+    data = await privacy_service.blur_evidence_image(
+        principal=principal, evidence_id=evidenceId,
         correlation_id=request.state.correlation_id,
     )
     return ok(data, request.state.correlation_id)

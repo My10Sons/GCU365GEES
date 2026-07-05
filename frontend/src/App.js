@@ -20,6 +20,7 @@ import Reports from "./pages/Reports";
 import TripInspection from "./pages/TripInspection";
 import Vehicles from "./pages/Vehicles";
 import VehicleDetail from "./pages/VehicleDetail";
+import Developer from "./pages/Developer";
 import TenantSettings from "./pages/TenantSettings";
 import AiUsage from "./pages/AiUsage";
 import Help from "./pages/Help";
@@ -59,6 +60,7 @@ function AppRoutes() {
         />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="vehicles/:id" element={<VehicleDetail />} />
+        <Route path="developer" element={<Developer />} />
         <Route
           path="inspections"
           element={<Inspections />}

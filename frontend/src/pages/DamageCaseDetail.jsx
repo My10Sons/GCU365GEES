@@ -4,9 +4,11 @@
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, FileDown } from "lucide-react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { casesApi } from "../lib/sprint03-api";
-import { envelopeError } from "../lib/api";
+import { api, envelopeError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { T } from "../constants/testIds";
 
@@ -37,6 +39,73 @@ export default function DamageCaseDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [su, setSu] = useState({ status: "PENDING_REVIEW", reason: "", busy: false, error: "" });
+  const [exporting, setExporting] = useState(false);
+
+  const esc = (s) => String(s == null ? "—" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+  const exportClaim = async () => {
+    setExporting(true);
+    try {
+      const { data } = await api.get(`/damage-cases/${id}/claim-package`);
+      const pkg = data.data;
+      // 1) JSON download
+      const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${pkg.claimRef}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      // 2) EN/AR PDF
+      const rows = (label, ar, value) => `<tr><td style="padding:4px 8px;color:#555;font-size:9.5px;white-space:nowrap;">${label}<br/><span dir="rtl">${ar}</span></td><td style="padding:4px 8px;font-size:10.5px;font-weight:600;">${esc(value)}</td></tr>`;
+      const c = pkg.case || {};
+      const container = document.createElement("div");
+      container.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#111;font-family:Arial,sans-serif;padding:32px;";
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #b22;padding-bottom:10px;">
+          <div><div style="font-size:18px;font-weight:800;">Motor Damage Claim Package</div>
+          <div dir="rtl" style="font-size:14px;font-weight:700;">حزمة مطالبة أضرار مركبة</div>
+          <div style="font-size:9px;color:#777;margin-top:3px;">Format: ${esc(pkg.insurerFormat)} · Generated ${new Date(pkg.generatedAt).toLocaleString()}</div></div>
+          <div style="text-align:right;"><div style="font-size:13px;font-weight:800;color:#b22;">${esc(pkg.claimRef)}</div>
+          <div style="font-size:9px;color:#777;">Tenant ${esc(pkg.tenantId)}</div></div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-top:14px;">
+          ${rows("Vehicle reference", "مرجع المركبة", pkg.vehicle?.externalVehicleRef)}
+          ${rows("Inspection session", "جلسة الفحص", pkg.vehicle?.inspectionSessionId)}
+          ${rows("Case ID", "رقم الحالة", c.damageCaseId)}
+          ${rows("Status", "الحالة", c.status)}
+          ${rows("Type / Severity", "النوع / الخطورة", `${c.caseType || "—"} / ${c.severityCode || "—"}`)}
+          ${rows("Description", "الوصف", c.description)}
+          ${rows("Opened", "تاريخ الفتح", c.createdAt ? new Date(c.createdAt).toLocaleString() : "—")}
+        </table>
+        <div style="margin-top:14px;font-size:10px;"><b>Linked evidence / findings (${(pkg.links || []).length})</b>
+          <ul style="margin:6px 0 0 16px;padding:0;">${(pkg.links || []).map((l) => `<li style="font-family:monospace;font-size:9px;color:#444;">${esc(l.linkType)} · ${esc(l.linkedId)}</li>`).join("") || "<li style='color:#888;'>None</li>"}</ul>
+        </div>
+        <div style="margin-top:14px;font-size:10px;"><b>Status history</b>
+          <ul style="margin:6px 0 0 16px;padding:0;">${(pkg.statusHistory || []).map((h) => `<li style="font-size:9px;color:#444;">${esc(h.fromStatus || "∅")} → ${esc(h.toStatus)}${h.reason ? ` · ${esc(h.reason)}` : ""} · ${h.timestamp ? new Date(h.timestamp).toLocaleString() : ""}</li>`).join("") || "<li style='color:#888;'>None</li>"}</ul>
+        </div>
+        <div style="margin-top:18px;padding:10px;border:1px solid #b26a00;background:#fff4e5;border-radius:6px;font-size:9px;color:#7a4a00;">
+          ${esc(pkg.declaration)}<br/><span dir="rtl">تقرير أضرار استرشادي مُعد بمساعدة الذكاء الاصطناعي؛ التقييم النهائي من اختصاص شركة التأمين / مُعاين نجم.</span>
+        </div>
+        <div style="display:flex;gap:40px;margin-top:28px;font-size:9.5px;color:#555;">
+          <div style="flex:1;border-top:1px solid #999;padding-top:5px;">Claimant signature · توقيع مقدم المطالبة</div>
+          <div style="flex:1;border-top:1px solid #999;padding-top:5px;">Company representative · ممثل الشركة</div>
+        </div>`;
+      document.body.appendChild(container);
+      try {
+        const canvas = await html2canvas(container, { scale: 2, backgroundColor: "#ffffff", logging: false });
+        const pdf = new jsPDF("p", "pt", "a4");
+        const pw = pdf.internal.pageSize.getWidth();
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pw, (canvas.height * pw) / canvas.width);
+        pdf.save(`${pkg.claimRef}.pdf`);
+      } finally {
+        container.remove();
+      }
+    } catch (err) {
+      setError(envelopeError(err, "Could not export the claim package."));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +151,10 @@ export default function DamageCaseDetail() {
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-xl font-semibold text-white font-mono">{item.externalVehicleRef || "—"}</h1>
         <span className="text-[11px] font-mono text-steel-400">{item.status} · {item.caseType}</span>
+        <button data-testid="case-export-claim" onClick={exportClaim} disabled={exporting}
+          className="ml-auto px-3 py-1.5 rounded-md text-xs font-medium border border-ink-600 text-steel-200 hover:bg-ink-800 flex items-center gap-1.5 disabled:opacity-50">
+          {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} Export insurance claim (Najm-style)
+        </button>
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
