@@ -21,7 +21,25 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET  /api/v1/damage-intelligence/trip-inspection/usage?days=N
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
-## Completed (this fork, 2026-07-04)
+## Completed (this fork, 2026-07-04/05)
+- INTEGRATION PHASE (tested: backend curl-verified + testing agent iteration_19 all pass):
+  - EXTERNAL API (/ext/v1, X-API-Key auth): POST /trip-inspections (async job, 12 photo slots,
+    report_fields, save_to_vehicle_history) → GET /trip-inspections/{jobId} → GET /vehicles/{plate}/history.
+    Tenant API keys (api_key_service, sha256-at-rest, shown once, revoke, last-used) in di_api_keys.
+  - RENTAL-SYSTEM CONNECTORS (connector_service, di_connectors + di_connector_deliveries):
+    GENERIC (HMAC-SHA256 signed webhooks: X-DI-Signature v1, retry 0/5/25s, events
+    inspection.completed / damage_case.created / connection.test, fired from finalize_trip),
+    SPEED_AUTO + GCU365_CROMS adapters with field mapping — ⚠️ SANDBOX MODE until customer
+    provides credentials (one switch to live; live requires https baseUrl).
+  - DEVELOPER CONSOLE (/developer, sidebar 'API & Integrations', di.configuration.manage):
+    key management, connector config + test-event, deliveries log, embedded API docs w/ HMAC verify sample.
+  - NAJM-STYLE CLAIM EXPORT: GET /damage-cases/{id}/claim-package (NAJM_STYLE_V1 JSON) +
+    'Export insurance claim' button on case detail → JSON download + EN/AR PDF (html2canvas/jsPDF).
+  - PDPL FACE/PLATE BLURRING (privacy_service): Gemini box_2d detection ([ymin,xmin,ymax,xmax]) +
+    Pillow Gaussian blur in place — faces + BYSTANDER plates blurred, subject vehicle plate kept
+    (verified on generated test photo: 4 detected, 3 blurred, subject plate preserved).
+    Tenant policy autoBlurUploads (auto at image registration, async) + on-demand
+    POST /evidence/{id}/blur + per-image button in InspectionDetail + toggle in TenantSettings.
 - FLEET RISK OVERVIEW ON DASHBOARD (self-tested via curl + screenshot):
   - GET /vehicles/risk-overview: totals (vehicles, highCount, mediumCount, totalExposure SAR) +
     top-5 riskiest vehicles ranked by level → exposure → damagedTrips.
