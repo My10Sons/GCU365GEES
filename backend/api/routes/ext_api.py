@@ -12,12 +12,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, Path, Request, UploadFile
+from fastapi import (APIRouter, Depends, File, Form, Header, Path, Query,
+                     Request, UploadFile)
+from pydantic import BaseModel, Field
 
 from api.middleware.safe_errors import DomainError
 from api.schemas.envelope import ok
-from application.services import (api_key_service, trip_inspection_service,
-                                  vehicle_registry_service)
+from application.services import (api_key_service, ext_report_service,
+                                  trip_inspection_service, vehicle_registry_service)
 from domain.enums.error_codes import ErrorCode
 from infrastructure.db.mongo import get_db
 
@@ -38,18 +40,34 @@ def _job_ser(doc: dict) -> dict:
 
 
 async def _run_job(job_id: str, principal: dict, pairs: list, report_fields: dict,
-                   mode: str, save_history: bool, correlation_id: str):
+                   mode: str, save_history: bool, correlation_id: str, public_base: str):
     db = get_db()
     try:
-        sections = []
-        for kind, angle, before, after in pairs:
+        sections, images = [], []
+        for slot, kind, angle, before, after in pairs:
             s = await trip_inspection_service.analyze_section(
                 principal=principal, kind=kind, angle=angle, before=before, after=after,
                 mode=mode, correlation_id=correlation_id)
             sections.append(s)
+            images.append({"slot": slot, "before": before, "after": after})
+        report_links, token = None, None
+        try:
+            token = await ext_report_service.create_report(
+                tenant_id=principal["tenantId"], job_id=job_id,
+                report_fields=report_fields, sections=sections, images=images)
+            base = f"{public_base}/api/v1/damage-intelligence/public/reports/{token}"
+            report_links = {"reportUrl": base, "reportPdfUrl": f"{base}/pdf"}
+        except Exception:
+            pass
         result = await trip_inspection_service.finalize_trip(
             principal=principal, sections=sections, report_fields=report_fields,
-            mode=mode, correlation_id=correlation_id, save_to_history=save_history)
+            mode=mode, correlation_id=correlation_id, save_to_history=save_history,
+            report_links=report_links)
+        if token:
+            try:
+                await ext_report_service.attach_result(token, result)
+            except Exception:
+                pass
         await db.di_ext_jobs.update_one({"jobId": job_id}, {"$set": {
             "status": "DONE", "result": result, "updatedAt": datetime.now(timezone.utc)}})
     except DomainError as exc:
@@ -89,7 +107,7 @@ async def submit_trip_inspection(
                               f"Both before_{name} and after_{name} are required.", 400, name)
         kind = "INTERIOR" if name == "interior" else "EXTERIOR"
         angle = None if name == "interior" else name.upper()
-        pairs.append((kind, angle, (await b.read(), b.content_type), (await a.read(), a.content_type)))
+        pairs.append((name, kind, angle, (await b.read(), b.content_type), (await a.read(), a.content_type)))
     if not pairs:
         raise DomainError(ErrorCode.VALIDATION_ERROR,
                           "At least one before/after pair is required "
@@ -108,9 +126,12 @@ async def submit_trip_inspection(
         "status": "RUNNING", "mode": mode if mode in ("fast", "thorough") else "fast",
         "createdAt": now, "updatedAt": now, "result": None, "error": None,
     })
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
     asyncio.create_task(_run_job(job_id, principal, pairs, rf,
                                  mode if mode in ("fast", "thorough") else "fast",
-                                 bool(save_to_vehicle_history), request.state.correlation_id))
+                                 bool(save_to_vehicle_history), request.state.correlation_id,
+                                 f"{scheme}://{host}"))
     return ok({"jobId": job_id, "status": "RUNNING",
                "poll": f"/api/v1/damage-intelligence/ext/v1/trip-inspections/{job_id}"},
               request.state.correlation_id)
@@ -141,3 +162,77 @@ async def vehicle_history_by_plate(
         raise DomainError(ErrorCode.NOT_FOUND, "No vehicle found for that plate.", 404)
     data = await vehicle_registry_service.get_vehicle(principal=principal, vehicle_id=str(v["_id"]))
     return ok(data, request.state.correlation_id)
+
+
+class RentalEventIn(BaseModel):
+    eventType: str = Field(..., max_length=40)
+    rentalId: str = Field(..., min_length=1, max_length=60)
+    plate: Optional[str] = Field(None, max_length=24)
+    customerName: Optional[str] = Field(None, max_length=120)
+    vehicleModel: Optional[str] = Field(None, max_length=80)
+    expectedReturnAt: Optional[str] = Field(None, max_length=40)
+    notes: Optional[str] = Field(None, max_length=300)
+
+
+_RENTAL_EVENTS = {"rental.checked_out": "CHECKED_OUT", "rental.checked_in": "RETURNED"}
+
+
+@router.post("/rental-events")
+async def push_rental_event(
+    request: Request,
+    payload: RentalEventIn,
+    principal: dict = Depends(require_api_key),
+):
+    """Inbound push from the rental system (CROMS): check-out/check-in events.
+    A check-out opens a pending inspection pre-filled with the rental agreement;
+    a check-in marks it as returned — staff see it in the Trip Inspection screen."""
+    et = payload.eventType.strip().lower()
+    if et not in _RENTAL_EVENTS:
+        raise DomainError(ErrorCode.VALIDATION_ERROR,
+                          "eventType must be 'rental.checked_out' or 'rental.checked_in'.",
+                          400, "eventType")
+    now = datetime.now(timezone.utc)
+    db = get_db()
+    rid = payload.rentalId.strip()[:60]
+    await db.di_rental_events.insert_one({
+        "tenantId": principal["tenantId"], "apiKeyPrincipal": principal["id"],
+        "eventType": et, "rentalId": rid, "plate": payload.plate,
+        "customerName": payload.customerName, "vehicleModel": payload.vehicleModel,
+        "expectedReturnAt": payload.expectedReturnAt, "notes": payload.notes,
+        "receivedAt": now,
+    })
+    status = _RENTAL_EVENTS[et]
+    fields = {"status": status, "updatedAt": now}
+    for k, v in (("plate", payload.plate), ("customerName", payload.customerName),
+                 ("vehicleModel", payload.vehicleModel),
+                 ("expectedReturnAt", payload.expectedReturnAt), ("notes", payload.notes)):
+        if v:
+            fields[k] = v
+    fields["checkedOutAt" if status == "CHECKED_OUT" else "checkedInAt"] = now
+    await db.di_open_rentals.update_one(
+        {"tenantId": principal["tenantId"], "rentalId": rid},
+        {"$set": fields, "$setOnInsert": {"createdAt": now}}, upsert=True)
+    return ok({"received": True, "rentalId": rid, "status": status,
+               "next": ("Inspection staff will see this rental pre-filled in the "
+                        "Trip Inspection screen."
+                        if status == "CHECKED_OUT" else
+                        "Submit the before/after photos to /trip-inspections with "
+                        f'report_fields {{"rentalId": "{rid}"}} to run the analysis.')},
+              request.state.correlation_id)
+
+
+@router.get("/rental-events")
+async def list_rental_events(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100),
+    principal: dict = Depends(require_api_key),
+):
+    cur = get_db().di_rental_events.find(
+        {"tenantId": principal["tenantId"]}).sort("receivedAt", -1).limit(limit)
+    events = []
+    async for d in cur:
+        events.append({"eventType": d["eventType"], "rentalId": d["rentalId"],
+                       "plate": d.get("plate"), "customerName": d.get("customerName"),
+                       "vehicleModel": d.get("vehicleModel"),
+                       "receivedAt": d["receivedAt"].isoformat()})
+    return ok({"events": events}, request.state.correlation_id)

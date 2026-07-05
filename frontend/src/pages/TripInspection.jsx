@@ -269,8 +269,27 @@ export default function TripInspection() {
   const [ocrData, setOcrData] = useState(null);
   const [plateSource, setPlateSource] = useState(null);
   const [saveHistory, setSaveHistory] = useState(true);
+  const [openRentals, setOpenRentals] = useState([]);
   const rfRef = useRef(reportFields);
   useEffect(() => { rfRef.current = reportFields; }, [reportFields]);
+  useEffect(() => {
+    api.get("/trip-inspection/open-rentals").then(({ data }) => setOpenRentals(data.data.rentals || [])).catch(() => {});
+  }, []);
+
+  const useRental = (r) => {
+    setReportFields((s) => ({
+      ...s, rentalId: r.rentalId || s.rentalId,
+      customerName: r.customerName || s.customerName,
+      vehiclePlate: r.plate || s.vehiclePlate,
+      vehicleModel: r.vehicleModel || s.vehicleModel,
+    }));
+    setPlateSource(null);
+    setOpenRentals((l) => l.filter((x) => x.rentalId !== r.rentalId));
+  };
+  const dismissRental = (r) => {
+    api.post(`/trip-inspection/open-rentals/${encodeURIComponent(r.rentalId)}/dismiss`).catch(() => {});
+    setOpenRentals((l) => l.filter((x) => x.rentalId !== r.rentalId));
+  };
 
   const maybeAutofillPlate = (plate, source) => {
     if (!plate || (rfRef.current.vehiclePlate || "").trim()) return;
@@ -708,6 +727,33 @@ export default function TripInspection() {
               <DropZone label="After the trip" slot="after" state={intAfter} onPick={pickInterior} testId="trip-interior-after" />
             </div>
             {intIncomplete && <p className="text-xs text-amber400 mt-2">Add both a Before and After interior photo to include this area.</p>}
+          </div>
+        )}
+
+        {openRentals.length > 0 && (
+          <div data-testid="trip-open-rentals" className="border-t border-ink-700/60 pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CarFront className="size-4 text-amber400" />
+              <span className="text-sm font-medium text-white">Rentals awaiting inspection</span>
+              <span className="text-[11px] text-steel-500">pushed by the rental system</span>
+            </div>
+            <ul className="space-y-2">
+              {openRentals.map((r) => (
+                <li key={r.rentalId} data-testid={`trip-open-rental-${r.rentalId}`} className="flex items-center gap-3 rounded-md border border-ink-700 bg-ink-900/50 px-3 py-2 text-xs flex-wrap">
+                  <span className="font-mono text-steel-100">{r.rentalId}</span>
+                  {r.plate && <span className="text-steel-300">{r.plate}</span>}
+                  {r.customerName && <span className="text-steel-400">{r.customerName}</span>}
+                  {r.vehicleModel && <span className="text-steel-500 hidden sm:inline">{r.vehicleModel}</span>}
+                  <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${r.status === "RETURNED" ? "border-amber400/50 bg-amber400/10 text-amber400" : "border-ink-600 text-steel-400"}`}>
+                    {r.status === "RETURNED" ? "Returned — awaiting photos" : "Checked out"}
+                  </span>
+                  <span className="ml-auto flex items-center gap-2">
+                    <button data-testid={`trip-open-rental-use-${r.rentalId}`} onClick={() => useRental(r)} className="px-2.5 py-1 rounded-md font-medium bg-signal hover:bg-signal/90 text-white flex items-center gap-1"><ArrowRight className="size-3" /> Use</button>
+                    <button data-testid={`trip-open-rental-dismiss-${r.rentalId}`} onClick={() => dismissRental(r)} className="text-steel-500 hover:text-steel-300">dismiss</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

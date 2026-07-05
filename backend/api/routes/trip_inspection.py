@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
 from application.services import trip_inspection_service
+from infrastructure.db.mongo import get_db
 
 router = APIRouter(prefix="/trip-inspection", tags=["trip-inspection"])
 
@@ -182,3 +183,37 @@ async def set_budget(
         cost_per_1k=payload.costPer1kTokens,
     )
     return ok(data, request.state.correlation_id)
+
+
+@router.get("/open-rentals")
+async def open_rentals(
+    request: Request,
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    """Rentals pushed by the rental system (CROMS check-out/check-in events) awaiting
+    inspection — used to pre-fill the Trip Inspection report fields."""
+    cur = get_db().di_open_rentals.find(
+        {"tenantId": principal["tenantId"], "status": {"$in": ["CHECKED_OUT", "RETURNED"]}}
+    ).sort("updatedAt", -1).limit(20)
+    rentals = []
+    async for d in cur:
+        rentals.append({
+            "rentalId": d["rentalId"], "plate": d.get("plate"),
+            "customerName": d.get("customerName"), "vehicleModel": d.get("vehicleModel"),
+            "status": d["status"], "expectedReturnAt": d.get("expectedReturnAt"),
+            "checkedOutAt": d["checkedOutAt"].isoformat() if d.get("checkedOutAt") else None,
+            "checkedInAt": d["checkedInAt"].isoformat() if d.get("checkedInAt") else None,
+        })
+    return ok({"rentals": rentals}, request.state.correlation_id)
+
+
+@router.post("/open-rentals/{rental_id}/dismiss")
+async def dismiss_open_rental(
+    request: Request,
+    rental_id: str,
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    await get_db().di_open_rentals.update_one(
+        {"tenantId": principal["tenantId"], "rentalId": rental_id[:60]},
+        {"$set": {"status": "DISMISSED"}})
+    return ok({"dismissed": True}, request.state.correlation_id)

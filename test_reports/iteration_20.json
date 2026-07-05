@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 20 — validated all 3 new GCU365 CROMS integration features end-to-end: (1) hosted report links (public HTML + PDF + images with token, 404 on invalid), (2) inbound rental-events endpoint + open-rentals list & dismiss, (3) Developer Sandbox Playground UI (job submit → hosted report link + PDF, rental-events tester). Backend pytest: 17/17 pass. Frontend Playwright: all critical flows pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter20_ext_reports.py",
+    "/app/test_reports/pytest/iter20.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Review request mentions the frontend route as '/trip-inspection' but App.js registers it as '/trip'. Not a bug — spec doc mismatch. If backwards-compat alias '/trip-inspection' is desired, add a redirect.",
+    "Playground pair pickers use slots [front, rear, left, right, roof, interior] (test-ids play-file-{before|after}-{slot}); spec example 'driver' is inaccurate but count is correct (6 slots × 2 = 12 file inputs)."
+  ],
+  "detailed_findings": {
+    "backend_pytest": {
+      "file": "/app/backend/tests/test_iter20_ext_reports.py",
+      "junit": "/app/test_reports/pytest/iter20.xml",
+      "passed": 17,
+      "failed": 0,
+      "coverage": [
+        "TestRentalEvents: 401 no key, 400 invalid type, CHECKED_OUT, RETURNED, list returns >=1",
+        "TestOpenRentals: RA-QA-1 present with admin JWT, dismiss returns dismissed:true and removes from list",
+        "TestExtJobReport: job DONE within 120s, result contains reportUrl (/public/reports/) & reportPdfUrl, public HTML 200 with 'Trip Inspection Report', PDF 200 with %PDF magic + application/pdf, /images/s0_after.jpg returns 200 image/jpeg, invalid 40-char token → 404",
+        "TestIntegrationPack: GCU365_CROMS markdown contains '3.4 Hosted report', '3.5 Push rental events', 'Sandbox Playground', 'Option C'",
+        "TestDeveloperRegression: /developer/{api-keys,usage,connectors,deliveries} all 200"
+      ]
+    },
+    "frontend": {
+      "developer_page": "loads with data-testid=developer-page; dev-playground + all 6 slot pair pickers (front/rear/left/right/roof/interior) + play-rental-events tester + play-api-key + play-mode + play-submit all present.",
+      "no_api_key_error": "Clicking play-submit without a key showed play-error 'Paste an API key (dik_…) — create one in the section above.'",
+      "api_key_creation": "Created key labeled 'T1-iter20' — dev-key-created showed full dik_… key.",
+      "rental_event_ui": "Pasted key, sent rental.checked_out for RA-UI-9 → play-rental-response showed HTTP 200 with status:CHECKED_OUT.",
+      "playground_photo_flow": "Uploaded generated JPEG to play-file-before-front & play-file-after-front → play-submit → play-job appeared with play-job-running 'Analyzing…' → within ~90s play-report-link present with href containing /public/reports/, play-report-pdf present.",
+      "trip_open_rentals": "At route /trip (NOT /trip-inspection as spec claims), banner data-testid=trip-open-rentals renders with 9 open rentals including RA-UI-9. Clicking trip-open-rental-use-RA-UI-9 fills trip-field-rental with 'RA-UI-9' and removes that row.",
+      "regression": "Dashboard loads with 0 error elements. Developer page sections dev-api-keys/dev-usage/dev-connector-GENERIC/dev-connector-SPEED_AUTO/dev-connector-GCU365_CROMS/dev-deliveries/dev-api-docs/dev-playground all present."
+    }
+  },
+  "updated_files": ["/app/backend/tests/test_iter20_ext_reports.py"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100%"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026 / TENANT-000001",
+  "seed_data_creation": "Created API keys 'TEST_iter20' (backend) and 'T1-iter20' (frontend) — not revoked (harmless). Pushed open rentals RA-QA-1 (checked_out+in then DISMISSED) and RA-UI-9 (checked_out, later USE-consumed on trip page). One real Gemini ext trip-inspection job was executed (verdict NOT_COMPARABLE which is expected anti-fraud behavior for synthetic images; job still DONE with reportUrl/reportPdfUrl).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend Trip Inspection route is '/trip' (not '/trip-inspection'). Playground uses fetch() with X-API-Key directly against ${REACT_APP_BACKEND_URL}/api/v1/damage-intelligence/ext/v1 (does not use JWT axios client). Pair-picker slots are: front, rear, left, right, roof, interior. Synthetic drawn JPEGs produce NOT_COMPARABLE but job still completes with reportUrl. Reusable pytest module at /app/backend/tests/test_iter20_ext_reports.py.",
+  "rca of the issue": "N/A — no issues found."
+}

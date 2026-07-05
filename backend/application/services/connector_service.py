@@ -54,6 +54,7 @@ def _map_payload(ctype: str, event_type: str, data: dict) -> dict:
             "EstimatedCostHigh": (data.get("costSummary") or {}).get("high"),
             "Currency": (data.get("costSummary") or {}).get("currency"),
             "DamageCaseRef": data.get("damageCaseId"),
+            "ReportUrl": data.get("reportUrl"), "ReportPdfUrl": data.get("reportPdfUrl"),
             "FindingsReport": data.get("report"),
             "SourceSystem": "DamageIntelligence",
         }
@@ -65,6 +66,7 @@ def _map_payload(ctype: str, event_type: str, data: dict) -> dict:
             "overallResult": data.get("overall"), "newIssueCount": data.get("newIssueCount"),
             "advisoryEstimate": data.get("costSummary"), "damageCaseId": data.get("damageCaseId"),
             "vehicleRisk": data.get("risk"),
+            "reportUrl": data.get("reportUrl"), "reportPdfUrl": data.get("reportPdfUrl"),
             "findingsReport": data.get("report"),
             "requestedBySystem": "DamageIntelligence",
         }

@@ -1059,7 +1059,7 @@ async def read_plate(*, principal: dict, image: tuple, correlation_id: str) -> d
 
 async def finalize_trip(*, principal: dict, sections: list[dict], report_fields: Optional[dict],
                         mode: str, correlation_id: str, save_to_history: bool = True,
-                        ocr: Optional[dict] = None) -> dict:
+                        ocr: Optional[dict] = None, report_links: Optional[dict] = None) -> dict:
     """Aggregate already-analyzed sections (from analyze_section), attach branding, and run
     auto-case routing once over the whole set. Sections are advisory; trip remains anonymous."""
     sections = sections or []
@@ -1097,9 +1097,14 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
             "vehicleConsistency": result.get("vehicleConsistency"),
         },
     }
+    if report_links:
+        result["reportUrl"] = report_links.get("reportUrl")
+        result["reportPdfUrl"] = report_links.get("reportPdfUrl")
     await connector_service.dispatch_event(principal["tenantId"], "inspection.completed", {
         "overall": result.get("overall"), "newIssueCount": result.get("newIssueCount"),
         "costSummary": result.get("costSummary"),
+        "reportUrl": (report_links or {}).get("reportUrl"),
+        "reportPdfUrl": (report_links or {}).get("reportPdfUrl"),
         "plate": vl.get("plate") or rf.get("vehiclePlate"), "vin": vl.get("vin"),
         "vehicleId": vl.get("vehicleId"), "rentalId": rf.get("rentalId"),
         "customerName": rf.get("customerName"), "inspectorName": rf.get("inspectorName"),
@@ -1114,6 +1119,13 @@ async def finalize_trip(*, principal: dict, sections: list[dict], report_fields:
             "costSummary": result.get("costSummary"), "overall": result.get("overall"),
             "newIssueCount": result.get("newIssueCount"),
         })
+    if rf.get("rentalId"):
+        try:
+            await get_db().di_open_rentals.update_one(
+                {"tenantId": principal["tenantId"], "rentalId": str(rf["rentalId"]).strip()[:60]},
+                {"$set": {"status": "INSPECTED", "inspectedAt": datetime.now(timezone.utc)}})
+        except Exception:
+            pass
     await write_audit(
         tenant_id=principal["tenantId"], actor_id=principal["id"], actor_type=ActorType.USER,
         action=AuditAction.QUICK_TRIP_ANALYSIS_RUN, object_type=ObjectType.AI_ANALYSIS,

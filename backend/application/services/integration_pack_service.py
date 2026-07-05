@@ -40,6 +40,8 @@ _OUTBOUND_SAMPLES = {
       "vehicleId": "<registry id>", "rentalId": "RA-1001",
       "damageCaseId": "<id or null>",
       "risk": { "level": "HIGH", "label": "Repeat offender", "damagedTrips": 3, "window": 5 },
+      "reportUrl": "https://…/public/reports/<token>",
+      "reportPdfUrl": "https://…/public/reports/<token>/pdf",
       "report": { "…": "detailed findings report — full schema in Section 6" }
     }
   }
@@ -54,6 +56,8 @@ _OUTBOUND_SAMPLES = {
     "DamageFound": true, "NewDamageCount": 2,
     "EstimatedCostLow": 800, "EstimatedCostHigh": 1300, "Currency": "SAR",
     "DamageCaseRef": "<id or null>",
+    "ReportUrl": "https://…/public/reports/<token>",
+    "ReportPdfUrl": "https://…/public/reports/<token>/pdf",
     "FindingsReport": { "…": "detailed findings report — full schema in Section 6" },
     "SourceSystem": "DamageIntelligence"
   }
@@ -72,6 +76,8 @@ _OUTBOUND_SAMPLES = {
     "vehicleRisk": { "level": "HIGH", "label": "Repeat offender",
                      "damagedTrips": 3, "window": 5, "streak": 3,
                      "newIssues": 6, "estCostHigh": 3900, "currency": "SAR" },
+    "reportUrl": "https://…/public/reports/<token>",
+    "reportPdfUrl": "https://…/public/reports/<token>/pdf",
     "findingsReport": { "…": "detailed report — full schema in Section 6" },
     "requestedBySystem": "DamageIntelligence"
   }
@@ -90,6 +96,9 @@ _REPORT_SCHEMA = """### `findingsReport` object (the detailed report)
 | `coverage` | object | Which angles were captured, walkaround completeness |
 | `sections[]` | array | One entry per analyzed view (max 8) — see below |
 | `verification` | object | Photo/fraud checks — see below |
+
+The parent event also carries `reportUrl` (hosted HTML report) and `reportPdfUrl`
+(PDF download) — see Section 3.4.
 
 ### `sections[]` entry
 | Field | Type | Values / notes |
@@ -218,6 +227,12 @@ All calls are HTTPS. Keep the key server-side only — never embed it in a mobil
 Each angle's before/after pair must show the same view of the same vehicle — our AI
 verifies this and flags mismatches, wrong angles, screens/prints, and edited photos.
 
+### Step 1.5 — (optional, recommended) push rental events
+Send `rental.checked_out` at rental start and `rental.checked_in` at return
+(`POST {api_base}/rental-events`, Section 3.5). The return inspection then opens
+pre-filled with the rental agreement, plate and customer in the inspector's screen,
+and auto-closes when the analysis for that `rentalId` is finalized.
+
 ### Step 2 — Submit the analysis request (at check-in)
 One multipart POST combining the stored check-out photos (`before_*`) with the fresh
 check-in photos (`after_*`):
@@ -267,6 +282,18 @@ The response is immediate (`jobId`). Analysis takes ~30–90 s depending on angl
 **Option B — Polling.** `GET {api_base}/trip-inspections/{{jobId}}` every 10 s until
 `status` is `DONE` or `FAILED` (give up after 5 min and alert your agent).
 
+**Option C — Zero UI needed: the hosted report.** Every job result AND every
+`inspection.completed` event includes two ready-to-use links:
+
+| Field | What it is |
+|---|---|
+| `reportUrl` | A hosted, rendered report page (HTML): annotated before/after photos with numbered damage markers, findings table with severities and cost ranges, verification warnings. Shareable with the customer, claims, or management as-is. |
+| `reportPdfUrl` | The same report as a downloadable PDF — attach it to the rental agreement or claim file. |
+
+The link token is unguessable (40 hex chars) and requires no login — simply store it on
+the rental agreement in {name} and open/attach it wherever the result must be shown.
+If you build nothing else, showing `reportUrl` to your agent is a complete integration.
+
 ### Step 4 — Process the findings report in {name}
 1. Read `overallResult`:
    - `NO_NEW_DAMAGE` → close the return; nothing to charge.
@@ -279,7 +306,10 @@ The response is immediate (`jobId`). Analysis takes ~30–90 s depending on angl
    (possible photo-quality issue or fraud signal).
 3. If `damageCaseId` is set → a damage case was auto-opened on our side; store the
    reference on the rental agreement.
-4. Optional: use `vehicleRisk` (repeat-offender flag) to adjust the deposit on the
+4. Store `reportUrl` / `reportPdfUrl` on the rental agreement — open the hosted report
+   to show the annotated photos and findings to the customer or claims team (Step 3,
+   Option C) without building any screen.
+5. Optional: use `vehicleRisk` (repeat-offender flag) to adjust the deposit on the
    vehicle's NEXT rental.
 
 ### Step 5 — Handle errors
@@ -297,8 +327,17 @@ allow resubmission.
 - [ ] Submit a job with at least one real before/after pair → `status: DONE`
 - [ ] `inspection.completed` received (or payload viewed in our console's delivery log)
 - [ ] NEW items + cost ranges rendered correctly in the {name} return screen
+      (or `reportUrl` stored/opened if using the hosted report)
+- [ ] Hosted report opens from `reportUrl` and the PDF downloads from `reportPdfUrl`
+- [ ] `rental.checked_out` / `rental.checked_in` events accepted by
+      `POST {api_base}/rental-events` (if you push rental events — Section 3.4)
 - [ ] Webhook `2xx` ack + de-duplication verified (we can resend `connection.test` anytime)
 - [ ] `NOT_COMPARABLE` and `FAILED` paths handled
+
+> 💡 **Sandbox Playground** — no code required to try the API: the tenant admin console
+> (**API & Integrations → Sandbox playground**) lets you paste your `dik_…` key, upload
+> test photos, watch the job run, and open the resulting hosted report — exactly what
+> your integration will receive.
 
 Then follow the go-live steps at the end of this document.
 
@@ -327,12 +366,56 @@ curl "{api_base}/trip-inspections/{{jobId}}" -H "X-API-Key: dik_..."
 ```
 `status`: `RUNNING → DONE | FAILED`. `result` contains sections (per-angle findings,
 bounding boxes, severities, cost estimates), photo/integrity/metadata verification,
-`vehicleConsistency`, `vehicleLink` (registry id + fleet-risk profile), `autoCase`.
+`vehicleConsistency`, `vehicleLink` (registry id + fleet-risk profile), `autoCase`,
+and the hosted report links `reportUrl` / `reportPdfUrl` (Section 3.4).
 
 ### 3.3 Vehicle damage history by plate
 ```bash
 curl "{api_base}/vehicles/ABC1234/history" -H "X-API-Key: dik_..."
 ```
+
+### 3.4 Hosted report (no auth — the link token is the credential)
+Returned in every job `result` and `inspection.completed` event:
+```text
+GET {{reportUrl}}        → rendered HTML report (annotated photos, findings, costs)
+GET {{reportPdfUrl}}     → the same report as a downloadable PDF
+```
+Both work in any browser without login — safe to store on the rental agreement and
+share with the customer, claims, or management. See Step 3 Option C.
+
+### 3.5 Push rental events to us (auto-open inspections)
+Push check-out / check-in events so the return inspection opens pre-filled with the
+rental agreement in the inspector's Trip Inspection screen:
+
+```bash
+# at rental start
+curl -X POST "{api_base}/rental-events" \\
+  -H "X-API-Key: dik_..." -H "Content-Type: application/json" \\
+  -d '{{"eventType":"rental.checked_out","rentalId":"RA-1001",
+       "plate":"ABC 1234","customerName":"…","vehicleModel":"Toyota Camry 2024",
+       "expectedReturnAt":"2026-07-12T10:00:00Z"}}'
+
+# at vehicle return
+curl -X POST "{api_base}/rental-events" \\
+  -H "X-API-Key: dik_..." -H "Content-Type: application/json" \\
+  -d '{{"eventType":"rental.checked_in","rentalId":"RA-1001"}}'
+```
+
+C# / .NET:
+```csharp
+var evt = new {{ eventType = "rental.checked_out", rentalId = "RA-1001",
+                plate = "ABC 1234", customerName = "…" }};
+var resp = await http.PostAsJsonAsync("{api_base}/rental-events", evt);
+// → {{ "received": true, "rentalId": "RA-1001", "status": "CHECKED_OUT" }}
+```
+
+Rules:
+- `eventType`: `rental.checked_out` | `rental.checked_in`. `rentalId` is required and
+  is the de-duplication key (repeat events update the same open rental).
+- On check-out we open a pending inspection (plate / customer / model pre-filled).
+- On check-in it is flagged **RETURNED — awaiting photos**; when a trip inspection is
+  finalized with the same `rentalId` in `report_fields`, the open rental auto-closes.
+- Audit: `GET {api_base}/rental-events?limit=20` lists your recently received events.
 
 ---
 

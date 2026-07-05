@@ -4,8 +4,8 @@
  *   rental-system connectors (Generic webhook contract / Speed Auto / GCU365 CROMS —
  *   SANDBOX until credentials), delivery log, and embedded External API docs.
  */
-import React, { useEffect, useState } from "react";
-import { KeyRound, Plug, Loader2, Check, Copy, Trash2, SendHorizonal, BookOpen, RefreshCw, TerminalSquare, FileDown, Coins } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { KeyRound, Plug, Loader2, Check, Copy, Trash2, SendHorizonal, BookOpen, RefreshCw, TerminalSquare, FileDown, Coins, FlaskConical, ExternalLink, PlayCircle } from "lucide-react";
 import { api, envelopeError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 
@@ -204,6 +204,175 @@ function ConnectorCard({ c, onSave, onTest, onError }) {
   );
 }
 
+const EXT_BASE = `${process.env.REACT_APP_BACKEND_URL}/api/v1/damage-intelligence/ext/v1`;
+const PLAY_SLOTS = ["front", "rear", "left", "right", "roof", "interior"];
+
+function PairPicker({ slot, files, setFiles }) {
+  const set = (which, f) => setFiles((s) => ({ ...s, [`${which}_${slot}`]: f || null }));
+  const b = files[`before_${slot}`], a = files[`after_${slot}`];
+  return (
+    <div className={`rounded-md border p-2.5 ${b && a ? "border-emerald400/40 bg-emerald-400/5" : "border-ink-700 bg-ink-900/40"}`}>
+      <div className="text-[11px] uppercase tracking-wider text-steel-300 mb-1.5 flex items-center gap-1.5">{slot}{b && a && <Check className="size-3 text-emerald400" />}</div>
+      {[["before", b], ["after", a]].map(([which, f]) => (
+        <label key={which} className="flex items-center gap-1.5 text-[11px] text-steel-400 py-0.5 cursor-pointer">
+          <span className="w-11">{which}</span>
+          <input data-testid={`play-file-${which}-${slot}`} type="file" accept="image/*" onChange={(e) => set(which, e.target.files?.[0])} className="text-[10px] file:mr-1.5 file:rounded file:border-0 file:bg-ink-700 file:px-2 file:py-0.5 file:text-[10px] file:text-steel-200 w-full" />
+          {f && <span className="text-emerald400 truncate max-w-[80px]">{f.name}</span>}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function VerdictChip({ overall }) {
+  const map = {
+    NEW_DAMAGE_FOUND: ["New damage found", "border-signal/50 bg-signal/10 text-signal-soft"],
+    NO_NEW_DAMAGE: ["No new damage", "border-emerald400/50 bg-emerald-400/10 text-emerald400"],
+    NOT_COMPARABLE: ["Not comparable", "border-amber400/50 bg-amber400/10 text-amber400"],
+  };
+  const [label, cls] = map[overall] || [overall || "—", "border-ink-600 text-steel-300"];
+  return <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>;
+}
+
+function RentalEventTester({ apiKey, onError }) {
+  const [form, setForm] = useState({ eventType: "rental.checked_out", rentalId: "", plate: "", customerName: "" });
+  const [resp, setResp] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    if (!apiKey.trim()) return onError("Paste an API key first.");
+    if (!form.rentalId.trim()) return onError("Rental ID is required for rental events.");
+    setBusy(true); setResp(null);
+    try {
+      const r = await fetch(`${EXT_BASE}/rental-events`, {
+        method: "POST",
+        headers: { "X-API-Key": apiKey.trim(), "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      setResp({ status: r.status, body: await r.json() });
+    } catch (e) { onError(e.message || "Rental event failed."); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="mt-5 border-t border-ink-700/60 pt-4" data-testid="play-rental-events">
+      <div className="text-xs font-semibold text-steel-100 mb-2">Rental events tester — <code className="text-steel-300">POST /ext/v1/rental-events</code></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <select data-testid="play-rental-event-type" value={form.eventType} onChange={(e) => setForm((f) => ({ ...f, eventType: e.target.value }))} className={inputCls + " mt-0"}>
+          <option value="rental.checked_out">rental.checked_out</option>
+          <option value="rental.checked_in">rental.checked_in</option>
+        </select>
+        <input data-testid="play-rental-id" value={form.rentalId} onChange={(e) => setForm((f) => ({ ...f, rentalId: e.target.value }))} placeholder="Rental ID (RA-1001)" className={inputCls + " mt-0"} />
+        <input data-testid="play-rental-plate" value={form.plate} onChange={(e) => setForm((f) => ({ ...f, plate: e.target.value }))} placeholder="Plate" className={inputCls + " mt-0"} />
+        <input data-testid="play-rental-customer" value={form.customerName} onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} placeholder="Customer" className={inputCls + " mt-0"} />
+      </div>
+      <button data-testid="play-rental-send" onClick={send} disabled={busy} className={btnCls + " mt-2"}>{busy ? <Loader2 className="size-3.5 animate-spin" /> : <SendHorizonal className="size-3.5" />} Send event</button>
+      {resp && (
+        <pre data-testid="play-rental-response" className="mt-2 bg-ink-950 rounded p-2 overflow-x-auto text-[10px] font-mono text-steel-300">{`HTTP ${resp.status}\n${JSON.stringify(resp.body, null, 1)}`}</pre>
+      )}
+    </div>
+  );
+}
+
+function PlaygroundSection() {
+  const [apiKey, setApiKey] = useState("");
+  const [mode, setMode] = useState("fast");
+  const [plate, setPlate] = useState("");
+  const [rentalId, setRentalId] = useState("");
+  const [files, setFiles] = useState({});
+  const [job, setJob] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const pollRef = useRef(null);
+  useEffect(() => () => clearInterval(pollRef.current), []);
+
+  const pairs = PLAY_SLOTS.filter((s) => files[`before_${s}`] && files[`after_${s}`]);
+
+  const submit = async () => {
+    setErr(""); setJob(null); clearInterval(pollRef.current);
+    if (!apiKey.trim()) return setErr("Paste an API key (dik_…) — create one in the section above.");
+    if (pairs.length === 0) return setErr("Add at least one complete before/after pair.");
+    const fd = new FormData();
+    fd.append("mode", mode);
+    fd.append("save_to_vehicle_history", "false");
+    const rf = {};
+    if (plate.trim()) rf.vehiclePlate = plate.trim();
+    if (rentalId.trim()) rf.rentalId = rentalId.trim();
+    fd.append("report_fields", JSON.stringify(rf));
+    pairs.forEach((s) => { fd.append(`before_${s}`, files[`before_${s}`]); fd.append(`after_${s}`, files[`after_${s}`]); });
+    setBusy(true);
+    try {
+      const r = await fetch(`${EXT_BASE}/trip-inspections`, { method: "POST", headers: { "X-API-Key": apiKey.trim() }, body: fd });
+      const body = await r.json();
+      if (!r.ok || !body.success) throw new Error(body.errors?.[0]?.message || `HTTP ${r.status}`);
+      const jobId = body.data.jobId;
+      setJob({ jobId, status: "RUNNING" });
+      pollRef.current = setInterval(async () => {
+        try {
+          const pr = await fetch(`${EXT_BASE}/trip-inspections/${jobId}`, { headers: { "X-API-Key": apiKey.trim() } });
+          const pb = await pr.json();
+          if (pb.success) {
+            setJob({ jobId, ...pb.data });
+            if (pb.data.status !== "RUNNING") { clearInterval(pollRef.current); setBusy(false); }
+          }
+        } catch { /* keep polling */ }
+      }, 5000);
+    } catch (e) { setErr(e.message); setBusy(false); }
+  };
+
+  const res = job?.result;
+  return (
+    <section className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5" data-testid="dev-playground">
+      <div className="flex items-center gap-2 mb-1"><FlaskConical className="size-4 text-steel-300" /><span className="text-sm font-medium text-white">Sandbox playground</span></div>
+      <p className="text-[12px] text-steel-400 mb-4">Try the External API exactly as CROMS would: paste a <code className="text-steel-200">dik_…</code> key, upload test photos, watch the job run, then open the hosted report the integration receives. Nothing is saved to the vehicle registry.</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+        <input data-testid="play-api-key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="X-API-Key (dik_…)" className={inputCls + " mt-0 col-span-2 sm:col-span-1"} />
+        <select data-testid="play-mode" value={mode} onChange={(e) => setMode(e.target.value)} className={inputCls + " mt-0"}>
+          <option value="fast">fast</option><option value="thorough">thorough</option>
+        </select>
+        <input data-testid="play-plate" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="Plate (optional)" className={inputCls + " mt-0"} />
+        <input data-testid="play-rental" value={rentalId} onChange={(e) => setRentalId(e.target.value)} placeholder="Rental ID (optional)" className={inputCls + " mt-0"} />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {PLAY_SLOTS.map((s) => <PairPicker key={s} slot={s} files={files} setFiles={setFiles} />)}
+      </div>
+      <div className="flex items-center gap-3 mt-3">
+        <button data-testid="play-submit" onClick={submit} disabled={busy} className={btnCls}>
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <PlayCircle className="size-3.5" />} Submit to /trip-inspections
+        </button>
+        <span className="text-[11px] text-steel-500">{pairs.length} complete pair{pairs.length === 1 ? "" : "s"}</span>
+      </div>
+      {err && <div data-testid="play-error" className="mt-2 text-xs text-signal-soft bg-signal/10 border border-signal/30 rounded px-2.5 py-1.5">{err}</div>}
+      {job && (
+        <div data-testid="play-job" className="mt-3 rounded-md border border-ink-700 bg-ink-950/60 p-3">
+          <div className="flex items-center gap-3 flex-wrap text-xs">
+            <span className="font-mono text-steel-400">job {job.jobId.slice(0, 12)}…</span>
+            {job.status === "RUNNING" && <span data-testid="play-job-running" className="flex items-center gap-1.5 text-amber400"><Loader2 className="size-3.5 animate-spin" /> Analyzing…</span>}
+            {job.status === "FAILED" && <span data-testid="play-job-failed" className="text-signal-soft">FAILED — {job.error}</span>}
+            {job.status === "DONE" && res && (
+              <>
+                <VerdictChip overall={res.overall} />
+                <span className="text-steel-300">{res.newIssueCount} new issue{res.newIssueCount === 1 ? "" : "s"}</span>
+                {res.costSummary && (res.costSummary.low || res.costSummary.high) ? <span className="text-steel-300 font-mono">{res.costSummary.low}–{res.costSummary.high} {res.costSummary.currency}</span> : null}
+              </>
+            )}
+          </div>
+          {job.status === "DONE" && res && (
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+              {res.reportUrl && <a data-testid="play-report-link" href={res.reportUrl} target="_blank" rel="noreferrer" className={btnCls}><ExternalLink className="size-3.5" /> Open hosted report</a>}
+              {res.reportPdfUrl && <a data-testid="play-report-pdf" href={res.reportPdfUrl} className="px-3 py-1.5 rounded-md text-xs font-medium border border-ink-600 text-steel-200 hover:bg-ink-800 flex items-center gap-1.5"><FileDown className="size-3.5" /> Download PDF</a>}
+              <details className="w-full mt-1">
+                <summary data-testid="play-raw-json" className="text-[11px] text-steel-500 cursor-pointer hover:text-steel-300">view raw JSON result (what CROMS receives)</summary>
+                <pre className="mt-1 bg-ink-950 rounded p-2 overflow-x-auto text-[10px] font-mono text-steel-300 max-h-72 overflow-y-auto">{JSON.stringify(res, null, 1)}</pre>
+              </details>
+            </div>
+          )}
+        </div>
+      )}
+      <RentalEventTester apiKey={apiKey} onError={setErr} />
+    </section>
+  );
+}
+
+
 function DocsSection() {
   const base = `${process.env.REACT_APP_BACKEND_URL}/api/v1/damage-intelligence/ext/v1`;
   return (
@@ -232,6 +401,17 @@ function DocsSection() {
         <div>
           <div className="text-steel-100 font-semibold mb-1">3 · Vehicle history by plate</div>
           <pre className="bg-ink-950 rounded p-3 overflow-x-auto text-[11px] font-mono text-steel-200">{`curl "${base}/vehicles/ABC1234/history" -H "X-API-Key: dik_..."`}</pre>
+        </div>
+        <div>
+          <div className="text-steel-100 font-semibold mb-1">4 · Hosted report (no login needed)</div>
+          <p>Every job result and <code>inspection.completed</code> event includes <code className="text-steel-100">reportUrl</code> (rendered HTML report with annotated photos) and <code className="text-steel-100">reportPdfUrl</code> (PDF download). Share the link with any party — the unguessable token is the credential.</p>
+        </div>
+        <div>
+          <div className="text-steel-100 font-semibold mb-1">5 · Inbound rental events (auto-open inspections)</div>
+          <pre className="bg-ink-950 rounded p-3 overflow-x-auto text-[11px] font-mono text-steel-200">{`curl -X POST "${base}/rental-events" -H "X-API-Key: dik_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"eventType":"rental.checked_out","rentalId":"RA-1001","plate":"ABC 1234","customerName":"..."}'
+# eventType: rental.checked_out | rental.checked_in — pre-fills the Trip Inspection screen`}</pre>
         </div>
         <div>
           <div className="text-steel-100 font-semibold mb-1">Webhooks (Generic connector)</div>
@@ -281,6 +461,8 @@ export default function Developer() {
         <div className="flex items-center gap-2"><Plug className="size-4 text-steel-300" /><span className="text-sm font-medium text-white">Rental-system connectors</span></div>
         {connectors.map((c) => <ConnectorCard key={c.type} c={c} onSave={loadConnectors} onTest={loadDeliveries} onError={setError} />)}
       </section>
+
+      <PlaygroundSection />
 
       <section className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5" data-testid="dev-deliveries">
         <div className="flex items-center gap-2 mb-3">
