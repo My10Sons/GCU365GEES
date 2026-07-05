@@ -22,6 +22,16 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
 ## Completed (this fork, 2026-07-04/05)
+- API USAGE METERING + INTEGRATION PACKS (curl + UI screenshot verified):
+  - GET /developer/usage: per-API-key billing rollup from audit records (actorId=apikey:<id>) —
+    inspections (fast/thorough split via model name), OCR calls, tokens, est cost SAR using
+    measured rates (Fast 0.20 / Thorough 0.58 / OCR 0.01 SAR). 'Client usage & billing' table
+    in Developer console (dev-usage).
+  - GET /developer/integration-pack/{ctype}: downloadable Markdown pack per connector
+    (integration_pack_service) — checklist of what we provide vs what counterpart (e.g. GCU365
+    CROMS dev) must provide, inbound External API curl samples with live host URLs, outbound
+    event schema + per-connector payload samples, HMAC verify code, go-live steps. Download
+    buttons on each connector card (dev-connector-pack-{TYPE}).
 - INTEGRATION PHASE (tested: backend curl-verified + testing agent iteration_19 all pass):
   - EXTERNAL API (/ext/v1, X-API-Key auth): POST /trip-inspections (async job, 12 photo slots,
     report_fields, save_to_vehicle_history) → GET /trip-inspections/{jobId} → GET /vehicles/{plate}/history.

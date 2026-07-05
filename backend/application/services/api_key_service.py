@@ -77,6 +77,56 @@ async def revoke_key(*, principal: dict, key_id: str) -> dict:
     return {"id": key_id, "revoked": True}
 
 
+_COST_FAST_SAR = 0.20      # measured empirical cost per Fast inspection
+_COST_THOROUGH_SAR = 0.58  # measured empirical cost per Thorough inspection
+_COST_OCR_SAR = 0.01       # single Flash OCR call
+
+
+async def usage_summary(*, principal: dict) -> dict:
+    """Per-API-key usage & billing rollup from audit records (actorId = apikey:<id>)."""
+    db = get_db()
+    keys = await db.di_api_keys.find({"tenantId": principal["tenantId"]}).sort(
+        "createdAt", -1).to_list(length=100)
+    rows = await db.di_audit_records.aggregate([
+        {"$match": {"tenantId": principal["tenantId"],
+                    "actorId": {"$regex": "^apikey:"},
+                    "action": {"$in": ["QUICK_TRIP_ANALYSIS_RUN", "PLATE_OCR_RUN"]}}},
+        {"$project": {
+            "actorId": 1,
+            "tokens": {"$ifNull": ["$safeMetadata.totalTokens", 0]},
+            "isTrip": {"$cond": [{"$eq": ["$action", "QUICK_TRIP_ANALYSIS_RUN"]}, 1, 0]},
+            "isOcr": {"$cond": [{"$eq": ["$action", "PLATE_OCR_RUN"]}, 1, 0]},
+            "isThorough": {"$cond": [{"$regexMatch": {
+                "input": {"$ifNull": ["$safeMetadata.model", ""]}, "regex": "pro"}}, 1, 0]},
+        }},
+        {"$group": {"_id": "$actorId", "tokens": {"$sum": "$tokens"},
+                    "inspections": {"$sum": "$isTrip"}, "ocrCalls": {"$sum": "$isOcr"},
+                    "thorough": {"$sum": {"$cond": [
+                        {"$and": [{"$eq": ["$isTrip", 1]}, {"$eq": ["$isThorough", 1]}]}, 1, 0]}}}},
+    ]).to_list(length=200)
+    by_actor = {r["_id"]: r for r in rows}
+    out = []
+    totals = {"inspections": 0, "ocrCalls": 0, "tokens": 0, "estCostSar": 0.0}
+    for k in keys:
+        u = by_actor.get(f"apikey:{k['_id']}", {})
+        inspections = int(u.get("inspections", 0))
+        thorough = int(u.get("thorough", 0))
+        ocr = int(u.get("ocrCalls", 0))
+        cost = round((inspections - thorough) * _COST_FAST_SAR
+                     + thorough * _COST_THOROUGH_SAR + ocr * _COST_OCR_SAR, 2)
+        out.append({**_ser(k), "inspections": inspections, "thoroughInspections": thorough,
+                    "ocrCalls": ocr, "totalTokens": int(u.get("tokens", 0)),
+                    "estCostSar": cost})
+        totals["inspections"] += inspections
+        totals["ocrCalls"] += ocr
+        totals["tokens"] += int(u.get("tokens", 0))
+        totals["estCostSar"] = round(totals["estCostSar"] + cost, 2)
+    return {"keys": out, "totals": totals,
+            "rates": {"fastPerInspectionSar": _COST_FAST_SAR,
+                      "thoroughPerInspectionSar": _COST_THOROUGH_SAR,
+                      "ocrPerCallSar": _COST_OCR_SAR, "currency": "SAR"}}
+
+
 async def resolve_api_key(api_key: str) -> dict:
     """X-API-Key → tenant principal with a fixed machine permission set."""
     if not api_key or not api_key.startswith("dik_") or api_key.count("_") < 2:

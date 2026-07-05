@@ -9,11 +9,12 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
-from application.services import api_key_service, connector_service
+from application.services import api_key_service, connector_service, integration_pack_service
 
 router = APIRouter(prefix="/developer", tags=["developer"])
 _admin = require_permission("di.configuration.manage")
@@ -68,6 +69,25 @@ async def test_connector(request: Request, ctype: str = Path(...),
                          principal: dict = Depends(_admin)):
     data = await connector_service.test_connector(principal=principal, ctype=ctype)
     return ok(data, request.state.correlation_id)
+
+
+@router.get("/usage")
+async def usage(request: Request, principal: dict = Depends(_admin)):
+    """Per-API-key usage & billing rollup (inspections, tokens, est. cost SAR)."""
+    return ok(await api_key_service.usage_summary(principal=principal),
+              request.state.correlation_id)
+
+
+@router.get("/integration-pack/{ctype}")
+async def integration_pack(request: Request, ctype: str = Path(...),
+                           principal: dict = Depends(_admin)):
+    """Downloadable Markdown integration pack for the counterpart developer."""
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", ""))
+    fname, md = await integration_pack_service.build_pack(
+        principal=principal, ctype=ctype, public_base=f"{scheme}://{host}")
+    return Response(content=md, media_type="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @router.get("/deliveries")

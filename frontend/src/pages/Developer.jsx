@@ -5,9 +5,61 @@
  *   SANDBOX until credentials), delivery log, and embedded External API docs.
  */
 import React, { useEffect, useState } from "react";
-import { KeyRound, Plug, Loader2, Check, Copy, Trash2, SendHorizonal, BookOpen, RefreshCw, TerminalSquare } from "lucide-react";
+import { KeyRound, Plug, Loader2, Check, Copy, Trash2, SendHorizonal, BookOpen, RefreshCw, TerminalSquare, FileDown, Coins } from "lucide-react";
 import { api, envelopeError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
+
+async function downloadPack(ctype, onError) {
+  try {
+    const { data } = await api.get(`/developer/integration-pack/${ctype}`, { responseType: "blob" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(data);
+    a.download = `damage-intelligence-integration-${ctype.toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { onError(envelopeError(e, "Could not download the integration pack.")); }
+}
+
+function UsageSection({ onError }) {
+  const [usage, setUsage] = useState(null);
+  const load = () => api.get("/developer/usage").then(({ data }) => setUsage(data.data)).catch((e) => onError(envelopeError(e, "Could not load usage.")));
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  if (!usage) return null;
+  const t = usage.totals || {};
+  return (
+    <section className="rounded-lg border border-ink-700/70 bg-ink-900/60 p-5" data-testid="dev-usage">
+      <div className="flex items-center gap-2 mb-1"><Coins className="size-4 text-steel-300" /><span className="text-sm font-medium text-white">Client usage &amp; billing</span>
+        <button data-testid="dev-usage-refresh" onClick={load} className="ml-auto text-steel-400 hover:text-white"><RefreshCw className="size-3.5" /></button>
+      </div>
+      <p className="text-[12px] text-steel-400 mb-3">Per-API-key consumption via the External API — bill rental-system clients per inspection. Rates: Fast {usage.rates?.fastPerInspectionSar} SAR · Thorough {usage.rates?.thoroughPerInspectionSar} SAR · Plate OCR {usage.rates?.ocrPerCallSar} SAR (measured).</p>
+      <div className="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr_1fr_0.9fr] gap-2 text-[10px] uppercase tracking-wider text-steel-400 border-b border-ink-700/60 pb-1.5">
+        <span>Key</span><span>Inspections</span><span>Thorough</span><span>OCR</span><span>Tokens</span><span className="text-right">Est. cost</span>
+      </div>
+      <ul className="divide-y divide-ink-700/60 text-xs">
+        {(usage.keys || []).map((k) => (
+          <li key={k.id} className="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr_1fr_0.9fr] gap-2 py-2 items-center" data-testid={`dev-usage-row-${k.id}`}>
+            <span className="truncate"><span className="font-mono text-steel-100">{k.keyPrefix}…</span> <span className="text-steel-400">{k.label}</span>{k.revokedAt && <span className="text-signal-soft"> (revoked)</span>}</span>
+            <span className="text-steel-100">{k.inspections}</span>
+            <span className="text-steel-300">{k.thoroughInspections}</span>
+            <span className="text-steel-300">{k.ocrCalls}</span>
+            <span className="text-steel-300 font-mono">{Number(k.totalTokens).toLocaleString()}</span>
+            <span className="text-right font-mono text-emerald400">SAR {k.estCostSar.toFixed(2)}</span>
+          </li>
+        ))}
+        {(usage.keys || []).length === 0 && <li className="py-3 text-steel-500">No API keys yet.</li>}
+      </ul>
+      {(usage.keys || []).length > 0 && (
+        <div className="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr_1fr_0.9fr] gap-2 pt-2 mt-1 border-t border-ink-600 text-xs font-semibold" data-testid="dev-usage-totals">
+          <span className="text-steel-300">Total</span>
+          <span className="text-white">{t.inspections}</span><span />
+          <span className="text-white">{t.ocrCalls}</span>
+          <span className="text-white font-mono">{Number(t.tokens || 0).toLocaleString()}</span>
+          <span className="text-right font-mono text-emerald400">SAR {(t.estCostSar || 0).toFixed(2)}</span>
+        </div>
+      )}
+    </section>
+  );
+}
 
 const CONNECTOR_META = {
   GENERIC: { name: "Generic Rental System Connector", desc: "Documented REST + HMAC-signed webhook contract any KSA rental system can implement." },
@@ -142,9 +194,10 @@ function ConnectorCard({ c, onSave, onTest, onError }) {
       {signingSecret && (
         <div className="mt-2 text-xs text-emerald400 bg-emerald-400/10 border border-emerald400/30 rounded px-2 py-1.5">Webhook signing secret: <code className="font-mono break-all">{signingSecret}</code> — share it with the receiving system.</div>
       )}
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center gap-2 mt-3 flex-wrap">
         <button data-testid={`dev-connector-save-${c.type}`} onClick={save} disabled={busy} className={btnCls}>{busy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Save</button>
         <button data-testid={`dev-connector-test-${c.type}`} onClick={test} disabled={testing} className="px-3 py-1.5 rounded-md text-xs font-medium border border-ink-600 text-steel-200 hover:bg-ink-800 flex items-center gap-1.5">{testing ? <Loader2 className="size-3.5 animate-spin" /> : <SendHorizonal className="size-3.5" />} Send test event</button>
+        <button data-testid={`dev-connector-pack-${c.type}`} onClick={() => downloadPack(c.type, onError)} className="px-3 py-1.5 rounded-md text-xs font-medium border border-ink-600 text-steel-200 hover:bg-ink-800 flex items-center gap-1.5"><FileDown className="size-3.5" /> Download integration pack</button>
         {testResult && <StatusChip status={testResult.status} />}
       </div>
     </div>
@@ -221,6 +274,8 @@ export default function Developer() {
       {error && <div data-testid="developer-error" className="text-sm text-signal-soft bg-signal/10 border border-signal/30 rounded-md px-3 py-2">{error}</div>}
 
       <ApiKeysSection onError={setError} />
+
+      <UsageSection onError={setError} />
 
       <section className="space-y-3" data-testid="dev-connectors">
         <div className="flex items-center gap-2"><Plug className="size-4 text-steel-300" /><span className="text-sm font-medium text-white">Rental-system connectors</span></div>
