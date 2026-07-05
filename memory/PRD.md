@@ -22,6 +22,15 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
 ## Completed (this fork, 2026-07-04/05)
+- STEP-BY-STEP DEVELOPER GUIDE IN INTEGRATION PACK (verified: downloaded pack renders with live
+  URLs, correct curl + C#/.NET samples): new Section 2 'What your team needs to develop' —
+  Step 0 prerequisites, Step 1 photo capture/storage rules (JPEG/PNG/WebP, 12MB, before at
+  check-out / after at check-in per angle), Step 2 submit multipart (curl + C# HttpClient),
+  Step 3 receive report (webhook receiver spec w/ 2xx-in-10s + dedupe, or polling), Step 4
+  how to process the report (NEW items chargeable, verification flags → manual review,
+  damageCaseId + vehicleRisk usage), Step 5 error table, Step 6 sandbox acceptance checklist.
+  Sections renumbered 1-7. NOTE: inbound CROMS check-out/check-in push endpoint deemed
+  unnecessary — flow is CROMS-initiated via External API.
 - DETAILED FINDINGS REPORT IN OUTBOUND EVENTS (curl + Mongo + UI verified):
   - inspection.completed now carries full `report` (analyzedAt, mode, modelVersion, conditionScore,
     cleanliness, coverage, compact sections+items, verification flags + vehicleConsistency) mapped

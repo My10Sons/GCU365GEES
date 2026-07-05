@@ -40,7 +40,7 @@ _OUTBOUND_SAMPLES = {
       "vehicleId": "<registry id>", "rentalId": "RA-1001",
       "damageCaseId": "<id or null>",
       "risk": { "level": "HIGH", "label": "Repeat offender", "damagedTrips": 3, "window": 5 },
-      "report": { "…": "detailed findings report — full schema in Section 5" }
+      "report": { "…": "detailed findings report — full schema in Section 6" }
     }
   }
 }""",
@@ -54,7 +54,7 @@ _OUTBOUND_SAMPLES = {
     "DamageFound": true, "NewDamageCount": 2,
     "EstimatedCostLow": 800, "EstimatedCostHigh": 1300, "Currency": "SAR",
     "DamageCaseRef": "<id or null>",
-    "FindingsReport": { "…": "detailed findings report — full schema in Section 5" },
+    "FindingsReport": { "…": "detailed findings report — full schema in Section 6" },
     "SourceSystem": "DamageIntelligence"
   }
 }""",
@@ -72,7 +72,7 @@ _OUTBOUND_SAMPLES = {
     "vehicleRisk": { "level": "HIGH", "label": "Repeat offender",
                      "damagedTrips": 3, "window": 5, "streak": 3,
                      "newIssues": 6, "estCostHigh": 3900, "currency": "SAR" },
-    "findingsReport": { "…": "detailed report — full schema in Section 5" },
+    "findingsReport": { "…": "detailed report — full schema in Section 6" },
     "requestedBySystem": "DamageIntelligence"
   }
 }""",
@@ -198,12 +198,118 @@ Enter your base URL + API key in **API & Integrations → {name} → Save**, the
 
 ---
 
-## 2 · Calling our External API (inbound — you → us)
+## 2 · Step-by-step: what your team needs to develop
+
+The whole flow is driven by YOUR system: you send the photos → we analyze → we send the
+detailed report back. Four things to build:
+
+### Step 0 — Prerequisites (no code)
+Receive from the tenant administrator: the External API key (`dik_…`) and this document.
+All calls are HTTPS. Keep the key server-side only — never embed it in a mobile/web client.
+
+### Step 1 — Capture & store photos against the rental agreement
+| Requirement | Value |
+|---|---|
+| Formats | JPEG / PNG / WebP |
+| Max size | 12 MB per photo (≤1600 px longest side recommended — faster & cheaper) |
+| At CHECK-OUT (rental start) | One photo per angle — `front`, `rear`, `left`, `right` (+ `roof`, `interior` optional). Store them in {name} against the rental agreement. |
+| At CHECK-IN (return) | The same angles again, fresh. |
+
+Each angle's before/after pair must show the same view of the same vehicle — our AI
+verifies this and flags mismatches, wrong angles, screens/prints, and edited photos.
+
+### Step 2 — Submit the analysis request (at check-in)
+One multipart POST combining the stored check-out photos (`before_*`) with the fresh
+check-in photos (`after_*`):
+
+```bash
+curl -X POST "{api_base}/trip-inspections" \\
+  -H "X-API-Key: dik_..." \\
+  -F "mode=fast" \\
+  -F 'report_fields={{"vehiclePlate":"ABC 1234","rentalId":"RA-1001","customerName":"…"}}' \\
+  -F "before_front=@out_front.jpg"  -F "after_front=@in_front.jpg" \\
+  -F "before_rear=@out_rear.jpg"    -F "after_rear=@in_rear.jpg" \\
+  -F "before_left=@out_left.jpg"    -F "after_left=@in_left.jpg" \\
+  -F "before_right=@out_right.jpg"  -F "after_right=@in_right.jpg" \\
+  -F "before_interior=@out_int.jpg" -F "after_interior=@in_int.jpg"
+```
+
+C# / .NET:
+```csharp
+using var http = new HttpClient();
+http.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+using var form = new MultipartFormDataContent();
+form.Add(new StringContent("fast"), "mode");
+form.Add(new StringContent(
+    "{{\\"vehiclePlate\\":\\"ABC 1234\\",\\"rentalId\\":\\"RA-1001\\"}}"), "report_fields");
+void AddPhoto(byte[] bytes, string slot) {{
+    var c = new ByteArrayContent(bytes);
+    c.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+    form.Add(c, slot, slot + ".jpg");
+}}
+AddPhoto(checkOutFrontBytes, "before_front");
+AddPhoto(checkInFrontBytes,  "after_front");
+// … repeat per captured angle …
+var resp = await http.PostAsync("{api_base}/trip-inspections", form);
+// → {{ "data": {{ "jobId": "…", "status": "RUNNING" }} }}
+```
+
+The response is immediate (`jobId`). Analysis takes ~30–90 s depending on angles and mode
+(`fast` recommended; `thorough` for disputes).
+
+### Step 3 — Receive the report (build one or both)
+**Option A — Webhook receiver (recommended).** Implement
+`POST {{yourBaseUrl}}{event_path}` in {name}:
+- Reply `2xx` within 10 s (queue the payload, process asynchronously).
+- Non-2xx / timeout → we retry at +5 s and +25 s. De-duplicate on the top-level `id`.
+- Payload format: Sections 4–6 of this document.
+
+**Option B — Polling.** `GET {api_base}/trip-inspections/{{jobId}}` every 10 s until
+`status` is `DONE` or `FAILED` (give up after 5 min and alert your agent).
+
+### Step 4 — Process the findings report in {name}
+1. Read `overallResult`:
+   - `NO_NEW_DAMAGE` → close the return; nothing to charge.
+   - `NEW_DAMAGE_FOUND` → iterate `findingsReport.sections[].items[]` where
+     `status == "NEW"`; show each to your return agent (location, severity, size,
+     recommendation, cost range). Use top-level `advisoryEstimate` as the charge basis —
+     it is advisory; your agent confirms the final amount.
+   - `NOT_COMPARABLE` → photos unusable; prompt the agent to recapture and resubmit.
+2. If ANY `verification` flag is `true` → route to manual review before charging
+   (possible photo-quality issue or fraud signal).
+3. If `damageCaseId` is set → a damage case was auto-opened on our side; store the
+   reference on the rental agreement.
+4. Optional: use `vehicleRisk` (repeat-offender flag) to adjust the deposit on the
+   vehicle's NEXT rental.
+
+### Step 5 — Handle errors
+| HTTP | Meaning | Your action |
+|---|---|---|
+| 401 | invalid / revoked API key | fix configuration, alert ops |
+| 400 | incomplete pair or bad field (`errors[].field` says which) | fix the request |
+| 413 / 415 | photo too large / unsupported type | re-encode ≤12 MB JPEG |
+| 5xx | temporary | retry with backoff |
+
+Job `status = FAILED` returns a human-readable `error` — surface it to the agent and
+allow resubmission.
+
+### Step 6 — Sandbox acceptance checklist
+- [ ] Submit a job with at least one real before/after pair → `status: DONE`
+- [ ] `inspection.completed` received (or payload viewed in our console's delivery log)
+- [ ] NEW items + cost ranges rendered correctly in the {name} return screen
+- [ ] Webhook `2xx` ack + de-duplication verified (we can resend `connection.test` anytime)
+- [ ] `NOT_COMPARABLE` and `FAILED` paths handled
+
+Then follow the go-live steps at the end of this document.
+
+---
+
+## 3 · Calling our External API (inbound — you → us)
 
 Auth: header `X-API-Key: dik_…` on every request. Responses use the envelope
 `{{ "success": bool, "data": …, "errors": [...] }}`.
 
-### 2.1 Submit a trip inspection (asynchronous)
+### 3.1 Submit a trip inspection (asynchronous)
 ```bash
 curl -X POST "{api_base}/trip-inspections" \\
   -H "X-API-Key: dik_..." \\
@@ -215,7 +321,7 @@ curl -X POST "{api_base}/trip-inspections" \\
 Photo slots: `before_front/after_front`, `_rear`, `_left`, `_right`, `_roof`, `_interior`
 (≥ 1 complete pair). `mode`: `fast` | `thorough`. `save_to_vehicle_history` (default `true`).
 
-### 2.2 Poll the job
+### 3.2 Poll the job
 ```bash
 curl "{api_base}/trip-inspections/{{jobId}}" -H "X-API-Key: dik_..."
 ```
@@ -223,14 +329,14 @@ curl "{api_base}/trip-inspections/{{jobId}}" -H "X-API-Key: dik_..."
 bounding boxes, severities, cost estimates), photo/integrity/metadata verification,
 `vehicleConsistency`, `vehicleLink` (registry id + fleet-risk profile), `autoCase`.
 
-### 2.3 Vehicle damage history by plate
+### 3.3 Vehicle damage history by plate
 ```bash
 curl "{api_base}/vehicles/ABC1234/history" -H "X-API-Key: dik_..."
 ```
 
 ---
 
-## 3 · Receiving our events (outbound — us → you)
+## 4 · Receiving our events (outbound — us → you)
 
 We POST JSON to `{{yourBaseUrl}}{event_path}` for events:
 
@@ -245,7 +351,7 @@ Delivery: retried up to 3 attempts (0s / 5s / 25s). De-duplicate on the `id` fie
 
 ---
 
-## 4 · Event payload sample (`inspection.completed`)
+## 5 · Event payload sample (`inspection.completed`)
 
 ```json
 {_OUTBOUND_SAMPLES[ctype]}
@@ -253,7 +359,7 @@ Delivery: retried up to 3 attempts (0s / 5s / 25s). De-duplicate on the `id` fie
 
 ---
 
-## 5 · Detailed findings report — what you receive and in what format
+## 6 · Detailed findings report — what you receive and in what format
 
 Every `inspection.completed` event carries the **full findings report** at
 **`{_REPORT_FIELD[ctype]}`** (JSON, UTF-8).
@@ -304,7 +410,7 @@ Every `inspection.completed` event carries the **full findings report** at
 
 ---
 
-## 6 · Go-live steps
+## 7 · Go-live steps
 1. Exchange credentials per Section 1 (both directions, via a secure channel).
 2. We set the connector to **Sandbox**, you call our External API against real photos.
 3. You confirm receipt/handling of `connection.test` + `inspection.completed` payload shape.
