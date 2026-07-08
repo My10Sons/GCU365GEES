@@ -108,6 +108,15 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
     environment/metadata); aggregate flags hasEnvironmentWarnings/hasMetadataWarnings; PDF verification
     warnings block (EN/AR).
 
+## Completed (this fork, 2026-07-08c) — Bug fix: mispositioned detail-scan finding marker
+- User-reported: marker #4 (black-valance scuffs from zoom detail pass) rendered on the pavement.
+- Fix: _parse_detail_items drops degenerate/hallucinated boxes (full-coords w or h < 0.02 → box=None,
+  finding listed without a misleading marker '·' in report); half-scan prompt now demands a TIGHT
+  on-vehicle rectangle with self-verification, null if unsure.
+- Verified by testing_agent (iteration_21.json): 10/10 pass, real E2E job with the exact bug images —
+  zero degenerate boxes, all findings on-vehicle, reports render, benchmark/rental-events regressions clean.
+- Reusable pytest: /app/backend/tests/test_iter21_box_validity.py.
+
 ## Completed (this fork, 2026-07-08b) — Accuracy validation harness (regression suite)
 - benchmark_service.py + routes /benchmark/*: ground-truth cases (before/after pair + expected
   findings with category/keywords/optional flag, images persisted in storage), background runs that
