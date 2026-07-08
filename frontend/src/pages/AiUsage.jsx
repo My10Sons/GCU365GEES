@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Cpu, Coins, ScanEye, TrendingUp, Loader2, Activity, AlertTriangle, CheckCircle2, Target, Zap, Gauge, FlaskConical } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Cpu, Coins, ScanEye, TrendingUp, Loader2, Activity, AlertTriangle, CheckCircle2, Target, Zap, Gauge, FlaskConical, PlayCircle, Trash2, Plus, ShieldCheck, XCircle } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { T } from "../constants/testIds";
@@ -134,6 +134,8 @@ export default function AiUsage() {
 
           <MeasuredCostModel />
 
+          <BenchmarkSection canEdit={canEdit} />
+
           <div className="mt-8">
             <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-3">Daily tokens</div>
             {daily.length === 0 ? (
@@ -227,6 +229,215 @@ function BudgetPanel({ budget, canEdit, budgetInput, setBudgetInput, rateInput, 
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+
+const BENCH_CATEGORIES = ["DENT", "SCRATCH", "CHIP", "TIRE", "WHEEL", "GLASS", "LIGHT", "PART", "RUST", "VANDALISM", "DIRT", "LEAK"];
+const BENCH_ANGLES = ["FRONT", "REAR", "LEFT", "RIGHT", "ROOF"];
+const inputSm = "px-2.5 py-1.5 rounded-md bg-ink-800 border border-ink-700 text-xs text-white";
+
+function BenchmarkSection({ canEdit }) {
+  const [cases, setCases] = useState([]);
+  const [runs, setRuns] = useState([]);
+  const [activeRun, setActiveRun] = useState(null);
+  const [mode, setMode] = useState("fast");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const pollRef = useRef(null);
+
+  const load = () => Promise.all([
+    api.get("/benchmark/cases").then(({ data }) => setCases(data.data.cases || [])),
+    api.get("/benchmark/runs?limit=5").then(({ data }) => setRuns(data.data.runs || [])),
+  ]).catch(() => {});
+
+  useEffect(() => { load(); return () => clearInterval(pollRef.current); }, []);
+
+  const startRun = async () => {
+    setErr(""); setBusy(true);
+    try {
+      const { data } = await api.post("/benchmark/run", { mode });
+      const runId = data.data.runId;
+      pollRef.current = setInterval(async () => {
+        try {
+          const r = await api.get(`/benchmark/runs/${runId}`);
+          setActiveRun(r.data.data);
+          if (r.data.data.status !== "RUNNING") {
+            clearInterval(pollRef.current); setBusy(false); load();
+          }
+        } catch { /* keep polling */ }
+      }, 5000);
+      setActiveRun({ runId, status: "RUNNING", cases: [] });
+    } catch (e) {
+      setErr(e.response?.data?.errors?.[0]?.message || "Could not start run."); setBusy(false);
+    }
+  };
+
+  const deleteCase = async (id) => {
+    await api.delete(`/benchmark/cases/${id}`).catch(() => {});
+    load();
+  };
+
+  const latest = activeRun || runs[0];
+
+  return (
+    <div data-testid="benchmark-section" className="mt-10">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-steel-400">
+          <ShieldCheck className="size-3.5" /> Accuracy benchmark · regression suite
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <select data-testid="bench-mode" value={mode} onChange={(e) => setMode(e.target.value)} className={inputSm}>
+              <option value="fast">fast</option><option value="thorough">thorough</option>
+            </select>
+            <button data-testid="bench-run" onClick={startRun} disabled={busy || cases.length === 0}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-1.5">
+              {busy ? <Loader2 className="size-3.5 animate-spin" /> : <PlayCircle className="size-3.5" />} Run benchmark
+            </button>
+            <button data-testid="bench-add-toggle" onClick={() => setShowAdd((s) => !s)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium border border-ink-600 text-steel-200 hover:bg-ink-800 flex items-center gap-1.5">
+              <Plus className="size-3.5" /> Add case
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="text-[12px] text-steel-400 mb-3">
+        Each case is a before/after photo pair with ground-truth findings. A run replays every case
+        through the live analysis pipeline and scores recall — run it after any prompt or model change.
+        Real AI is used (~0.5 SAR per case).
+      </p>
+      {err && <div data-testid="bench-error" className="mb-3 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-2.5 py-1.5">{err}</div>}
+
+      {showAdd && canEdit && <AddCaseForm onDone={() => { setShowAdd(false); load(); }} onError={setErr} />}
+
+      <div data-testid="bench-cases" className="rounded-lg border border-ink-700/70 overflow-hidden">
+        {cases.length === 0 ? (
+          <div className="px-4 py-4 text-sm text-steel-400 bg-ink-900/60">No benchmark cases yet{canEdit ? " — add your first known-issue photo pair." : "."}</div>
+        ) : cases.map((c) => (
+          <div key={c.caseId} data-testid={`bench-case-${c.caseId}`} className="flex items-center gap-3 px-4 py-2.5 bg-ink-900/60 border-b border-ink-700/50 last:border-0 text-xs flex-wrap">
+            <span className="text-steel-100 font-medium">{c.name}</span>
+            <span className="text-steel-500 uppercase text-[10px] tracking-wider">{c.angle}</span>
+            <span className="text-steel-400">{c.expected.filter((e) => !e.optional).length} required{c.expected.some((e) => e.optional) ? ` + ${c.expected.filter((e) => e.optional).length} optional` : ""} findings</span>
+            {canEdit && (
+              <button data-testid={`bench-case-delete-${c.caseId}`} onClick={() => deleteCase(c.caseId)} className="ml-auto text-steel-500 hover:text-red-400"><Trash2 className="size-3.5" /></button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {latest && (
+        <div data-testid="bench-latest-run" className="mt-4 rounded-lg border border-ink-700/70 bg-ink-900/60 p-4">
+          <div className="flex items-center gap-3 flex-wrap text-xs">
+            <span className="text-[11px] uppercase tracking-wider text-steel-400">Latest run</span>
+            {latest.status === "RUNNING" ? (
+              <span data-testid="bench-run-running" className="flex items-center gap-1.5 text-amber400"><Loader2 className="size-3.5 animate-spin" /> Running… {latest.cases?.length || 0} case(s) done</span>
+            ) : (
+              <>
+                <span data-testid="bench-run-recall" className={`font-semibold ${latest.summary?.recall >= 100 ? "text-emerald400" : latest.summary?.recall >= 70 ? "text-amber400" : "text-red-400"}`}>
+                  Recall {latest.summary?.recall ?? 0}%
+                </span>
+                <span className="text-steel-400">{latest.summary?.foundRequired}/{latest.summary?.requiredCount} required findings detected · {latest.mode} mode · {Number(latest.summary?.tokens || 0).toLocaleString()} tokens</span>
+              </>
+            )}
+          </div>
+          {(latest.cases || []).map((rc) => (
+            <div key={rc.caseId} className="mt-3 border-t border-ink-700/50 pt-2.5">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-steel-100 font-medium">{rc.name}</span>
+                {rc.status === "FAILED" ? (
+                  <span className="text-red-400">FAILED — {rc.error}</span>
+                ) : (
+                  <span className={`font-semibold ${rc.recall >= 100 ? "text-emerald400" : "text-amber400"}`}>{rc.foundRequired}/{rc.requiredCount} found</span>
+                )}
+                {rc.extraDetections > 0 && <span className="text-steel-500">+{rc.extraDetections} extra detection(s)</span>}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {(rc.expected || []).map((e, i) => (
+                  <span key={i} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${e.found ? "border-emerald400/40 bg-emerald-400/10 text-emerald400" : e.optional ? "border-ink-600 text-steel-500" : "border-red-500/40 bg-red-500/10 text-red-300"}`}>
+                    {e.found ? <CheckCircle2 className="size-3" /> : <XCircle className="size-3" />}
+                    {e.category}{e.keywords?.length ? ` (${e.keywords[0]})` : ""}{e.optional ? " · opt" : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {runs.length > 1 && (
+        <div data-testid="bench-history" className="mt-3 text-[11px] text-steel-400">
+          History: {runs.slice(0, 5).map((r) => `${new Date(r.startedAt).toLocaleDateString()} → ${r.summary?.recall ?? "…"}%`).join(" · ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddCaseForm({ onDone, onError }) {
+  const [name, setName] = useState("");
+  const [angle, setAngle] = useState("REAR");
+  const [before, setBefore] = useState(null);
+  const [after, setAfter] = useState(null);
+  const [rows, setRows] = useState([{ category: "SCRATCH", keywords: "", optional: false }]);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!name.trim() || !before || !after) return onError("Name and both photos are required.");
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("name", name.trim());
+      fd.append("angle", angle);
+      fd.append("expected", JSON.stringify(rows.map((r) => ({
+        category: r.category, optional: r.optional,
+        keywords: r.keywords.split(",").map((k) => k.trim()).filter(Boolean),
+      }))));
+      fd.append("before", before);
+      fd.append("after", after);
+      await api.post("/benchmark/cases", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      onDone();
+    } catch (e) {
+      onError(e.response?.data?.errors?.[0]?.message || "Could not create case.");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div data-testid="bench-add-form" className="mb-4 rounded-lg border border-ink-700/70 bg-ink-900/60 p-4 space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <input data-testid="bench-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Case name" className={inputSm + " col-span-2"} />
+        <select data-testid="bench-angle" value={angle} onChange={(e) => setAngle(e.target.value)} className={inputSm}>
+          {BENCH_ANGLES.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs text-steel-400">
+        <label>Before photo<input data-testid="bench-before" type="file" accept="image/*" onChange={(e) => setBefore(e.target.files?.[0])} className="block mt-1 text-[11px]" /></label>
+        <label>After photo<input data-testid="bench-after" type="file" accept="image/*" onChange={(e) => setAfter(e.target.files?.[0])} className="block mt-1 text-[11px]" /></label>
+      </div>
+      <div>
+        <div className="text-[11px] uppercase tracking-wider text-steel-400 mb-1.5">Expected findings (ground truth)</div>
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <select value={r.category} onChange={(e) => setRows((s) => s.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} className={inputSm}>
+              {BENCH_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input value={r.keywords} onChange={(e) => setRows((s) => s.map((x, j) => j === i ? { ...x, keywords: e.target.value } : x))}
+              placeholder="location keywords, comma-separated (e.g. left, bumper)" className={inputSm + " flex-1 min-w-[200px]"} />
+            <label className="flex items-center gap-1 text-[11px] text-steel-400">
+              <input type="checkbox" checked={r.optional} onChange={(e) => setRows((s) => s.map((x, j) => j === i ? { ...x, optional: e.target.checked } : x))} /> optional
+            </label>
+            {rows.length > 1 && <button onClick={() => setRows((s) => s.filter((_, j) => j !== i))} className="text-steel-500 hover:text-red-400"><Trash2 className="size-3.5" /></button>}
+          </div>
+        ))}
+        <button data-testid="bench-add-row" onClick={() => setRows((s) => [...s, { category: "SCRATCH", keywords: "", optional: false }])}
+          className="text-[11px] text-steel-400 hover:text-steel-200 flex items-center gap-1"><Plus className="size-3" /> add finding</button>
+      </div>
+      <button data-testid="bench-save-case" onClick={save} disabled={saving}
+        className="px-3 py-1.5 rounded-md text-xs font-medium bg-signal hover:bg-signal/90 disabled:opacity-50 text-white flex items-center gap-1.5">
+        {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />} Save case
+      </button>
     </div>
   );
 }

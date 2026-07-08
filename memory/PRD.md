@@ -108,6 +108,17 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
     environment/metadata); aggregate flags hasEnvironmentWarnings/hasMetadataWarnings; PDF verification
     warnings block (EN/AR).
 
+## Completed (this fork, 2026-07-08b) — Accuracy validation harness (regression suite)
+- benchmark_service.py + routes /benchmark/*: ground-truth cases (before/after pair + expected
+  findings with category/keywords/optional flag, images persisted in storage), background runs that
+  replay every case through the real analyze_section pipeline, greedy one-to-one matching, per-case
+  and overall recall scoring, run history in di_benchmark_runs.
+- UI: "Accuracy benchmark" section on AI Usage page — case CRUD, run (fast/thorough), live polling,
+  recall badges, per-expected chips (found/missed/optional), run history line.
+- Seeded the user's 2 reported photo pairs as permanent cases. First run: 83% required recall (5/6);
+  subtle optional detections (black-trim scuffs, replaced right lamp) are ~50% stable run-to-run —
+  the harness now quantifies this. NOTE: production DB is separate; cases must be re-added there via UI.
+
 ## Completed (this fork, 2026-07-08) — Detection accuracy upgrade (user-reported misses)
 User reported 3 missed subtle issues (different right-lamp internals/orange indicator, mismatched
 bumper look, faint scratches on black bumper trim). Root causes: satisfaction-of-search bias,
