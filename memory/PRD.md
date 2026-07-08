@@ -21,6 +21,23 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET  /api/v1/damage-intelligence/trip-inspection/usage?days=N
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
+## Completed (this fork, 2026-07-09b) — Bug fix: AI Vision missing 2 of 5 known findings (P0)
+- Root cause: previous session added lamp self-consistency (2 vision samples per lamp) in
+  `_detail_scan` but never updated the result-parsing loop — it still read `results[2 + j]`
+  instead of `results[2 + 2*j (+1)]`, so lamp verdicts were misindexed/dropped and the
+  OR-of-both logic was missing. Fixed in trip_inspection_service.py (~line 1013): both samples
+  parsed per lamp, differs/damaged = OR of both, `why` taken from the positive sample.
+- Benchmark images lost in fork (stored under /var/lib/damage-intelligence — NOT persisted across
+  forks). Recreated ground truth: BEFORE = /app/test_reports/assets/car1.jpg, AFTER generated via
+  Gemini image edit with the exact 5 issues (cracked rear glass, broken left lamp, left bumper
+  scratches, lower trim scuffs, right lamp with different internals). New benchmark case
+  `8139a72aad08402e84b8acef8fe84211`; two stale cases with missing images deleted.
+  AFTER image kept at /tmp/bench_after.jpg (also in benchmark storage).
+- Validated: 2 consecutive benchmark runs (fast mode) at 100% recall — 5/5 findings including
+  the two regressions (right lamp layout change + left bumper scratches).
+- NOTE: user must redeploy production to pick up the fix; user's original photo benchmark cases
+  must be re-uploaded by user (files unrecoverable).
+
 ## Completed (this fork, 2026-07-04/05)
 - STEP-BY-STEP DEVELOPER GUIDE IN INTEGRATION PACK (verified: downloaded pack renders with live
   URLs, correct curl + C#/.NET samples): new Section 2 'What your team needs to develop' —

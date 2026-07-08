@@ -987,17 +987,19 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         'description, "differs": true or false, "damaged": true or false, "why": short string }'
     )
     for _side, _box, bp, ap in lamp_specs:
-        tasks.append(call_vision_model_multi(
-            provider=_provider(), model_name=_detail_model(),
-            system_message=("You compare BEFORE and AFTER close-up photos of the same "
-                            "vehicle lamp. Respond with STRICT JSON only."),
-            user_prompt=lamp_prompt,
-            images=[{"path": bp, "mime": "image/jpeg"}, {"path": ap, "mime": "image/jpeg"}],
-            correlation_id=correlation_id))
+        # Self-consistency: two independent samples per lamp; differs/damaged = OR of both.
+        for _ in range(2):
+            tasks.append(call_vision_model_multi(
+                provider=_provider(), model_name=_detail_model(),
+                system_message=("You compare BEFORE and AFTER close-up photos of the same "
+                                "vehicle lamp. Respond with STRICT JSON only."),
+                user_prompt=lamp_prompt,
+                images=[{"path": bp, "mime": "image/jpeg"}, {"path": ap, "mime": "image/jpeg"}],
+                correlation_id=correlation_id))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     logger.info("detail_scan: %d half calls, %d lamp calls (boxes=%s)",
-                2, len(lamp_specs), list((lamp_boxes or {}).keys()))
+                2, len(lamp_specs) * 2, list((lamp_boxes or {}).keys()))
     out: list[dict] = []
     usages: list[dict] = []
     for i in range(2):
@@ -1009,25 +1011,33 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         if err is None:
             _parse_detail_items(parsed, regions[i], existing_items, out)
     for j, (side, box, *_rest) in enumerate(lamp_specs):
-        res = results[2 + j] if len(results) > 2 + j else None
-        if res is None or isinstance(res, Exception):
-            logger.warning("detail_scan lamp %s: exception %s", side, res)
-            continue
-        parsed, _m, _lat, err, usage = res
-        usages.append(usage or {})
-        logger.info("detail_scan lamp %s: err=%s verdict=%s", side, err,
-                    json.dumps(parsed)[:300] if isinstance(parsed, dict) else parsed)
-        if err is not None or not isinstance(parsed, dict):
-            continue
-        if not (parsed.get("differs") or parsed.get("damaged")):
+        differs = damaged = False
+        why = ""
+        for k in range(2):
+            idx = 2 + 2 * j + k
+            res = results[idx] if len(results) > idx else None
+            if res is None or isinstance(res, Exception):
+                logger.warning("detail_scan lamp %s sample %d: exception %s", side, k, res)
+                continue
+            parsed, _m, _lat, err, usage = res
+            usages.append(usage or {})
+            logger.info("detail_scan lamp %s sample %d: err=%s verdict=%s", side, k, err,
+                        json.dumps(parsed)[:300] if isinstance(parsed, dict) else parsed)
+            if err is not None or not isinstance(parsed, dict):
+                continue
+            if parsed.get("differs") or parsed.get("damaged"):
+                differs = differs or bool(parsed.get("differs"))
+                damaged = damaged or bool(parsed.get("damaged"))
+                if not why and isinstance(parsed.get("why"), str):
+                    why = parsed["why"]
+        if not (differs or damaged):
             continue
         loc = "left lamp" if side == "LEFT_LAMP" else "right lamp"
         cand = {
             "category": "LIGHT", "status": "NEW", "location": loc,
-            "severity": "MEDIUM" if parsed.get("damaged") else "LOW",
+            "severity": "MEDIUM" if damaged else "LOW",
             "confidence": 0.6,
-            "detail": ((parsed.get("why") if isinstance(parsed.get("why"), str) else "")
-                       or "Lamp internals differ from the BEFORE photo — possible replaced or non-original lamp.")[:300],
+            "detail": (why or "Lamp internals differ from the BEFORE photo — possible replaced or non-original lamp.")[:300],
             "sizeCm": None, "sizeNote": None, "recommendation": "ASSESS",
             "box": box, "estimatedCost": _estimate_cost("LIGHT", "LOW"),
             "fromDetailScan": True,
