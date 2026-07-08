@@ -108,7 +108,26 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
     environment/metadata); aggregate flags hasEnvironmentWarnings/hasMetadataWarnings; PDF verification
     warnings block (EN/AR).
 
-## Completed (this fork, 2026-07-05) — CROMS integration completion
+## Completed (this fork, 2026-07-08) — Detection accuracy upgrade (user-reported misses)
+User reported 3 missed subtle issues (different right-lamp internals/orange indicator, mismatched
+bumper look, faint scratches on black bumper trim). Root causes: satisfaction-of-search bias,
+component mismatch never requested, low-contrast blind spots, and cross-image comparison weakness.
+Fixes in trip_inspection_service.py:
+- Exterior prompt: 4-step comparison protocol (part-by-part, differs-from-before = reportable PART/
+  LIGHT item, low-contrast rescan, never stop after obvious damage); LIGHT/PART categories now cover
+  replaced/mismatched components; synonyms REPLACED/MISMATCH→PART.
+- Mandatory componentCheck JSON (10 components, damaged/differs/note/box; lamp boxes always) —
+  server merge (_items_from_component_check) synthesizes items for flagged-but-unreported components.
+- Zoom detail pass (_detail_scan, DI_TRIP_DETAIL_SCAN=true, model DI_TRIP_DETAIL_MODEL=pro default):
+  2 zoomed half-pair calls (catch faint dark-trim scratches) + per-lamp tight-crop calls with the
+  AFTER image SCALE-ALIGNED to BEFORE (key discovery: alignment → 3/3 lamp-swap detection vs 0/3
+  unaligned). Runs concurrently; merges deduped items (fromDetailScan flag), recounts section.
+- E2E verified with user's own photos: all 5 issues now detected (glass, left lamp, red bumper
+  scratches, black valance scuffs, right-lamp orange indicator = possible replaced lamp), rendered
+  in hosted report with boxes. Cost: exterior section now ~5-7 AI calls (~30K tokens; detail pass on
+  Pro). Tunable via env.
+
+## Completed (prior fork phase, 2026-07-05) — CROMS integration completion
 - Hosted report links: every External API job result + inspection.completed webhook now carries
   reportUrl (public rendered HTML report — annotated photos with numbered damage markers, findings
   table, verification warnings, print CSS) and reportPdfUrl (reportlab PDF). Public token-auth routes:

@@ -14,12 +14,19 @@ from __future__ import annotations
 
 import asyncio
 import calendar
+import json
+import logging
 import os
 import shutil
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+
+from PIL import Image as PILImage
+
+logger = logging.getLogger("di.trip")
+
 
 from api.middleware.safe_errors import DomainError
 from application.ai.gemini_client import call_vision_model_multi
@@ -124,6 +131,7 @@ _EXT_SYNONYMS = {
     "KEYED": "VANDALISM", "KEYING": "VANDALISM",
     "MUD": "DIRT", "DIRTY": "DIRT", "GRIME": "DIRT", "PAINT_DAMAGE": "SCRATCH", "SCUFF": "SCRATCH",
     "LEAKS": "LEAK", "FLUID": "LEAK", "OIL": "LEAK", "COOLANT": "LEAK", "PUDDLE": "LEAK",
+    "REPLACED": "PART", "REPLACEMENT": "PART", "MISMATCH": "PART", "MISMATCHED": "PART", "SWAPPED": "PART",
 }
 _INT_SYNONYMS = {
     "SEATS": "SEAT", "UPHOLSTERY": "SEAT", "CUSHION": "SEAT",
@@ -137,13 +145,17 @@ _INT_SYNONYMS = {
 
 _EXT_PROMPT_LINES = (
     "- DENT: dents or deformations in body panels\n"
-    "- SCRATCH: scratches, scuffs, or paint scrapes\n"
+    "- SCRATCH: scratches, scuffs, or paint scrapes — including on BLACK/dark plastic trim\n"
     "- CHIP: stone chips or small paint chips\n"
     "- TIRE: tyre/tire issues (flat, cuts, bald, missing)\n"
     "- WHEEL: wheel / rim / alloy damage (curb scrapes, cracks, bent)\n"
     "- GLASS: broken, cracked, or shattered glass (windscreen, rear/side windows)\n"
-    "- LIGHT: broken, cracked, or missing lights (headlight, tail, brake lamp, indicator)\n"
-    "- PART: broken or missing parts (bumper, mirror, trim, grille, badge, door handle)\n"
+    "- LIGHT: broken, cracked, or missing lights — AND lamps that LOOK DIFFERENT from the "
+    "BEFORE photo (different lens colour/internals, visible orange indicator where there was "
+    "none, aftermarket unit = possible replacement)\n"
+    "- PART: broken, missing, REPLACED or MISMATCHED parts (bumper, mirror, trim, grille, "
+    "badge, door handle) — including any part whose shape, colour scheme, or finish DIFFERS "
+    "from the BEFORE photo (possible non-original replacement)\n"
     "- RUST: rust or corrosion\n"
     "- VANDALISM: graffiti, keying, or unauthorized stickers/decals\n"
     "- DIRT: excessive dirt, mud, or exterior staining\n"
@@ -162,8 +174,9 @@ _EXT_SYSTEM = (
     "You are the Damage Intelligence rental-trip inspector. Your output is ADVISORY ONLY and "
     "does not decide liability, charges, or repair cost. You receive a BEFORE photo (start of "
     "rental) and an AFTER photo (end of rental) of the EXTERIOR of the same vehicle. Compare "
-    "them and report any visible exterior damage or condition issue. Respond with STRICT JSON "
-    "only — no prose."
+    "them SYSTEMATICALLY, part by part — never holistically — and report EVERY visible "
+    "exterior damage, condition issue, or component that differs from the BEFORE photo. Do "
+    "not stop after the most obvious findings. Respond with STRICT JSON only — no prose."
 )
 _INT_SYSTEM = (
     "You are the Damage Intelligence rental-trip inspector. Your output is ADVISORY ONLY and "
@@ -223,14 +236,49 @@ def _user_prompt(kind: str, lines: str, enum_list: str, angle: Optional[str]) ->
     return (
         f"The FIRST image is the {where} BEFORE the trip. The SECOND image is the {where} AFTER "
         f"the trip. {angle_ctx}Compare them.\n"
-        f"Report ALL visible {where} damage and condition issues across these categories. Be "
+        + ("COMPARISON PROTOCOL — follow ALL four steps before answering:\n"
+           "1. Compare part by part, NOT holistically. Inspect EACH component separately and in "
+           "BOTH photos: left lamp, right lamp (independently — do not assume symmetry), bumper "
+           "upper painted section, bumper lower BLACK/plastic section, glass, badges/emblems, "
+           "grille/trim, mirrors, wheels/tyres, each body panel.\n"
+           "2. For each component ask TWO questions: (a) is it damaged? (b) does it LOOK "
+           "DIFFERENT from the BEFORE photo — different shape, colour scheme, lens colour, "
+           "internals, finish, or a missing element? A component that differs from BEFORE is a "
+           "reportable item (category PART, or LIGHT for lamps, or GLASS) with status NEW and a "
+           "detail noting a possible replaced / non-original / mismatched component.\n"
+           "3. Deliberately re-scan LOW-CONTRAST zones: black or dark plastic trim, the lower "
+           "bumper, textured mouldings, shadowed areas — scratches and scuffs there are faint "
+           "and easily missed. Look twice at these zones.\n"
+           "4. Do NOT stop after the most obvious damage. List EVERY distinct issue as its own "
+           "item, even minor ones near a bigger finding.\n"
+           if kind == "EXTERIOR" else "")
+        + f"Report ALL visible {where} damage and condition issues across these categories. Be "
         "conservative; if unsure, set status UNCERTAIN. Also VERIFY the photos themselves: "
         "correct view/angle, full framing, camera distance, same vehicle, authenticity, and "
         "capture conditions (dirt, rain, glare).\n"
         "Categories:\n" + lines + "\n"
         "Return JSON EXACTLY in this shape:\n"
         "{\n"
-        '  "comparable": true or false,\n'
+        + ('  "componentCheck": [ MANDATORY — one entry for EVERY component in this exact list:\n'
+           "     LEFT_LAMP, RIGHT_LAMP, GLASS, BUMPER_PAINTED, BUMPER_TRIM (the black/plastic\n"
+           "     lower bumper section), GRILLE_TRIM, BADGES, MIRRORS, WHEELS, BODY_PANELS.\n"
+           "     Each entry:\n"
+           '     { "component": name from the list above,\n'
+           '       "damaged": true or false (any damage on this component in AFTER),\n'
+           '       "differs": true or false (does this component LOOK DIFFERENT from BEFORE —\n'
+           "               different shape, colour scheme, lens colour, internals, finish,\n"
+           "               or a missing element; inspect left and right sides independently;\n"
+           "               for LAMPS compare the internal pattern of red/clear/orange zones —\n"
+           "               different internals = a possible replaced lamp, differs=true),\n"
+           '       "note": short string describing the damage or difference, or null,\n'
+           '       "box": { "x": 0..1, "y": 0..1, "w": 0..1, "h": 0..1 } bounding box of the\n'
+           "               component on the AFTER image — REQUIRED for LEFT_LAMP and RIGHT_LAMP\n"
+           "               even when undamaged; for other components include it when\n"
+           "               damaged/differs, else null }\n"
+           "     Every entry with damaged=true or differs=true MUST also have a matching entry\n"
+           "     in items[] below.\n"
+           "  ],\n" if kind == "EXTERIOR" else "")
+        + '  "comparable": true or false,\n'
         '  "notComparableReason": string or null,\n'
         '  "photoCheck": {\n'
         '     "beforeUsable": true or false (is the BEFORE photo clear enough to inspect),\n'
@@ -287,7 +335,9 @@ def _user_prompt(kind: str, lines: str, enum_list: str, angle: Optional[str]) ->
         '  "summary": one or two sentence plain-language summary\n'
         "}\n\n"
         "NEW = appeared during the trip (not in BEFORE). PRE_EXISTING = present in both. "
-        "RESOLVED = in BEFORE but gone in AFTER. Empty items list is valid (no issues found)."
+        "RESOLVED = in BEFORE but gone in AFTER. A component that DIFFERS from BEFORE "
+        "(replaced / mismatched / different-looking part) counts as NEW. "
+        "Empty items list is valid (no issues found)."
     )
 
 
@@ -308,6 +358,85 @@ def _normalize_box(box) -> Optional[dict]:
     if w <= 0 or h <= 0:
         return None
     return {"x": round(x, 4), "y": round(y, 4), "w": round(w, 4), "h": round(h, 4)}
+
+
+# Forced per-component comparison (exterior): the model must give a verdict for every
+# component; any damaged/differs verdict without a matching finding is synthesized as an
+# item so subtle changes (replaced lamps, mismatched bumpers, trim scratches) are never
+# silently dropped after the model finds the "big" damage.
+_COMPONENTS = {
+    "LEFT_LAMP":      ("LIGHT", "left lamp", (("light", "lamp"), ("left",))),
+    "RIGHT_LAMP":     ("LIGHT", "right lamp", (("light", "lamp"), ("right",))),
+    "GLASS":          ("GLASS", "glass", (("glass", "window", "windscreen", "windshield"), ())),
+    "BUMPER_PAINTED": ("PART", "bumper (painted section)", (("bumper",), ())),
+    "BUMPER_TRIM":    ("PART", "bumper lower black trim",
+                       (("bumper", "trim", "diffuser", "valance"),
+                        ("black", "lower", "trim", "plastic", "diffuser", "valance"))),
+    "GRILLE_TRIM":    ("PART", "grille / trim", (("grille", "grill", "trim"), ())),
+    "BADGES":         ("PART", "badge / emblem", (("badge", "emblem", "logo"), ())),
+    "MIRRORS":        ("PART", "mirror", (("mirror",), ())),
+    "WHEELS":         ("WHEEL", "wheel / tyre", (("wheel", "tyre", "tire", "rim"), ())),
+    "BODY_PANELS":    ("PART", "body panel",
+                       (("panel", "door", "fender", "quarter", "tailgate", "boot", "trunk",
+                         "bonnet", "hood", "roof"), ())),
+}
+
+
+def _normalize_component_check(parsed: dict) -> list[dict]:
+    raw = parsed.get("componentCheck")
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for cc in raw[:20]:
+        if not isinstance(cc, dict):
+            continue
+        comp = str(cc.get("component") or "").upper().replace(" ", "_")
+        if comp not in _COMPONENTS:
+            continue
+        out.append({
+            "component": comp,
+            "damaged": bool(cc.get("damaged")),
+            "differs": bool(cc.get("differs")),
+            "note": (cc.get("note") if isinstance(cc.get("note"), str) else "")[:200] or None,
+            "box": _normalize_box(cc.get("box")),
+        })
+    return out
+
+
+def _items_from_component_check(component_check: list[dict], items: list[dict]) -> list[dict]:
+    synthesized = []
+    for cc in component_check:
+        if not (cc["damaged"] or cc["differs"]):
+            continue
+        cat, default_loc, (group1, group2) = _COMPONENTS[cc["component"]]
+        covered = False
+        for it in items:
+            text = f"{it.get('location', '')} {it.get('detail', '')}".lower()
+            if any(k in text for k in group1) and (not group2 or any(k in text for k in group2)):
+                covered = True
+                break
+        if covered:
+            continue
+        sev = "MEDIUM" if cc["damaged"] else "LOW"
+        detail = cc["note"] or (
+            "Damage flagged by the component-by-component check." if cc["damaged"] else
+            "Component appears different from the BEFORE photo — possible replaced or "
+            "non-original part.")
+        synthesized.append({
+            "category": cat,
+            "status": "NEW",
+            "location": default_loc,
+            "severity": sev,
+            "confidence": 0.5,
+            "detail": detail[:300],
+            "sizeCm": None,
+            "sizeNote": None,
+            "recommendation": "ASSESS",
+            "box": cc["box"],
+            "estimatedCost": _estimate_cost(cat, sev),
+            "fromComponentCheck": True,
+        })
+    return synthesized
 
 
 _DISTANCES = {"OK", "TOO_CLOSE", "TOO_FAR"}
@@ -379,7 +508,8 @@ def _normalize_signature(parsed: dict) -> dict:
     return {"color": color, "bodyType": body, "visiblePlate": plate}
 
 
-def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) -> dict:
+def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict,
+                       is_exterior: bool = False) -> dict:
     if not isinstance(parsed, dict):
         return {
             "comparable": False,
@@ -439,6 +569,9 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
             "estimatedCost": _estimate_cost(cat, sev),
         })
     counts = {c: {"NEW": 0, "total": 0} for c in categories}
+    component_check = _normalize_component_check(parsed) if is_exterior else []
+    if is_exterior:
+        items.extend(_items_from_component_check(component_check, items))
     for it in items:
         counts[it["category"]]["total"] += 1
         if it["status"] == "NEW":
@@ -471,6 +604,7 @@ def _normalize_section(parsed: dict | None, categories: dict, synonyms: dict) ->
         "vehicleSignature": _normalize_signature(parsed),
         "conditionScore": score,
         "cleanliness": cleanliness,
+        "componentCheck": component_check,
         "estimatedCost": {"low": new_low, "high": new_high, "currency": _COST_CURRENCY},
     }
 
@@ -494,7 +628,7 @@ async def _analyze_pair(*, before_path: str, before_mime: str, after_path: str, 
     if err is not None:
         raise DomainError(ErrorCode.INTERNAL_ERROR,
                           "The analysis engine is temporarily unavailable. Please retry.", 503)
-    section = _normalize_section(parsed, categories, synonyms)
+    section = _normalize_section(parsed, categories, synonyms, is_exterior=(kind == "EXTERIOR"))
     section["kind"] = kind
     section["angle"] = angle
     section["tokenUsage"] = {**(usage or {}), "calls": 1}
@@ -616,6 +750,283 @@ async def _maybe_auto_create_case(
         return {"created": False, "reason": "error"}
 
 
+# Zoom detail pass: after the full-frame analysis, the exterior pair is cut into 2x2
+# overlapping tiles (zoomed) and scanned once more on the Fast model. Catches faint
+# scratches on dark trim and replaced/mismatched components that full-frame passes miss.
+_DETAIL_SCAN = os.environ.get("DI_TRIP_DETAIL_SCAN", "true").lower() == "true"
+
+
+def _detail_model() -> str:
+    # The detail pass exists to catch what the Fast model misses — it defaults to Pro.
+    return _model() if os.environ.get("DI_TRIP_DETAIL_MODEL", "pro").lower() == "pro" else _fast_model()
+
+_DETAIL_SYSTEM = (
+    "You are the Damage Intelligence close-up detail inspector. You receive zoomed-in "
+    "BEFORE/AFTER tile pairs cut from the same exterior view of a vehicle. Your ONLY job is "
+    "to catch subtle issues a full-frame pass missed: faint scratches and scuffs (especially "
+    "on black/dark plastic trim and lower bumpers), small chips, and components that LOOK "
+    "DIFFERENT between BEFORE and AFTER (different shape, colour scheme, lens colour, "
+    "internals — a possible replaced or non-original part). Respond with STRICT JSON only."
+)
+
+
+def _make_halves(path: str) -> list[tuple[str, tuple[float, float, float, float]]]:
+    """Cut an image into 2 overlapping halves along its longer dimension (zoomed JPEGs,
+    upscaled so fine detail survives). Returns [(path, (nx, ny, nw, nh))] full-image coords."""
+    im = PILImage.open(path).convert("RGB")
+    w, h = im.size
+    base = Path(path)
+    out = []
+    for i, (s1, s2) in enumerate([(0.0, 0.58), (0.42, 1.0)]):
+        if w >= h:
+            box, region = (int(s1 * w), 0, int(s2 * w), h), (s1, 0.0, s2 - s1, 1.0)
+        else:
+            box, region = (0, int(s1 * h), w, int(s2 * h)), (0.0, s1, 1.0, s2 - s1)
+        crop = im.crop(box)
+        if max(crop.size) < 1500:
+            sc = 1500 / max(crop.size)
+            crop = crop.resize((int(crop.size[0] * sc), int(crop.size[1] * sc)),
+                               PILImage.LANCZOS)
+        tp = str(base.with_name(f"{base.stem}_half{i}.jpg"))
+        crop.save(tp, "JPEG", quality=92)
+        out.append((tp, region))
+    return out
+
+
+def _crop_component(path: str, box: dict, out_path: str) -> Optional[str]:
+    """Tight component crop (box + generous padding, minimum size), upscaled to ~800px."""
+    im = PILImage.open(path).convert("RGB")
+    w, h = im.size
+    bw, bh = max(box["w"], 0.13), max(box["h"], 0.16)
+    cx, cy = box["x"] + box["w"] / 2, box["y"] + box["h"] / 2
+    px, py = bw * 0.55 + 0.02, bh * 0.55 + 0.02
+    x1, y1 = max(0.0, cx - bw / 2 - px), max(0.0, cy - bh / 2 - py)
+    x2, y2 = min(1.0, cx + bw / 2 + px), min(1.0, cy + bh / 2 + py)
+    crop = im.crop((int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h)))
+    if crop.size[0] < 40 or crop.size[1] < 24:
+        return None
+    sc = 800 / max(crop.size)
+    if sc > 1:
+        crop = crop.resize((int(crop.size[0] * sc), int(crop.size[1] * sc)), PILImage.LANCZOS)
+    crop.save(out_path, "JPEG", quality=92)
+    return out_path
+
+
+def _dupe_of_existing(cand: dict, existing: list[dict]) -> bool:
+    for it in existing:
+        if it.get("category") != cand["category"]:
+            continue
+        b1, b2 = it.get("box"), cand.get("box")
+        if b1 and b2:
+            if (abs((b1["x"] + b1["w"] / 2) - (b2["x"] + b2["w"] / 2)) < 0.18
+                    and abs((b1["y"] + b1["h"] / 2) - (b2["y"] + b2["h"] / 2)) < 0.18):
+                return True
+        else:
+            w1 = set((it.get("location") or "").lower().split())
+            w2 = set((cand.get("location") or "").lower().split())
+            if len(w1 & w2) >= 2:
+                return True
+    return False
+
+
+def _recount_section(section: dict) -> None:
+    items = section.get("items") or []
+    counts = {c: {"NEW": 0, "total": 0} for c in EXTERIOR_CATEGORIES}
+    for it in items:
+        c = counts.setdefault(it["category"], {"NEW": 0, "total": 0})
+        c["total"] += 1
+        if it["status"] == "NEW":
+            c["NEW"] += 1
+    section["counts"] = counts
+    section["newIssueCount"] = sum(c["NEW"] for c in counts.values())
+    if section.get("comparable", True):
+        section["overall"] = "NEW_DAMAGE_FOUND" if section["newIssueCount"] > 0 else "NO_NEW_DAMAGE"
+    section["estimatedCost"] = {
+        "low": sum(it["estimatedCost"]["low"] for it in items if it["status"] == "NEW"),
+        "high": sum(it["estimatedCost"]["high"] for it in items if it["status"] == "NEW"),
+        "currency": _COST_CURRENCY,
+    }
+
+
+def _parse_detail_items(parsed, region: tuple[float, float, float, float],
+                        existing_items: list[dict], out: list[dict]) -> None:
+    if not isinstance(parsed, dict):
+        return
+    rx, ry, rw, rh = region
+    for it in (parsed.get("items") or [])[:8]:
+        if not isinstance(it, dict):
+            continue
+        cat = str(it.get("category") or "").upper()
+        cat = _EXT_SYNONYMS.get(cat, cat)
+        if cat not in EXTERIOR_CATEGORIES:
+            continue
+        box = _normalize_box(it.get("box"))
+        if box:
+            box = {"x": round(rx + box["x"] * rw, 4), "y": round(ry + box["y"] * rh, 4),
+                   "w": round(box["w"] * rw, 4), "h": round(box["h"] * rh, 4)}
+        sev = it.get("severity")
+        sev = sev.upper() if isinstance(sev, str) and sev.upper() in _SEVERITIES else None
+        try:
+            conf = max(0.0, min(1.0, float(it.get("confidence") or 0)))
+        except (TypeError, ValueError):
+            conf = 0.0
+        rec = it.get("recommendation")
+        rec = rec.upper() if isinstance(rec, str) and rec.upper() in _RECOMMENDATIONS else "ASSESS"
+        try:
+            size_cm = float(it.get("sizeCm")) if it.get("sizeCm") is not None else None
+            size_cm = round(size_cm, 1) if size_cm and 0 < size_cm <= 400 else None
+        except (TypeError, ValueError):
+            size_cm = None
+        cand = {
+            "category": cat, "status": "NEW",
+            "location": (it.get("location") if isinstance(it.get("location"), str) else "")[:160],
+            "severity": sev, "confidence": conf,
+            "detail": (it.get("detail") if isinstance(it.get("detail"), str) else "")[:300],
+            "sizeCm": size_cm, "sizeNote": None, "recommendation": rec, "box": box,
+            "estimatedCost": _estimate_cost(cat, sev), "fromDetailScan": True,
+        }
+        if not _dupe_of_existing(cand, existing_items + out):
+            out.append(cand)
+
+
+def _sum_usage(usages: list[dict]) -> dict:
+    return {
+        "inputTokens": sum((u or {}).get("inputTokens") or 0 for u in usages),
+        "outputTokens": sum((u or {}).get("outputTokens") or 0 for u in usages),
+        "totalTokens": sum((u or {}).get("totalTokens") or 0 for u in usages),
+        "calls": len(usages),
+    }
+
+
+async def _detail_scan(*, before_path: str, after_path: str, existing_items: list[dict],
+                       lamp_boxes: Optional[dict] = None,
+                       correlation_id: str) -> tuple[list[dict], dict]:
+    """Three focused close-up comparisons run concurrently: one per zoomed image half
+    (subtle scratches on dark trim etc.) plus one lamp-internals comparison using tight
+    component crops from the main pass's componentCheck boxes."""
+    b_halves = _make_halves(before_path)
+    a_halves = _make_halves(after_path)
+    already = "; ".join(f"{it['category']} at {it.get('location') or '?'}"
+                        for it in existing_items[:12]) or "none"
+    enum_list = ",".join(f'"{c}"' for c in EXTERIOR_CATEGORIES)
+    half_prompt = (
+        "Image 1 = this zoomed area BEFORE the trip, image 2 = the same area AFTER. The two "
+        "photos may be slightly shifted or scaled — compare the APPEARANCE of parts, not "
+        "their pixel position.\n"
+        f"Already reported by the full-frame pass (do NOT repeat these): {already}.\n"
+        "Report ONLY ADDITIONAL issues visible in the AFTER photo: faint scratches/scuffs "
+        "(look hard at black plastic trim and lower bumpers), chips, and any component that "
+        "looks DIFFERENT from BEFORE (lens colour, internals, shape, finish = possible "
+        "replaced part; this is NOT a lighting condition). Ignore overall brightness, "
+        "compression artifacts and reflections.\n"
+        "Return JSON EXACTLY:\n"
+        '{ "items": [ {\n'
+        f'  "category": one of [{enum_list}],\n'
+        '  "status": "NEW", "severity": one of ["LOW","MEDIUM","HIGH"],\n'
+        '  "confidence": 0..1, "location": short string, "detail": short string,\n'
+        '  "sizeCm": number or null, "recommendation": one of ["REPAIR","REPLACE","ASSESS"],\n'
+        '  "box": { "x","y","w","h" } normalized WITHIN the AFTER photo shown, or null\n'
+        "} ] }\n"
+        "An empty items list is valid."
+    )
+
+    tasks = []
+    regions = []
+    for i in range(2):
+        tasks.append(call_vision_model_multi(
+            provider=_provider(), model_name=_detail_model(),
+            system_message=_DETAIL_SYSTEM, user_prompt=half_prompt,
+            images=[{"path": b_halves[i][0], "mime": "image/jpeg"},
+                    {"path": a_halves[i][0], "mime": "image/jpeg"}],
+            correlation_id=correlation_id))
+        regions.append(a_halves[i][1])
+
+    # Lamp-internals comparison from tight crops (needs componentCheck boxes).
+    # One call PER lamp, and the AFTER image is scale-aligned to BEFORE first —
+    # with identical framing the model reliably spots internal-layout changes.
+    lamp_specs = []
+    base = Path(after_path)
+    aligned_after = None
+    if lamp_boxes:
+        try:
+            with PILImage.open(before_path) as bim, PILImage.open(after_path) as aim:
+                aligned = aim.convert("RGB")
+                if aim.size != bim.size:
+                    aligned = aligned.resize(bim.size, PILImage.LANCZOS)
+                aligned_after = str(base.with_name(f"{base.stem}_aligned.jpg"))
+                aligned.save(aligned_after, "JPEG", quality=92)
+        except Exception:
+            aligned_after = None
+    for side in ("LEFT_LAMP", "RIGHT_LAMP"):
+        box = (lamp_boxes or {}).get(side)
+        if not box:
+            continue
+        bp = _crop_component(before_path, box, str(base.with_name(f"{base.stem}_{side}_b.jpg")))
+        ap = _crop_component(aligned_after or after_path, box,
+                             str(base.with_name(f"{base.stem}_{side}_a.jpg")))
+        if bp and ap:
+            lamp_specs.append((side, box, bp, ap))
+    lamp_prompt = (
+        "Image 1 = BEFORE, image 2 = AFTER: the same vehicle lamp, aligned to the same "
+        "framing. Compare the lamp's internal layout: the shape, arrangement and PROMINENCE "
+        "of red, clear and ORANGE zones, lens pattern and finish. A materially different "
+        "layout (e.g. a distinct orange indicator where BEFORE had a pale/blended one, "
+        "different segmentation) = possible replaced/non-original lamp = differs=true. "
+        "Cracks, holes or breaks = damaged=true. Ignore photo brightness and reflections.\n"
+        'Return JSON EXACTLY: { "beforeLamp": short description, "afterLamp": short '
+        'description, "differs": true or false, "damaged": true or false, "why": short string }'
+    )
+    for _side, _box, bp, ap in lamp_specs:
+        tasks.append(call_vision_model_multi(
+            provider=_provider(), model_name=_detail_model(),
+            system_message=("You compare BEFORE and AFTER close-up photos of the same "
+                            "vehicle lamp. Respond with STRICT JSON only."),
+            user_prompt=lamp_prompt,
+            images=[{"path": bp, "mime": "image/jpeg"}, {"path": ap, "mime": "image/jpeg"}],
+            correlation_id=correlation_id))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    logger.info("detail_scan: %d half calls, %d lamp calls (boxes=%s)",
+                2, len(lamp_specs), list((lamp_boxes or {}).keys()))
+    out: list[dict] = []
+    usages: list[dict] = []
+    for i in range(2):
+        res = results[i]
+        if isinstance(res, Exception):
+            continue
+        parsed, _m, _lat, err, usage = res
+        usages.append(usage or {})
+        if err is None:
+            _parse_detail_items(parsed, regions[i], existing_items, out)
+    for j, (side, box, *_rest) in enumerate(lamp_specs):
+        res = results[2 + j] if len(results) > 2 + j else None
+        if res is None or isinstance(res, Exception):
+            logger.warning("detail_scan lamp %s: exception %s", side, res)
+            continue
+        parsed, _m, _lat, err, usage = res
+        usages.append(usage or {})
+        logger.info("detail_scan lamp %s: err=%s verdict=%s", side, err,
+                    json.dumps(parsed)[:300] if isinstance(parsed, dict) else parsed)
+        if err is not None or not isinstance(parsed, dict):
+            continue
+        if not (parsed.get("differs") or parsed.get("damaged")):
+            continue
+        loc = "left lamp" if side == "LEFT_LAMP" else "right lamp"
+        cand = {
+            "category": "LIGHT", "status": "NEW", "location": loc,
+            "severity": "MEDIUM" if parsed.get("damaged") else "LOW",
+            "confidence": 0.6,
+            "detail": ((parsed.get("why") if isinstance(parsed.get("why"), str) else "")
+                       or "Lamp internals differ from the BEFORE photo — possible replaced or non-original lamp.")[:300],
+            "sizeCm": None, "sizeNote": None, "recommendation": "ASSESS",
+            "box": box, "estimatedCost": _estimate_cost("LIGHT", "LOW"),
+            "fromDetailScan": True,
+        }
+        if not _dupe_of_existing(cand, existing_items + out):
+            out.append(cand)
+    return out, _sum_usage(usages)
+
+
 async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_path: str,
                                    after_mime: str, kind: str, angle: Optional[str], mode: str,
                                    correlation_id: str, before_client_meta: Optional[dict] = None,
@@ -644,6 +1055,28 @@ async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_
         }
         total += lat2
         escalated = True
+    if kind == "EXTERIOR" and _DETAIL_SCAN and section.get("comparable", True):
+        lamp_boxes = {cc["component"]: cc.get("box")
+                      for cc in (section.get("componentCheck") or [])
+                      if cc.get("component") in ("LEFT_LAMP", "RIGHT_LAMP") and cc.get("box")}
+        try:
+            extra, d_usage = await _detail_scan(
+                before_path=before_path, after_path=after_path,
+                existing_items=section.get("items") or [],
+                lamp_boxes=lamp_boxes,
+                correlation_id=correlation_id)
+        except Exception:
+            extra, d_usage = [], {}
+        if extra:
+            section["items"] = (section.get("items") or []) + extra
+            _recount_section(section)
+        tu = section.get("tokenUsage") or {}
+        section["tokenUsage"] = {
+            "inputTokens": (tu.get("inputTokens") or 0) + (d_usage.get("inputTokens") or 0),
+            "outputTokens": (tu.get("outputTokens") or 0) + (d_usage.get("outputTokens") or 0),
+            "totalTokens": (tu.get("totalTokens") or 0) + (d_usage.get("totalTokens") or 0),
+            "calls": (tu.get("calls") or 1) + (d_usage.get("calls") or 0),
+        }
     section["escalated"] = escalated
     section["metadataCheck"] = build_metadata_check(
         before_path, after_path, before_client_meta, after_client_meta,
