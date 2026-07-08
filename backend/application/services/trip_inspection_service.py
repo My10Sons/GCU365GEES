@@ -864,6 +864,10 @@ def _parse_detail_items(parsed, region: tuple[float, float, float, float],
         if box:
             box = {"x": round(rx + box["x"] * rw, 4), "y": round(ry + box["y"] * rh, 4),
                    "w": round(box["w"] * rw, 4), "h": round(box["h"] * rh, 4)}
+            # Drop degenerate/hallucinated boxes — a finding with no marker is better
+            # than one pinned to the wrong spot on the report.
+            if box["w"] < 0.02 or box["h"] < 0.02:
+                box = None
         sev = it.get("severity")
         sev = sev.upper() if isinstance(sev, str) and sev.upper() in _SEVERITIES else None
         try:
@@ -925,7 +929,11 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         '  "status": "NEW", "severity": one of ["LOW","MEDIUM","HIGH"],\n'
         '  "confidence": 0..1, "location": short string, "detail": short string,\n'
         '  "sizeCm": number or null, "recommendation": one of ["REPAIR","REPLACE","ASSESS"],\n'
-        '  "box": { "x","y","w","h" } normalized WITHIN the AFTER photo shown, or null\n'
+        '  "box": a TIGHT rectangle around the issue ON THE VEHICLE in image 2 (the AFTER '
+        "photo shown here), normalized 0..1 where x,y = top-left corner and w,h = size. "
+        "Before answering, verify the rectangle really encloses the location you described "
+        "(e.g. a bumper issue must sit on the bumper, not on the ground or background). "
+        "If you cannot place it precisely, use null\n"
         "} ] }\n"
         "An empty items list is valid."
     )

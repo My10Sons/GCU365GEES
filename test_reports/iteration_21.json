@@ -1,0 +1,46 @@
+{
+  "summary": "Iteration 21 — Verified bounding-box validity fix in trip inspection detail scan. Ran real E2E job using the provided BEFORE/AFTER test images against the ext API. All 10 pytest tests passed in 64s. Zero degenerate boxes detected. All 3 expected findings (GLASS rear window, LIGHT left lamp, SCRATCH bumper) returned with valid boxes (w,h >= 0.02, within [0,1]). Hosted HTML + PDF reports render correctly. Regressions on benchmark, rental-events, developer/usage all pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter21_box_validity.py",
+    "/app/test_reports/pytest/iter21.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix in _parse_detail_items correctly drops degenerate boxes (w<0.02 or h<0.02) — verified via real Gemini job with the exact reproduction images from the bug report.",
+    "Detail-scan half prompt update produced tight on-vehicle boxes: SCRATCH box (0.305,0.655,0.06,0.05) sits on the bumper region, not on pavement."
+  ],
+  "detailed_findings": {
+    "e2e_job": {
+      "job_status": "DONE",
+      "mode": "fast",
+      "sections": 1,
+      "total_items": 3,
+      "items_with_box": 3,
+      "items_without_box": 0,
+      "degenerate_count": 0,
+      "items": [
+        {"type": "GLASS", "box": {"x": 0.31, "y": 0.10, "w": 0.37, "h": 0.18}},
+        {"type": "LIGHT", "box": {"x": 0.287, "y": 0.385, "w": 0.11, "h": 0.145}},
+        {"type": "SCRATCH", "box": {"x": 0.305, "y": 0.655, "w": 0.06, "h": 0.05}}
+      ],
+      "report_urls": "reportUrl (public HTML 200 with 'Trip Inspection Report') + reportPdfUrl (application/pdf, %PDF magic) — both present"
+    },
+    "regression": {
+      "benchmark_cases": "200 — 2+ seeded cases",
+      "benchmark_runs_limit_5": "200 — >=1 run with summary.recall",
+      "ext_rental_events_list": "200",
+      "developer_usage": "200"
+    },
+    "pytest": {"passed": 10, "failed": 0, "duration_sec": 64.23}
+  },
+  "updated_files": ["/app/backend/tests/test_iter21_box_validity.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026 / TENANT-000001",
+  "seed_data_creation": "Created 1 API key 'TEST_iter21_box' and ran 1 real Gemini trip-inspection E2E job (within the 2-job budget).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable pytest module at /app/backend/tests/test_iter21_box_validity.py verifies box validity end-to-end. Note: the marker-column '·' assertion is guarded — it only asserts if any item lacks a box; in this run all items had boxes, so the assertion path was not exercised on this specific job. If a future regression produces boxless items, HTML must contain '·'.",
+  "rca of the issue": "N/A — bug fix confirmed working. The two-pronged fix (drop degenerate boxes at parse time + tighter half-scan prompt) produces on-vehicle boxes with proper dimensions for all 3 expected findings."
+}
