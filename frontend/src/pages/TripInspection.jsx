@@ -276,7 +276,7 @@ export default function TripInspection() {
     api.get("/trip-inspection/open-rentals").then(({ data }) => setOpenRentals(data.data.rentals || [])).catch(() => {});
   }, []);
 
-  const useRental = (r) => {
+  const applyRental = (r) => {
     setReportFields((s) => ({
       ...s, rentalId: r.rentalId || s.rentalId,
       customerName: r.customerName || s.customerName,
@@ -757,7 +757,7 @@ export default function TripInspection() {
                     {r.status === "RETURNED" ? "Returned — awaiting photos" : "Checked out"}
                   </span>
                   <span className="ml-auto flex items-center gap-2">
-                    <button data-testid={`trip-open-rental-use-${r.rentalId}`} onClick={() => useRental(r)} className="px-2.5 py-1 rounded-md font-medium bg-signal hover:bg-signal/90 text-white flex items-center gap-1"><ArrowRight className="size-3" /> Use</button>
+                    <button data-testid={`trip-open-rental-use-${r.rentalId}`} onClick={() => applyRental(r)} className="px-2.5 py-1 rounded-md font-medium bg-signal hover:bg-signal/90 text-white flex items-center gap-1"><ArrowRight className="size-3" /> Use</button>
                     <button data-testid={`trip-open-rental-dismiss-${r.rentalId}`} onClick={() => dismissRental(r)} className="text-steel-500 hover:text-steel-300">dismiss</button>
                   </span>
                 </li>
