@@ -402,10 +402,19 @@ export default function TripInspection() {
           fd.append("after", j.after, "after.jpg");
           if (j.beforeMeta) fd.append("before_meta", JSON.stringify(j.beforeMeta));
           if (j.afterMeta) fd.append("after_meta", JSON.stringify(j.afterMeta));
-          const { data } = await api.post("/trip-inspection/analyze-section", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 });
-          collected.push(data.data);
-          maybeAutofillPlate(data.data?.vehicleSignature?.visiblePlate, "photo");
-          setResult((prev) => ({ ...prev, sections: [...(prev?.sections || []), data.data] }));
+          const { data: startData } = await api.post("/trip-inspection/analyze-section-start", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 55000 });
+          const jobId = startData.data.jobId;
+          let section = null;
+          for (let k = 0; k < 90; k++) {
+            await new Promise((r) => setTimeout(r, 4000));
+            const { data: js } = await api.get(`/trip-inspection/section-jobs/${jobId}`, { timeout: 30000 });
+            if (js.data.status === "DONE") { section = js.data.section; break; }
+            if (js.data.status === "FAILED") throw new Error(js.data.error || "Analysis failed");
+          }
+          if (!section) throw new Error("Analysis timed out");
+          collected.push(section);
+          maybeAutofillPlate(section?.vehicleSignature?.visiblePlate, "photo");
+          setResult((prev) => ({ ...prev, sections: [...(prev?.sections || []), section] }));
         } catch (e) {
           collected.push(null);
         } finally {

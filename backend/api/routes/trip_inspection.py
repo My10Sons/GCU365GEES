@@ -8,15 +8,20 @@ Repository Traceability:
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from pydantic import BaseModel
 
+from api.middleware.safe_errors import DomainError
 from api.schemas.envelope import ok
 from application.security.dependencies import require_permission
 from application.services import trip_inspection_service
+from domain.enums.error_codes import ErrorCode
 from infrastructure.db.mongo import get_db
 
 router = APIRouter(prefix="/trip-inspection", tags=["trip-inspection"])
@@ -106,6 +111,68 @@ async def analyze_section(
         before_meta=_client_meta(before_meta), after_meta=_client_meta(after_meta),
     )
     return ok(data, request.state.correlation_id)
+
+
+async def _run_section_job(job_id: str, principal: dict, kind: str, angle: Optional[str],
+                           mode: str, before, after, before_meta, after_meta,
+                           correlation_id: str):
+    db = get_db()
+    try:
+        data = await trip_inspection_service.analyze_section(
+            principal=principal, kind=kind, angle=angle, before=before, after=after,
+            mode=mode, correlation_id=correlation_id,
+            before_meta=before_meta, after_meta=after_meta)
+        await db.di_section_jobs.update_one({"jobId": job_id}, {"$set": {
+            "status": "DONE", "section": data, "updatedAt": datetime.now(timezone.utc)}})
+    except DomainError as exc:
+        await db.di_section_jobs.update_one({"jobId": job_id}, {"$set": {
+            "status": "FAILED", "error": exc.message,
+            "updatedAt": datetime.now(timezone.utc)}})
+    except Exception as exc:
+        await db.di_section_jobs.update_one({"jobId": job_id}, {"$set": {
+            "status": "FAILED", "error": str(exc)[:300],
+            "updatedAt": datetime.now(timezone.utc)}})
+
+
+@router.post("/analyze-section-start")
+async def analyze_section_start(
+    request: Request,
+    kind: str = Form("EXTERIOR"),
+    angle: Optional[str] = Form(None),
+    mode: Optional[str] = Form("fast"),
+    before: UploadFile = File(...),
+    after: UploadFile = File(...),
+    before_meta: Optional[str] = Form(None),
+    after_meta: Optional[str] = Form(None),
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    """Async variant of /analyze-section: full analysis (incl. the zoom detail pass) can
+    exceed the ingress's 60s request wall, so the UI starts a job and polls for the result."""
+    job_id = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
+    await get_db().di_section_jobs.insert_one({
+        "jobId": job_id, "tenantId": principal["tenantId"], "status": "RUNNING",
+        "createdAt": now, "updatedAt": now})
+    before_b, after_b = await _read(before), await _read(after)
+    asyncio.create_task(_run_section_job(
+        job_id, dict(principal), kind, angle, (mode or "fast"), before_b, after_b,
+        _client_meta(before_meta), _client_meta(after_meta),
+        request.state.correlation_id))
+    return ok({"jobId": job_id, "status": "RUNNING"}, request.state.correlation_id)
+
+
+@router.get("/section-jobs/{job_id}")
+async def get_section_job(
+    request: Request,
+    job_id: str,
+    principal: dict = Depends(require_permission("di.ai.request")),
+):
+    d = await get_db().di_section_jobs.find_one(
+        {"jobId": job_id, "tenantId": principal["tenantId"]})
+    if not d:
+        raise DomainError(ErrorCode.NOT_FOUND, "Section job not found.", 404, "jobId")
+    return ok({"jobId": job_id, "status": d["status"], "section": d.get("section"),
+               "error": d.get("error")}, request.state.correlation_id)
 
 
 class FinalizeIn(BaseModel):

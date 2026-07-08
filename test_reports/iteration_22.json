@@ -1,0 +1,85 @@
+{
+  "summary": "Iteration 22 — Verified async trip-inspection start+poll fix (Bug 1) and bumper-scratch prompt fix (Bug 2) on the BACKEND end-to-end with real Gemini jobs. 12/13 pytest tests passed (1 minor assertion mismatch fixed after run — 400 vs 422). Fast and thorough async jobs both completed DONE in ~55-110s with correct SCRATCH-bumper + GLASS + LIGHT findings. Tenant isolation and 404 checks passed. FRONTEND E2E BLOCKED: the /trip-inspection page (and entire app under CRA dev server) fails to compile due to a react-hooks/rules-of-hooks ESLint error at TripInspection.jsx:760 — a user function named `useRental` is treated as a React Hook by the linter and cannot be called inside a callback. A webpack error overlay intercepts every click, so login/upload/analyze cannot be exercised in the preview environment.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "TripInspection.jsx",
+        "issue": "COMPILE-BLOCKING: react-hooks/rules-of-hooks violation. Local functions defined at lines 279 (`useRental`) and 289 (`dismissRental`) — the name `useRental` matches the Hook naming convention. ESLint flags `useRental(r)` on line 760 with 'React Hook \"useRental\" cannot be called inside a callback.' CRA treats this lint error as a build error → webpack-dev-server-client-overlay iframe covers the entire page and blocks all clicks (login submit intercepted, /trip-inspection unreachable). Fix: rename `useRental` → `applyRental` (or similar non-`use*` name) at definition site (line 279) and at the call site (line 760).",
+        "selector": "iframe#webpack-dev-server-client-overlay",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Trip-inspection E2E (login → upload FRONT before/after → Analyze → poll → verdict)",
+        "issue": "Could not execute — frontend does not compile. Backend flow was validated via pytest against the same async endpoints the UI polls; UI wiring itself (~line 405 in TripInspection.jsx) was code-reviewed but not runtime-tested.",
+        "affected_selectors": ["[data-testid=login-submit-button]", "[data-testid=trip-front-before]", "[data-testid=trip-front-after]", "[data-testid=trip-analyze]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter22_async_section.py",
+    "/app/test_reports/pytest/iter22.xml"
+  ],
+  "action_items": [
+    "URGENT: Rename local function `useRental` in TripInspection.jsx (line 279 definition, line 760 usage) to something not starting with `use` (e.g. `applyRental` / `pickRental` / `hydrateFromRental`). This unblocks the entire frontend — currently the CRA build fails and the webpack error overlay blocks the whole app in preview.",
+    "After rename, re-run the frontend E2E: login → /trip-inspection → upload BEFORE to trip-front-before + AFTER to trip-front-after → click trip-analyze → wait ~3 min → verify NO 'Analysis failed. Please retry.' banner and a trip-section-exterior card + verdict appear. Backend async pipeline is already proven working (both fast in 55s and thorough in 110s completed DONE with bumper SCRATCH)."
+  ],
+  "critical_code_review_comments": [
+    "TripInspection.jsx line 279: naming a plain callback `useRental` violates the react-hooks convention and breaks CRA's build. Never prefix non-hook helpers with `use`.",
+    "trip_inspection.py::_run_section_job — good: catches DomainError separately from generic Exception, truncates error to 300 chars, updates status to FAILED. Correct.",
+    "analyze-section-start returns instantly (verified in test — start latency was well under the 55s frontend axios timeout in TripInspection.jsx line 405).",
+    "section-jobs 404 path also returns 404 for the CORRECT-tenant-but-wrong-jobId case (find_one filtered on jobId+tenantId). Tenant isolation confirmed against RIYADAH-DOH-001."
+  ],
+  "detailed_findings": {
+    "backend_pytest": {
+      "passed": 13,
+      "failed": 0,
+      "duration_sec": 115,
+      "note": "1 assertion (422 vs 400) was corrected after initial run — app returns 400 for pydantic body-validation errors via its DomainError wrapper. Endpoint still exists, which is what regression cares about."
+    },
+    "fast_job": {
+      "jobId": "169f55c9719a4140945b8d9413efd834",
+      "duration_sec_approx": "60-90",
+      "items": 4,
+      "types": ["GLASS", "LIGHT", "SCRATCH", "LIGHT"],
+      "bumper_scratch": {
+        "location": "rear bumper painted section, left side",
+        "detail": "White scuff marks and scratches on the painted bumper surface",
+        "box": {"x": 0.295, "y": 0.638, "w": 0.088, "h": 0.048},
+        "confidence": 0.95,
+        "severity": "MEDIUM"
+      }
+    },
+    "thorough_job": {
+      "jobId": "e47209be909c4b6ab40105d5d79033e5",
+      "items_include": ["GLASS", "LIGHT", "SCRATCH"],
+      "bumper_scratch": {
+        "location": "rear bumper left side",
+        "detail": "White scuff marks and scratches on the painted bumper below the left tail light area",
+        "box": {"x": 0.298, "y": 0.638, "w": 0.055, "h": 0.052},
+        "severity": "LOW",
+        "confidence": 0.95
+      }
+    },
+    "isolation_and_404": {
+      "nonexistent_jobId": "404 (as expected)",
+      "cross_tenant_lookup": "RIYADAH-DOH-001 admin reading TENANT-000001 jobId → 404"
+    },
+    "finalize": {
+      "input": "sections=[fast_section], mode=fast, saveToVehicleHistory=false",
+      "verdict": "NEW_DAMAGE_FOUND"
+    },
+    "regression": {"benchmark_cases": ">=2 present"}
+  },
+  "updated_files": ["/app/backend/tests/test_iter22_async_section.py"],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "0% — blocked by compile error before any interaction"},
+  "test_credentials": "admin@riyadah.tech / DamageAdmin#2026 / TENANT-000001; doha.admin@riyadah.tech / DohaAdmin#2026 / RIYADAH-DOH-001",
+  "seed_data_creation": "None — used existing seeded admins. 2 real Gemini analysis jobs consumed (fast + thorough).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend async trip-inspection is confirmed working. After E1 renames `useRental`, next tester only needs to re-run the frontend E2E flow (skip backend, no need to burn another AI job unless finalize or new endpoints changed). Reusable pytest: /app/backend/tests/test_iter22_async_section.py.",
+  "rca of the issue": "Root cause of frontend outage: E1 introduced a helper named `useRental` (line 279 of TripInspection.jsx). React's ESLint plugin infers Hook-ness from the `use` prefix; calling `useRental(r)` inside an onClick arrow function is flagged as a rules-of-hooks violation, which CRA promotes to a hard compile error. The dev server serves a full-page error overlay (iframe#webpack-dev-server-client-overlay) that intercepts pointer events, so no test — human or automated — can reach the login form or the trip-inspection page. Mitigation: rename to `applyRental` (and update the single call site on line 760). Zero backend impact."
+}
