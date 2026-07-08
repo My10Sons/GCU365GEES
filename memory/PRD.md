@@ -108,6 +108,20 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
     environment/metadata); aggregate flags hasEnvironmentWarnings/hasMetadataWarnings; PDF verification
     warnings block (EN/AR).
 
+## Completed (this fork, 2026-07-09) — Bug fixes: 60s ingress wall + bumper-corner detection
+- "Analysis failed. Please retry." root cause: sync POST /trip-inspection/analyze-section exceeded
+  the Kubernetes ingress 60s wall (502) after the detail pass lengthened analysis to 70-120s.
+  Fix: async job architecture — POST /trip-inspection/analyze-section-start → jobId; GET
+  /trip-inspection/section-jobs/{jobId} (di_section_jobs, tenant-isolated); TripInspection.jsx now
+  starts + polls every 4s. Old sync endpoint kept for API compat.
+- Thorough-mode missed left bumper-corner scratches: prompts now explicitly scan bumper CORNERS/side
+  ends (main protocol step 3 + detail-scan half prompt). Verified detected in both fast & thorough.
+- Fixed compile-blocking react-hooks lint: renamed TripInspection helper useRental → applyRental.
+- Verified: iteration_22 (backend 13/13 pytest incl. tenant isolation, fast+thorough real jobs) and
+  iteration_23 (frontend E2E 100%: upload → analyze → streaming → verdict, no error banner).
+- Reusable pytest: /app/backend/tests/test_iter22_async_section.py.
+- PRODUCTION runs old code — user must REDEPLOY to get these fixes on gcu365-ai-vision.com.
+
 ## Completed (this fork, 2026-07-08c) — Bug fix: mispositioned detail-scan finding marker
 - User-reported: marker #4 (black-valance scuffs from zoom detail pass) rendered on the pavement.
 - Fix: _parse_detail_items drops degenerate/hallucinated boxes (full-coords w or h < 0.02 → box=None,
