@@ -116,6 +116,9 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - Verified by testing_agent (iteration_21.json): 10/10 pass, real E2E job with the exact bug images —
   zero degenerate boxes, all findings on-vehicle, reports render, benchmark/rental-events regressions clean.
 - Reusable pytest: /app/backend/tests/test_iter21_box_validity.py.
+- Follow-up (2026-07-08d): hosted report HTML + PDF now flag unlocalized findings — "!" in the # column
+  and an amber "Not visually localized — physically verify: <locations>" note under the section table
+  (ext_report_service.render_html/render_pdf). Self-tested with synthetic report doc + screenshot.
 
 ## Completed (this fork, 2026-07-08b) — Accuracy validation harness (regression suite)
 - benchmark_service.py + routes /benchmark/*: ground-truth cases (before/after pair + expected

@@ -237,13 +237,20 @@ def render_html(doc: dict) -> str:
                          f"<figure><img src='{base}/images/{img['after']}' alt='After (annotated)'/>"
                          f"<figcaption>After the trip — findings marked</figcaption></figure></div>")
         rows = ""
+        unlocalized = []
         for it in (sec.get("items") or []):
             sev = it.get("severity") or "—"
             sev_c = _SEV_COLOR.get(sev, "#475569")
             st = it.get("status") or "—"
             st_rgb = _STATUS_RGB.get(st, (71, 85, 105))
             st_hex = "#%02x%02x%02x" % st_rgb
-            rows += (f"<tr><td><b>{_esc(it.get('marker')) if it.get('marker') else '·'}</b></td>"
+            if it.get("marker"):
+                marker_cell = f"<b>{_esc(it['marker'])}</b>"
+            else:
+                unlocalized.append(it)
+                marker_cell = ("<span title='Not visually localized' "
+                               "style='color:#b45309;font-weight:800'>!</span>")
+            rows += (f"<tr><td>{marker_cell}</td>"
                      f"<td>{_esc(it.get('category'))}</td>"
                      f"<td><span class='chip' style='background:{st_hex}1a;color:{st_hex}'>{_esc(st)}</span></td>"
                      f"<td style='color:{sev_c};font-weight:600'>{_esc(sev)}</td>"
@@ -255,6 +262,13 @@ def render_html(doc: dict) -> str:
                  f"<th>Location</th><th>Size</th><th>Action</th><th>Est. cost</th></tr></thead>"
                  f"<tbody>{rows}</tbody></table>") if rows else \
             "<p style='font-size:13px;color:#475569'>No findings in this view.</p>"
+        if unlocalized:
+            spots = "; ".join(_esc(u.get("location") or u.get("category") or "finding")
+                              for u in unlocalized[:6])
+            table += (f"<div class='warn'><b>! Not visually localized</b> — "
+                      f"{len(unlocalized)} finding{'s' if len(unlocalized) != 1 else ''} "
+                      f"marked <b>!</b> could not be pinpointed on the photo. Physically "
+                      f"verify: {spots}.</div>")
         summary = f"<p style='font-size:13px;color:#334155;margin-bottom:8px'>{_esc(sec.get('summary'))}</p>" if sec.get("summary") else ""
         new_n = sec.get("newIssueCount") or 0
         badge = (f"<span class='chip' style='background:#fff1f2;color:#be123c'>{new_n} new</span>"
@@ -348,9 +362,10 @@ def render_pdf(doc: dict) -> bytes:
             el += [it, Spacer(1, 4)]
         items = sec.get("items") or []
         if items:
+            unlocalized = [x for x in items if not x.get("marker")]
             rows = [["#", "Category", "Status", "Sev.", "Location", "Size", "Action", "Est. cost"]]
             for x in items:
-                rows.append([str(x.get("marker") or "·"), x.get("category") or "—",
+                rows.append([str(x.get("marker") or "!"), x.get("category") or "—",
                              x.get("status") or "—", x.get("severity") or "—",
                              Paragraph(html_mod.escape(x.get("location") or "—"), small),
                              f"{x.get('sizeCm')} cm" if x.get("sizeCm") else "—",
@@ -363,6 +378,14 @@ def render_pdf(doc: dict) -> bytes:
                 ("GRID", (0, 0), (-1, -1), 0.4, rl_colors.HexColor("#e2e8f0")),
                 ("VALIGN", (0, 0), (-1, -1), "TOP")]))
             el.append(t)
+            if unlocalized:
+                spots = "; ".join(html_mod.escape(u.get("location") or u.get("category") or "finding")
+                                  for u in unlocalized[:6])
+                el.append(Spacer(1, 3))
+                el.append(Paragraph(
+                    f"<font color='#b45309'><b>! Not visually localized</b> — "
+                    f"{len(unlocalized)} finding(s) marked \"!\" could not be pinpointed on "
+                    f"the photo. Physically verify: {spots}.</font>", small))
         el.append(Spacer(1, 8))
 
     el.append(Spacer(1, 10))
