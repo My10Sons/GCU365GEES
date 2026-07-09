@@ -755,6 +755,7 @@ async def _maybe_auto_create_case(
 # overlapping tiles (zoomed) and scanned once more on the Fast model. Catches faint
 # scratches on dark trim and replaced/mismatched components that full-frame passes miss.
 _DETAIL_SCAN = os.environ.get("DI_TRIP_DETAIL_SCAN", "true").lower() == "true"
+_LAMP_SAMPLES = 3
 
 
 def _detail_model() -> str:
@@ -794,23 +795,47 @@ def _make_halves(path: str) -> list[tuple[str, tuple[float, float, float, float]
     return out
 
 
-def _crop_component(path: str, box: dict, out_path: str) -> Optional[str]:
-    """Tight component crop (box + generous padding, minimum size), upscaled to ~800px."""
+def _make_bottom_strip(path: str) -> tuple[str, tuple[float, float, float, float]]:
+    """Zoomed crop of the lower half of the frame (bumper/trim/valance zone) — faint
+    scratches on black plastic need more pixels than the left/right halves provide."""
+    im = PILImage.open(path).convert("RGB")
+    w, h = im.size
+    y1 = 0.5
+    crop = im.crop((0, int(y1 * h), w, h))
+    if crop.size[0] < 1800:
+        sc = 1800 / crop.size[0]
+        crop = crop.resize((int(crop.size[0] * sc), int(crop.size[1] * sc)), PILImage.LANCZOS)
+    tp = str(Path(path).with_name(f"{Path(path).stem}_bottom.jpg"))
+    crop.save(tp, "JPEG", quality=92)
+    return tp, (0.0, y1, 1.0, 1.0 - y1)
+
+
+def _crop_component(path: str, box: dict, out_path: str, *, pad: float = 0.55,
+                    upscale: int = 1100) -> Optional[str]:
+    """Component crop (box + padding, minimum size), upscaled for detail."""
     im = PILImage.open(path).convert("RGB")
     w, h = im.size
     bw, bh = max(box["w"], 0.13), max(box["h"], 0.16)
     cx, cy = box["x"] + box["w"] / 2, box["y"] + box["h"] / 2
-    px, py = bw * 0.55 + 0.02, bh * 0.55 + 0.02
+    px, py = bw * pad + 0.02, bh * pad + 0.02
     x1, y1 = max(0.0, cx - bw / 2 - px), max(0.0, cy - bh / 2 - py)
     x2, y2 = min(1.0, cx + bw / 2 + px), min(1.0, cy + bh / 2 + py)
     crop = im.crop((int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h)))
     if crop.size[0] < 40 or crop.size[1] < 24:
         return None
-    sc = 800 / max(crop.size)
+    sc = upscale / max(crop.size)
     if sc > 1:
         crop = crop.resize((int(crop.size[0] * sc), int(crop.size[1] * sc)), PILImage.LANCZOS)
     crop.save(out_path, "JPEG", quality=92)
     return out_path
+
+
+_GENERIC_LOC_WORDS = {"left", "right", "side", "rear", "front", "lower", "upper", "center",
+                      "centre", "of", "the", "on", "at", "area", "section", "part", "near"}
+
+
+def _loc_words(s: Optional[str]) -> set:
+    return {w.strip(".,;:()-") for w in (s or "").lower().split()} - {""}
 
 
 def _dupe_of_existing(cand: dict, existing: list[dict]) -> bool:
@@ -819,13 +844,18 @@ def _dupe_of_existing(cand: dict, existing: list[dict]) -> bool:
             continue
         b1, b2 = it.get("box"), cand.get("box")
         if b1 and b2:
-            if (abs((b1["x"] + b1["w"] / 2) - (b2["x"] + b2["w"] / 2)) < 0.18
-                    and abs((b1["y"] + b1["h"] / 2) - (b2["y"] + b2["h"] / 2)) < 0.18):
+            ix = min(b1["x"] + b1["w"], b2["x"] + b2["w"]) - max(b1["x"], b2["x"])
+            iy = min(b1["y"] + b1["h"], b2["y"] + b2["h"]) - max(b1["y"], b2["y"])
+            overlaps = ix > 0 and iy > 0
+            close = (abs((b1["x"] + b1["w"] / 2) - (b2["x"] + b2["w"] / 2)) < 0.08
+                     and abs((b1["y"] + b1["h"] / 2) - (b2["y"] + b2["h"] / 2)) < 0.08)
+            if overlaps or close:
                 return True
         else:
-            w1 = set((it.get("location") or "").lower().split())
-            w2 = set((cand.get("location") or "").lower().split())
-            if len(w1 & w2) >= 2:
+            common = _loc_words(it.get("location")) & _loc_words(cand.get("location"))
+            # Same spot needs 2+ shared words including a non-generic surface/component
+            # word — "left side" alone must not merge painted-bumper and black-trim finds.
+            if len(common) >= 2 and (common - _GENERIC_LOC_WORDS):
                 return True
     return False
 
@@ -892,6 +922,9 @@ def _parse_detail_items(parsed, region: tuple[float, float, float, float],
         }
         if not _dupe_of_existing(cand, existing_items + out):
             out.append(cand)
+        else:
+            logger.info("detail_scan: dropped as dupe: %s at %s box=%s",
+                        cand["category"], cand["location"], cand["box"])
 
 
 def _sum_usage(usages: list[dict]) -> dict:
@@ -909,8 +942,9 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
     """Three focused close-up comparisons run concurrently: one per zoomed image half
     (subtle scratches on dark trim etc.) plus one lamp-internals comparison using tight
     component crops from the main pass's componentCheck boxes."""
-    b_halves = _make_halves(before_path)
-    a_halves = _make_halves(after_path)
+    b_crops = _make_halves(before_path) + [_make_bottom_strip(before_path)]
+    a_crops = _make_halves(after_path) + [_make_bottom_strip(after_path)]
+    n_crops = len(b_crops)
     already = "; ".join(f"{it['category']} at {it.get('location') or '?'}"
                         for it in existing_items[:12]) or "none"
     enum_list = ",".join(f'"{c}"' for c in EXTERIOR_CATEGORIES)
@@ -919,6 +953,11 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         "photos may be slightly shifted or scaled — compare the APPEARANCE of parts, not "
         "their pixel position.\n"
         f"Already reported by the full-frame pass (do NOT repeat these): {already}.\n"
+        "IMPORTANT: an issue on a DIFFERENT surface or component than those listed is NOT a "
+        "repeat — e.g. if a scratch on the PAINTED bumper was reported, separate scratch/scuff "
+        "marks on the BLACK PLASTIC trim, valance or reflector surround below it are a NEW, "
+        "separate finding and MUST be reported (location must name the surface, e.g. "
+        "'lower black trim, left side').\n"
         "Report ONLY ADDITIONAL issues visible in the AFTER photo: faint scratches/scuffs "
         "(look hard at black plastic trim, lower bumpers, and the bumper CORNERS/side ends), "
         "chips, and any component that "
@@ -942,14 +981,14 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
 
     tasks = []
     regions = []
-    for i in range(2):
+    for i in range(n_crops):
         tasks.append(call_vision_model_multi(
             provider=_provider(), model_name=_detail_model(),
             system_message=_DETAIL_SYSTEM, user_prompt=half_prompt,
-            images=[{"path": b_halves[i][0], "mime": "image/jpeg"},
-                    {"path": a_halves[i][0], "mime": "image/jpeg"}],
+            images=[{"path": b_crops[i][0], "mime": "image/jpeg"},
+                    {"path": a_crops[i][0], "mime": "image/jpeg"}],
             correlation_id=correlation_id))
-        regions.append(a_halves[i][1])
+        regions.append(a_crops[i][1])
 
     # Lamp-internals comparison from tight crops (needs componentCheck boxes).
     # One call PER lamp, and the AFTER image is scale-aligned to BEFORE first —
@@ -971,24 +1010,44 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         box = (lamp_boxes or {}).get(side)
         if not box:
             continue
-        bp = _crop_component(before_path, box, str(base.with_name(f"{base.stem}_{side}_b.jpg")))
-        ap = _crop_component(aligned_after or after_path, box,
-                             str(base.with_name(f"{base.stem}_{side}_a.jpg")))
-        if bp and ap:
-            lamp_specs.append((side, box, bp, ap))
+        # One crop variant per sample (tight / wide-context / high-zoom) — the main-pass box
+        # quality varies between runs, so identical crops make all samples fail together.
+        pairs = []
+        for vi, (pad, up) in enumerate(((0.55, 1100), (1.2, 1100), (0.25, 1500))):
+            bp = _crop_component(before_path, box,
+                                 str(base.with_name(f"{base.stem}_{side}_b{vi}.jpg")),
+                                 pad=pad, upscale=up)
+            ap = _crop_component(aligned_after or after_path, box,
+                                 str(base.with_name(f"{base.stem}_{side}_a{vi}.jpg")),
+                                 pad=pad, upscale=up)
+            if bp and ap:
+                pairs.append((bp, ap))
+        if pairs:
+            lamp_specs.append((side, box, pairs))
     lamp_prompt = (
         "Image 1 = BEFORE, image 2 = AFTER: the same vehicle lamp, aligned to the same "
         "framing. Compare the lamp's internal layout: the shape, arrangement and PROMINENCE "
         "of red, clear and ORANGE zones, lens pattern and finish. A materially different "
         "layout (e.g. a distinct orange indicator where BEFORE had a pale/blended one, "
         "different segmentation) = possible replaced/non-original lamp = differs=true. "
-        "Cracks, holes or breaks = damaged=true. Ignore photo brightness and reflections.\n"
-        'Return JSON EXACTLY: { "beforeLamp": short description, "afterLamp": short '
-        'description, "differs": true or false, "damaged": true or false, "why": short string }'
+        "Pay particular attention to the ORANGE indicator: its SHAPE (round bulb vs "
+        "rectangular window vs strip) and its POSITION within the clear section (center vs "
+        "inner/outer edge). A different shape or position = differs=true even if both lamps "
+        "have an orange element. Cracks, holes or breaks = damaged=true. Ignore photo "
+        "brightness and reflections.\n"
+        "Return JSON EXACTLY: {\n"
+        '  "beforeLamp": short description, "afterLamp": short description,\n'
+        '  "beforeIndicatorShape": one of ["ROUND","RECTANGULAR","STRIP","NONE","UNCLEAR"],\n'
+        '  "afterIndicatorShape": one of ["ROUND","RECTANGULAR","STRIP","NONE","UNCLEAR"],\n'
+        '  "beforeIndicatorPosition": one of ["CENTER","INNER_EDGE","OUTER_EDGE","TOP","BOTTOM","NONE","UNCLEAR"],\n'
+        '  "afterIndicatorPosition": one of ["CENTER","INNER_EDGE","OUTER_EDGE","TOP","BOTTOM","NONE","UNCLEAR"],\n'
+        '  "differs": true or false, "damaged": true or false, "why": short string }'
     )
-    for _side, _box, bp, ap in lamp_specs:
-        # Self-consistency: two independent samples per lamp; differs/damaged = OR of both.
-        for _ in range(2):
+    for _side, _box, pairs in lamp_specs:
+        # Self-consistency: three samples per lamp on different crop variants;
+        # differs/damaged = OR of all.
+        for k in range(_LAMP_SAMPLES):
+            bp, ap = pairs[k % len(pairs)]
             tasks.append(call_vision_model_multi(
                 provider=_provider(), model_name=_detail_model(),
                 system_message=("You compare BEFORE and AFTER close-up photos of the same "
@@ -998,11 +1057,11 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
                 correlation_id=correlation_id))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    logger.info("detail_scan: %d half calls, %d lamp calls (boxes=%s)",
-                2, len(lamp_specs) * 2, list((lamp_boxes or {}).keys()))
+    logger.info("detail_scan: %d crop calls, %d lamp calls (boxes=%s)",
+                n_crops, len(lamp_specs) * _LAMP_SAMPLES, list((lamp_boxes or {}).keys()))
     out: list[dict] = []
     usages: list[dict] = []
-    for i in range(2):
+    for i in range(n_crops):
         res = results[i]
         if isinstance(res, Exception):
             continue
@@ -1010,11 +1069,14 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         usages.append(usage or {})
         if err is None:
             _parse_detail_items(parsed, regions[i], existing_items, out)
+    _DEF_SHAPES = {"ROUND", "RECTANGULAR", "STRIP"}
+    _DEF_POS = {"CENTER", "INNER_EDGE", "OUTER_EDGE", "TOP", "BOTTOM"}
     for j, (side, box, *_rest) in enumerate(lamp_specs):
         differs = damaged = False
         why = ""
-        for k in range(2):
-            idx = 2 + 2 * j + k
+        attr_votes = 0
+        for k in range(_LAMP_SAMPLES):
+            idx = n_crops + _LAMP_SAMPLES * j + k
             res = results[idx] if len(results) > idx else None
             if res is None or isinstance(res, Exception):
                 logger.warning("detail_scan lamp %s sample %d: exception %s", side, k, res)
@@ -1030,6 +1092,20 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
                 damaged = damaged or bool(parsed.get("damaged"))
                 if not why and isinstance(parsed.get("why"), str):
                     why = parsed["why"]
+            # Attribute-level diff: shape/position of the orange indicator changed.
+            bs = str(parsed.get("beforeIndicatorShape") or "").upper()
+            as_ = str(parsed.get("afterIndicatorShape") or "").upper()
+            bp_ = str(parsed.get("beforeIndicatorPosition") or "").upper()
+            ap_ = str(parsed.get("afterIndicatorPosition") or "").upper()
+            shape_diff = bs in _DEF_SHAPES and as_ in _DEF_SHAPES and bs != as_
+            pos_diff = bp_ in _DEF_POS and ap_ in _DEF_POS and bp_ != ap_
+            if shape_diff or pos_diff:
+                attr_votes += 1
+                if not why:
+                    why = (f"Indicator layout changed: shape {bs}→{as_}, position {bp_}→{ap_} "
+                           "— possible replaced or non-original lamp.")
+        if attr_votes >= 2:
+            differs = True
         if not (differs or damaged):
             continue
         loc = "left lamp" if side == "LEFT_LAMP" else "right lamp"

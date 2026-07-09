@@ -21,6 +21,24 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET  /api/v1/damage-intelligence/trip-inspection/usage?days=N
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
+## Completed (this fork, 2026-07-09c) — Bug fix: trim scratches missed + right-lamp flakiness (P0)
+- User's real Accent rear photos obtained via assets (in /tmp/user_before.jpg, /tmp/user_after.jpg) and
+  added as benchmark case `e99507677e1548ccb16b945fd407703c` (5 required findings).
+- Root cause 1 (trim scratches never shown): detail scan DID detect "lower black trim, left side" but
+  the location-word dedupe fallback merged it with the painted-bumper scratch on generic words
+  {left, side}. Fixed: dedupe now needs 2+ shared words including a non-generic surface word
+  (_GENERIC_LOC_WORDS), and box-dedupe needs actual overlap or centers within 0.08 (was 0.18 blanket).
+- Root cause 2 (right lamp intermittent): lamp verdict depended on one crop from the main-pass
+  componentCheck box; when the box was poor, all self-consistency samples failed together. Fixed:
+  3 samples per lamp on DIFFERENT crop variants (tight 0.55/1100px, wide 1.2/1100px, zoom 0.25/1500px),
+  plus structured attribute comparison (indicatorShape/indicatorPosition enums) — server derives
+  differs=true when attributes mismatch in >=2 samples, OR any sample says differs/damaged.
+- Also added: bottom-strip detail crop (lower half zoom for bumper/trim), "different surface = new
+  finding" instruction in the detail prompt, "dropped as dupe" logging.
+- Validated: 3 consecutive full benchmark runs at 100% recall (9/9 required findings across both
+  cases; user's Accent case 5/5 each time). ~90-105K tokens per full 2-case run.
+- NOTE: user must redeploy production to pick up the fix.
+
 ## Completed (this fork, 2026-07-09b) — Bug fix: AI Vision missing 2 of 5 known findings (P0)
 - Root cause: previous session added lamp self-consistency (2 vision samples per lamp) in
   `_detail_scan` but never updated the result-parsing loop — it still read `results[2 + j]`
