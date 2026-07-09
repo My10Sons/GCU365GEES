@@ -1109,6 +1109,19 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         if not (differs or damaged):
             continue
         loc = "left lamp" if side == "LEFT_LAMP" else "right lamp"
+        side_word = "left" if side == "LEFT_LAMP" else "right"
+        # The full-frame pass often reports the same lamp (e.g. "right taillight") without a
+        # box — merge instead of double-reporting, and donate the tight lamp box to it.
+        existing_lamp = next(
+            (it for it in existing_items
+             if it.get("category") in ("LIGHT", "PART")
+             and side_word in (it.get("location") or "").lower()
+             and any(w in (it.get("location") or "").lower() for w in ("lamp", "light"))),
+            None)
+        if existing_lamp is not None:
+            if not existing_lamp.get("box"):
+                existing_lamp["box"] = box
+            continue
         cand = {
             "category": "LIGHT", "status": "NEW", "location": loc,
             "severity": "MEDIUM" if damaged else "LOW",
@@ -1121,6 +1134,55 @@ async def _detail_scan(*, before_path: str, after_path: str, existing_items: lis
         if not _dupe_of_existing(cand, existing_items + out):
             out.append(cand)
     return out, _sum_usage(usages)
+
+
+async def _repair_boxes(*, after_path: str, after_mime: str, items: list[dict],
+                        correlation_id: str) -> dict:
+    """One extra localization call for findings that ended up without a bounding box, so
+    every issue gets a numbered marker on the report photo."""
+    missing = [it for it in items if not it.get("box")]
+    if not missing:
+        return {}
+    listing = "\n".join(
+        f"{i + 1}. {it['category']} at {it.get('location') or '?'}: {(it.get('detail') or '')[:120]}"
+        for i, it in enumerate(missing))
+    prompt = (
+        "This is the AFTER photo from a vehicle inspection. Each numbered issue below was "
+        "already confirmed — your ONLY job is to locate each one on the vehicle in this photo "
+        "and return a TIGHT bounding rectangle, normalized 0..1 where x,y = top-left corner "
+        "and w,h = size.\n"
+        f"{listing}\n"
+        "The rectangle must sit on the described part (a bumper issue on the bumper, a lamp "
+        "issue on that lamp — never on the ground or background). If the damage itself is too "
+        "faint to pinpoint, return a rectangle around the NAMED part/area instead (e.g. for "
+        "'lower black trim, left side' box that region of the trim). Only use null if the "
+        "part is not visible in the photo at all.\n"
+        'Return JSON EXACTLY: { "boxes": [ { "n": issue number, '
+        '"box": {"x":0..1,"y":0..1,"w":0..1,"h":0..1} or null } ] }'
+    )
+    parsed, _m, _lat, err, usage = await call_vision_model_multi(
+        provider=_provider(), model_name=_detail_model(),
+        system_message=("You localize known vehicle damage findings in a photo. "
+                        "Respond with STRICT JSON only."),
+        user_prompt=prompt,
+        images=[{"path": after_path, "mime": after_mime}],
+        correlation_id=correlation_id)
+    if err is None and isinstance(parsed, dict):
+        for row in (parsed.get("boxes") or [])[:2 * len(missing)]:
+            if not isinstance(row, dict):
+                continue
+            try:
+                n = int(row.get("n"))
+            except (TypeError, ValueError):
+                continue
+            if not (1 <= n <= len(missing)) or missing[n - 1].get("box"):
+                continue
+            b = _normalize_box(row.get("box"))
+            if b and b["w"] >= 0.015 and b["h"] >= 0.015 and b["w"] < 0.95:
+                missing[n - 1]["box"] = b
+    logger.info("repair_boxes: %d missing, %d repaired", len(missing),
+                sum(1 for it in missing if it.get("box")))
+    return usage or {}
 
 
 async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_path: str,
@@ -1174,6 +1236,24 @@ async def _analyze_pair_escalating(*, before_path: str, before_mime: str, after_
             "calls": (tu.get("calls") or 1) + (d_usage.get("calls") or 0),
         }
     section["escalated"] = escalated
+    if section.get("comparable", True) and any(
+            it.get("status") == "NEW" and not it.get("box")
+            for it in section.get("items") or []):
+        try:
+            r_usage = await _repair_boxes(
+                after_path=after_path, after_mime=after_mime,
+                items=[it for it in section["items"] if it.get("status") == "NEW"],
+                correlation_id=correlation_id)
+        except Exception:
+            r_usage = {}
+        if r_usage:
+            tu = section.get("tokenUsage") or {}
+            section["tokenUsage"] = {
+                "inputTokens": (tu.get("inputTokens") or 0) + (r_usage.get("inputTokens") or 0),
+                "outputTokens": (tu.get("outputTokens") or 0) + (r_usage.get("outputTokens") or 0),
+                "totalTokens": (tu.get("totalTokens") or 0) + (r_usage.get("totalTokens") or 0),
+                "calls": (tu.get("calls") or 1) + 1,
+            }
     section["metadataCheck"] = build_metadata_check(
         before_path, after_path, before_client_meta, after_client_meta,
     )

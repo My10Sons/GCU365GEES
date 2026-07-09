@@ -21,6 +21,21 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET  /api/v1/damage-intelligence/trip-inspection/usage?days=N
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
+## Completed (this fork, 2026-07-09d) — Marker boxes for all findings + right-lamp dedupe (P1)
+- User report: findings without bounding boxes get no numbered marker on the report photo, and the
+  right lamp was reported twice (full-frame pass "right taillight" without box + detail-scan
+  "right lamp" with box).
+- Fix 1 (merge): detail-scan lamp verdicts now merge into an existing same-side LIGHT/PART lamp
+  item from the full-frame pass instead of double-reporting, donating the tight lamp box to it.
+- Fix 2 (box repair pass): new `_repair_boxes` in trip_inspection_service.py — after the detail
+  scan, one extra localization call on the AFTER image boxes every NEW finding that still lacks a
+  box (with part-level fallback: if the damage is too faint, box the named part/area). Token usage
+  added to section tokenUsage.
+- Validated: 3 consecutive analyze-section runs on the user's real Accent photos — 5/5 findings,
+  all with plausible boxes (glass top-center, lamps at x≈0.28/0.60, painted scratch y≈0.65, trim
+  scratch y≈0.75), no duplicates. repair_boxes log line shows repairs when needed.
+- NOTE: user must redeploy production to pick up the fix.
+
 ## Completed (this fork, 2026-07-09c) — Bug fix: trim scratches missed + right-lamp flakiness (P0)
 - User's real Accent rear photos obtained via assets (in /tmp/user_before.jpg, /tmp/user_after.jpg) and
   added as benchmark case `e99507677e1548ccb16b945fd407703c` (5 required findings).
