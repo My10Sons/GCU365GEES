@@ -173,6 +173,17 @@ function SectionResult({ section, afterPreview }) {
   if (env.glare) envProbs.push("Strong glare/reflections may hide or mimic damage");
   const metaProbs = (section.metadataCheck || {}).warnings || [];
 
+  // Nudge number badges down when boxes share a top-left corner so no marker hides another.
+  const badgeAnchors = [];
+  const badgeShift = items.map((it) => {
+    if (!it.box) return 0;
+    const collides = (y) => badgeAnchors.some((a) => Math.abs(a.x - it.box.x) < 0.04 && Math.abs(a.y - y) < 0.04);
+    let lvl = 0;
+    while (collides(it.box.y + lvl * 0.045)) lvl += 1;
+    badgeAnchors.push({ x: it.box.x, y: it.box.y + lvl * 0.045 });
+    return lvl;
+  });
+
   return (
     <div className="rounded-lg border border-ink-700/70 bg-ink-900/60 overflow-hidden" data-testid={`trip-section-${section.kind?.toLowerCase()}`}>
       <div className="px-4 py-3 border-b border-ink-700/60 flex items-center gap-2">
@@ -206,7 +217,8 @@ function SectionResult({ section, afterPreview }) {
               {items.map((it, i) => it.box ? (
                 <div key={i} className={`absolute border-2 rounded-sm ${it.status === "NEW" ? "border-signal" : "border-amber400"}`}
                   style={{ left: `${it.box.x * 100}%`, top: `${it.box.y * 100}%`, width: `${it.box.w * 100}%`, height: `${it.box.h * 100}%` }}>
-                  <span className={`absolute -top-2 -left-2 size-5 grid place-items-center rounded-full text-[10px] font-bold text-white ${it.status === "NEW" ? "bg-signal" : "bg-amber400"}`}>{i + 1}</span>
+                  <span className={`absolute -top-2 -left-2 size-5 grid place-items-center rounded-full text-[10px] font-bold text-white ${it.status === "NEW" ? "bg-signal" : "bg-amber400"}`}
+                    style={badgeShift[i] ? { transform: `translateY(${badgeShift[i] * 24}px)` } : undefined}>{i + 1}</span>
                 </div>
               ) : null)}
             </div>

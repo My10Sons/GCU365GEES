@@ -71,6 +71,7 @@ def _save_annotated(raw: bytes, items: list, path: Path) -> None:
     w, h = im.size
     lw = max(3, int(min(w, h) * 0.005))
     font = _font(max(18, int(min(w, h) * 0.035)))
+    placed: list[tuple] = []
     for it in items:
         box = it.get("box") or {}
         try:
@@ -87,7 +88,13 @@ def _save_annotated(raw: bytes, items: list, path: Path) -> None:
             pad = max(5, lw)
             bx0 = min(max(0, x), w - tw - 2 * pad)
             by0 = max(0, y - th - 3 * pad)
-            draw.rectangle([bx0, by0, bx0 + tw + 2 * pad, by0 + th + 2 * pad], fill=color)
+            # Nudge the label down until it stops overlapping earlier labels.
+            lbl_w, lbl_h = tw + 2 * pad, th + 2 * pad
+            while any(bx0 < px1 and bx0 + lbl_w > px0 and by0 < py1 and by0 + lbl_h > py0
+                      for (px0, py0, px1, py1) in placed):
+                by0 += lbl_h + pad
+            placed.append((bx0, by0, bx0 + lbl_w, by0 + lbl_h))
+            draw.rectangle([bx0, by0, bx0 + lbl_w, by0 + lbl_h], fill=color)
             draw.text((bx0 + pad, by0 + pad - tb[1]), marker, fill=(255, 255, 255), font=font)
     im.save(path, "JPEG", quality=82)
 

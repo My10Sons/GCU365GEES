@@ -21,6 +21,16 @@ tracking, per-section streaming, and Fast/Thorough model tiering.
 - GET  /api/v1/damage-intelligence/trip-inspection/usage?days=N
 - GET/PUT /api/v1/damage-intelligence/trip-inspection/budget
 
+## Completed (this fork, 2026-07-09e) — Overlapping marker badges fix (P1)
+- User report: marker 6 rendered on top of marker 5 (both right-lamp boxes at the same spot).
+- Note: the duplicate lamp finding itself was already fixed by the 07-09d merge (production was
+  running older code); additionally both renderers now handle genuinely-close boxes:
+  - Frontend (TripInspection.jsx): badgeShift pre-pass nudges colliding number badges down 24px
+    per collision level (anchors within 0.04 normalized).
+  - Backend hosted report (ext_report_service._save_annotated): label rectangles tracked in
+    `placed`; overlapping labels are pushed down until clear. Verified with a rendered test image
+    (identical duplicate boxes show both labels stacked).
+
 ## Completed (this fork, 2026-07-09d) — Marker boxes for all findings + right-lamp dedupe (P1)
 - User report: findings without bounding boxes get no numbered marker on the report photo, and the
   right lamp was reported twice (full-frame pass "right taillight" without box + detail-scan
